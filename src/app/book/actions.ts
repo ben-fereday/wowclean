@@ -82,26 +82,51 @@ export async function createBooking(
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
 
+      const addonsHtml = data.addons.length > 0
+        ? data.addons.map((a) => `<span style="display:inline-block;background:rgba(91,243,255,0.1);border:1px solid rgba(91,243,255,0.2);color:#5bf3ff;padding:4px 10px;border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">${a.name} +$${a.price}</span>`).join("")
+        : "";
+
+      const dateDisplay = new Date(data.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
       const emailHtml = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0b1740;color:#fff;padding:40px;border-radius:12px;">
-          <h1 style="color:#5bf3ff;font-size:28px;margin-bottom:8px;">Booking Confirmed!</h1>
-          <p style="color:#7a8baa;margin-bottom:24px;">Reference: <strong style="color:#fff;">${refCode}</strong></p>
-          <table style="width:100%;border-collapse:collapse;">
-            <tr><td style="padding:8px 0;color:#7a8baa;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Customer</td><td style="padding:8px 0;color:#fff;text-align:right;">${data.firstName} ${data.lastName}</td></tr>
-            <tr><td style="padding:8px 0;color:#7a8baa;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Vehicle</td><td style="padding:8px 0;color:#fff;text-align:right;">${data.vehicleSize} — ${data.vehicleMake} ${data.vehicleModel}</td></tr>
-            <tr><td style="padding:8px 0;color:#7a8baa;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Package</td><td style="padding:8px 0;color:#fff;text-align:right;">${data.packageName} (${data.serviceType})</td></tr>
-            <tr><td style="padding:8px 0;color:#7a8baa;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Date & Time</td><td style="padding:8px 0;color:#fff;text-align:right;">${data.date} at ${data.time}</td></tr>
-            <tr><td style="padding:8px 0;color:#7a8baa;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Location</td><td style="padding:8px 0;color:#fff;text-align:right;">${data.location === "mobile" ? "Mobile Service" : "In-Shop"}</td></tr>
-            ${data.addons.length > 0 ? `<tr><td style="padding:8px 0;color:#7a8baa;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Add-Ons</td><td style="padding:8px 0;color:#fff;text-align:right;">${data.addons.map((a) => a.name).join(", ")}</td></tr>` : ""}
-            <tr style="border-top:1px solid rgba(255,255,255,0.1);"><td style="padding:16px 0 8px;color:#5bf3ff;font-size:14px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">Estimated Total</td><td style="padding:16px 0 8px;color:#5bf3ff;font-size:24px;font-weight:bold;text-align:right;">$${data.estimatedTotal}</td></tr>
-          </table>
-          <p style="color:#7a8baa;font-size:13px;margin-top:24px;line-height:1.6;">We'll follow up with a reminder 24 hours before your appointment. Questions? Call WOW CLEAN.</p>
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#070d22;border-radius:16px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#1262d4,#1a4aff);padding:32px 40px;text-align:center;">
+            <h1 style="color:#fff;font-size:32px;margin:0 0 4px;letter-spacing:2px;font-weight:800;">WOW CLEAN</h1>
+            <p style="color:rgba(255,255,255,0.7);font-size:14px;margin:0;letter-spacing:1px;text-transform:uppercase;">Booking Confirmed</p>
+          </div>
+          <div style="padding:32px 40px;">
+            <div style="text-align:center;margin-bottom:24px;">
+              <div style="display:inline-block;background:rgba(91,243,255,0.1);border:1px solid rgba(91,243,255,0.2);border-radius:8px;padding:8px 20px;">
+                <span style="color:#7a8baa;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Reference Code</span><br/>
+                <span style="color:#5bf3ff;font-size:20px;font-weight:bold;letter-spacing:2px;">${refCode}</span>
+              </div>
+            </div>
+            <p style="color:#fff;font-size:16px;margin-bottom:24px;">Hi ${data.firstName}, your detail is booked! Here are the details:</p>
+            <div style="background:#0b1740;border-radius:12px;padding:20px;margin-bottom:16px;">
+              <table style="width:100%;border-collapse:collapse;">
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Date</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${dateDisplay}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Time</td><td style="padding:10px 0;color:#5bf3ff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${data.time}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Package</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${data.packageName}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Service</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${data.serviceType}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Vehicle</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${data.vehicleMake ? `${data.vehicleMake} ${data.vehicleModel}` : data.vehicleSize}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;">${data.location === "mobile" ? "Address" : "Location"}</td><td style="padding:10px 0;color:#fff;text-align:right;">${data.location === "mobile" ? data.address || "Mobile" : "In-Shop"}</td></tr>
+              </table>
+            </div>
+            ${addonsHtml ? `<div style="margin-bottom:16px;"><p style="color:#7a8baa;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Add-Ons</p>${addonsHtml}</div>` : ""}
+            <div style="background:linear-gradient(135deg,rgba(91,243,255,0.1),rgba(26,74,255,0.1));border:1px solid rgba(91,243,255,0.15);border-radius:12px;padding:20px;text-align:center;">
+              <p style="color:#7a8baa;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">Estimated Total</p>
+              <p style="color:#5bf3ff;font-size:36px;font-weight:800;margin:0;letter-spacing:1px;">$${data.estimatedTotal}</p>
+            </div>
+            <div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
+              <p style="color:#7a8baa;font-size:13px;line-height:1.6;margin:0;">Questions? Call us at <a href="tel:15874369605" style="color:#5bf3ff;text-decoration:none;">(587) 436-9605</a> or reply to this email.</p>
+            </div>
+          </div>
         </div>
       `;
 
       // Send to customer
       await resend.emails.send({
-        from: "WowClean <bookings@wowclean.ca>",
+        from: "WowClean <info@wowcleancalgary.com>",
         to: data.email,
         subject: `Booking Confirmed — ${refCode}`,
         html: emailHtml,
@@ -110,7 +135,7 @@ export async function createBooking(
       // Send to admin
       if (process.env.ADMIN_EMAIL) {
         await resend.emails.send({
-          from: "WowClean <bookings@wowclean.ca>",
+          from: "WowClean <info@wowcleancalgary.com>",
           to: process.env.ADMIN_EMAIL,
           subject: `New Booking — ${refCode} — ${data.firstName} ${data.lastName}`,
           html: emailHtml,

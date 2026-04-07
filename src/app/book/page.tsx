@@ -1152,7 +1152,7 @@ export default function BookPage() {
               {/* Action buttons */}
               <div className="flex gap-3.5 justify-center flex-wrap">
                 <a
-                  href="tel:14035555555"
+                  href="tel:15874369605"
                   className="inline-flex items-center gap-2 border border-white/20 text-silver font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-semibold tracking-[1px] uppercase px-7 py-3 rounded-lg transition-all hover:border-cyan hover:text-cyan no-underline"
                 >
                   <Phone className="w-4 h-4" /> Call Us

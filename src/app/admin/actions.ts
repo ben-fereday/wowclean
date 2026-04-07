@@ -64,7 +64,7 @@ export async function updateBookingStatus(
         });
 
         await resend.emails.send({
-          from: "WowClean <bookings@wowclean.ca>",
+          from: "WowClean <info@wowcleancalgary.com>",
           to: email,
           subject: `Booking Cancelled — ${booking.reference_code}`,
           html: `

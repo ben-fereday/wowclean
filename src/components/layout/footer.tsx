@@ -97,23 +97,23 @@ export function Footer() {
             <ul className="flex flex-col gap-3">
               <li>
                 <a
-                  href="tel:+14035551234"
+                  href="tel:+15874369605"
                   className="flex items-center gap-2.5 text-sm text-mid hover:text-cyan transition-colors group"
                 >
                   <Phone className="size-4 text-cyan/60 group-hover:text-cyan transition-colors" />
                   <span className="font-[family-name:var(--font-barlow-condensed)]">
-                    (403) 555-1234
+                    (587) 436-9605
                   </span>
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:hello@wowclean.ca"
+                  href="mailto:info@wowcleancalgary.com"
                   className="flex items-center gap-2.5 text-sm text-mid hover:text-cyan transition-colors group"
                 >
                   <Mail className="size-4 text-cyan/60 group-hover:text-cyan transition-colors" />
                   <span className="font-[family-name:var(--font-barlow-condensed)]">
-                    hello@wowclean.ca
+                    info@wowcleancalgary.com
                   </span>
                 </a>
               </li>
