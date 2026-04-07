@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WOW CLEAN | Mobile Auto & Home Detailing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --navy:    #0b1740;
+  --navy2:   #0d1f52;
+  --blue:    #1a4aff;
+  --blue2:   #1262d4;
+  --silver:  #c8cfd8;
+  --chrome:  #e8ecf2;
+  --white:   #ffffff;
+  --offwhite:#f4f6fb;
+  --mid:     #7a8baa;
+  --dark:    #070d22;
+  --yellow:  #f5c518;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Barlow',sans-serif;background:var(--white);color:var(--navy);overflow-x:hidden}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(26,74,255,.4)}70%{box-shadow:0 0 0 14px rgba(26,74,255,0)}}
+@keyframes slideRight{from{transform:translateX(-100%)}to{transform:translateX(200%)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;height:72px;
+  background:var(--navy);
+  border-bottom:2px solid var(--blue2);
+  box-shadow:0 4px 40px rgba(0,0,0,.5);
+}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:1.55rem;letter-spacing:2px;color:var(--white);text-decoration:none}
+.nav-logo .wow{color:#5bf3ff}
+.nav-links{display:flex;gap:32px;list-style:none;align-items:center}
+.nav-links a{color:var(--silver);font-family:'Barlow Condensed',sans-serif;font-size:.92rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:#5bf3ff}
+.nav-cta{background:var(--blue)!important;color:var(--white)!important;padding:9px 22px;border-radius:4px;font-weight:700!important;animation:pulse 2.5s infinite;transition:background .2s,transform .15s!important}
+.nav-cta:hover{background:#5bf3ff!important;color:var(--navy)!important;transform:scale(1.04)!important}
+
+/* HERO */
+.hero{
+  min-height:100vh;background:var(--dark);
+  display:grid;grid-template-columns:1fr 1fr;
+  align-items:center;padding:120px 60px 80px;
+  position:relative;overflow:hidden;
+}
+.hero::before{content:'';position:absolute;bottom:0;left:0;right:0;height:8px;background:repeating-linear-gradient(90deg,#fff 0px,#fff 16px,#111 16px,#111 32px);opacity:.5}
+.hero-glow1{position:absolute;top:-150px;right:-150px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(26,74,255,.22) 0%,transparent 70%);pointer-events:none}
+.hero-glow2{position:absolute;bottom:-100px;left:20%;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(91,243,255,.1) 0%,transparent 70%);pointer-events:none}
+.hero-left{position:relative;z-index:2}
+.hero-badge{display:inline-block;background:rgba(91,243,255,.1);border:1px solid rgba(91,243,255,.3);color:#5bf3ff;font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:6px 16px;border-radius:2px;margin-bottom:24px;animation:fadeUp .6s ease both}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,5.5vw,5.5rem);line-height:.95;letter-spacing:2px;color:var(--white);margin-bottom:10px;animation:fadeUp .7s ease .1s both}
+.hero h1 .big{font-size:clamp(4.5rem,8.5vw,8.5rem);display:block;background:linear-gradient(135deg,#fff 30%,#5bf3ff 60%,#1a4aff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:.9}
+.hero-tagline{font-family:'Barlow Condensed',sans-serif;font-size:1.15rem;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--silver);margin-bottom:28px;animation:fadeUp .7s ease .15s both}
+.hero-sub{font-size:1.05rem;color:var(--mid);line-height:1.75;max-width:460px;margin-bottom:44px;animation:fadeUp .7s ease .2s both}
+.hero-actions{display:flex;gap:16px;flex-wrap:wrap;animation:fadeUp .7s ease .3s both}
+
+.btn-prime{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--blue2),var(--blue));color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:17px 40px;border-radius:4px;text-decoration:none;box-shadow:0 0 40px rgba(26,74,255,.45);transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden}
+.btn-prime::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);animation:slideRight 2.5s ease infinite}
+.btn-prime:hover{transform:translateY(-3px);box-shadow:0 0 60px rgba(26,74,255,.7)}
+.btn-sec{display:inline-flex;align-items:center;gap:10px;border:1.5px solid rgba(255,255,255,.18);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:17px 36px;border-radius:4px;text-decoration:none;transition:border-color .2s,color .2s}
+.btn-sec:hover{border-color:#5bf3ff;color:#5bf3ff}
+
+/* Hero phone card */
+.hero-right{display:flex;justify-content:center;align-items:center;position:relative;z-index:2;animation:fadeUp .9s ease .4s both}
+.phone-card{background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:52px 56px;text-align:center;position:relative;overflow:hidden;backdrop-filter:blur(12px);box-shadow:0 30px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08)}
+.phone-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#5bf3ff,var(--blue),transparent)}
+.phone-card::after{content:'';position:absolute;bottom:0;right:0;width:80px;height:80px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.06) 0px,rgba(255,255,255,.06) 8px,transparent 8px,transparent 16px);border-radius:0 0 20px 0}
+.phone-label{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:12px}
+.phone-num{font-family:'Bebas Neue',sans-serif;font-size:clamp(1.8rem,3vw,3rem);color:var(--white);letter-spacing:3px;margin-bottom:6px;line-height:1}
+.phone-num span{color:#5bf3ff}
+.phone-sub{font-size:.85rem;color:var(--mid);margin-bottom:36px}
+.book-btn{display:block;width:100%;background:linear-gradient(135deg,#5bf3ff,var(--blue));color:var(--navy);font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;padding:16px;border-radius:8px;text-decoration:none;transition:transform .2s,opacity .2s;box-shadow:0 0 30px rgba(91,243,255,.35)}
+.book-btn:hover{transform:scale(1.03);opacity:.9}
+.hero-stats{display:flex;gap:0;margin-top:28px;border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden}
+.stat{flex:1;padding:18px 20px;text-align:center;border-right:1px solid rgba(255,255,255,.08)}
+.stat:last-child{border-right:none}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#5bf3ff;letter-spacing:1px;line-height:1}
+.stat-label{font-size:.68rem;color:var(--mid);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
+
+/* HOW IT WORKS */
+.how{background:var(--offwhite);padding:100px 60px;text-align:center;position:relative;overflow:hidden}
+.how::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,var(--navy) 0px,var(--navy) 16px,var(--blue) 16px,var(--blue) 32px)}
+.section-eyebrow{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:3.5px;text-transform:uppercase;color:var(--blue);margin-bottom:16px}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.4rem,5vw,4rem);letter-spacing:2px;color:var(--navy);margin-bottom:60px}
+.section-title span{color:var(--blue)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;max-width:1000px;margin:0 auto}
+.step{position:relative;padding:48px 36px;text-align:center}
+.step-num{font-family:'Bebas Neue',sans-serif;font-size:5rem;line-height:1;color:rgba(26,74,255,.1);position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:0}
+.step-icon{width:72px;height:72px;background:linear-gradient(135deg,var(--blue2),var(--blue));border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:1.8rem;box-shadow:0 8px 30px rgba(26,74,255,.35);position:relative;z-index:1;animation:float 3.5s ease-in-out infinite}
+.step:nth-child(2) .step-icon{animation-delay:.7s}
+.step:nth-child(3) .step-icon{animation-delay:1.4s}
+.step h3{font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--navy);margin-bottom:12px;position:relative;z-index:1}
+.step p{font-size:.95rem;color:#557;line-height:1.7;position:relative;z-index:1}
+.step:not(:last-child)::after{content:'→';position:absolute;right:-22px;top:50%;transform:translateY(-50%);font-size:2rem;color:var(--blue);opacity:.4}
+
+/* SERVICES */
+.services{background:var(--navy);padding:100px 60px}
+.services .section-title{color:var(--white)}
+.services .section-title span{color:#5bf3ff}
+.services .section-eyebrow{color:#5bf3ff}
+
+/* Package cards - 3 col */
+.service-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1200px;margin:0 auto 80px}
+.service-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:40px 32px;position:relative;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s;display:flex;flex-direction:column}
+.service-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),#5bf3ff);transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.service-card:hover{transform:translateY(-6px);border-color:rgba(91,243,255,.2);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.service-card:hover::before{transform:scaleX(1)}
+.service-card.featured{border-color:rgba(91,243,255,.3);background:linear-gradient(160deg,rgba(26,74,255,.18),rgba(91,243,255,.07))}
+.service-card.featured::before{transform:scaleX(1)}
+.service-badge{display:inline-block;background:var(--blue);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 12px;border-radius:2px;margin-bottom:18px;align-self:flex-start}
+.service-badge.hot{background:linear-gradient(90deg,#ff4500,#ff7b00)}
+.service-icon{font-size:2rem;margin-bottom:14px}
+.service-card h3{font-family:'Barlow Condensed',sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--white);margin-bottom:8px}
+.service-card .tagline{font-size:.85rem;color:var(--mid);margin-bottom:20px;font-style:italic}
+.service-price{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#5bf3ff;letter-spacing:1px;margin-bottom:6px}
+.service-price span{font-family:'Barlow',sans-serif;font-size:.85rem;color:var(--mid);font-weight:400}
+.service-time{font-size:.8rem;color:var(--mid);letter-spacing:1px;margin-bottom:22px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase}
+.service-time strong{color:var(--silver)}
+.divider{border:none;border-top:1px solid rgba(255,255,255,.08);margin:18px 0}
+.service-list{list-style:none;margin-bottom:0;flex:1}
+.service-list li{font-size:.9rem;color:var(--silver);padding:5px 0;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+.service-list li::before{content:'✓';color:#5bf3ff;font-weight:700;flex-shrink:0;margin-top:1px}
+.service-list li.plus::before{content:'＋';color:#ffe066}
+.service-list .list-label{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--mid);padding:12px 0 4px;display:block}
+.service-card .cta-link{display:block;margin-top:28px;background:rgba(91,243,255,.08);border:1px solid rgba(91,243,255,.2);color:#5bf3ff;font-family:'Barlow Condensed',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:center;padding:13px;border-radius:8px;text-decoration:none;transition:background .2s,color .2s}
+.service-card .cta-link:hover{background:rgba(91,243,255,.18);color:#fff}
+
+/* Add-ons section */
+.addons{background:var(--navy);padding:0 60px 100px}
+.addons-inner{max-width:1200px;margin:0 auto}
+.addons-header{text-align:center;margin-bottom:48px}
+.addons-header h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,4vw,3.2rem);letter-spacing:2px;color:var(--white);margin-bottom:8px}
+.addons-header h2 span{color:#ffe066}
+.addons-header p{color:var(--mid);font-size:.95rem}
+.addon-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.addon-group{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:28px 24px}
+.addon-group-title{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#ffe066;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.addon-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.addon-row:last-child{border-bottom:none}
+.addon-name{font-size:.88rem;color:var(--silver);line-height:1.3}
+.addon-price{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#5bf3ff;letter-spacing:.5px;white-space:nowrap;margin-left:12px}
+.addons-note{text-align:center;margin-top:36px;font-size:.88rem;color:var(--mid)}
+.addons-note a{color:#5bf3ff;text-decoration:none;font-weight:600}
+
+/* Exterior wash cards */
+.exterior-wash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1200px;margin:0 auto}
+.wash-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:36px 32px;display:flex;flex-direction:column;position:relative;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
+.wash-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),#5bf3ff);transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.wash-card:hover{transform:translateY(-6px);border-color:rgba(91,243,255,.2);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.wash-card:hover::before{transform:scaleX(1)}
+.wash-card.wash-featured{border-color:rgba(91,243,255,.3);background:linear-gradient(160deg,rgba(26,74,255,.18),rgba(91,243,255,.07))}
+.wash-card.wash-featured::before{transform:scaleX(1)}
+.wash-badge{display:inline-block;background:var(--blue);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 12px;border-radius:2px;margin-bottom:14px;align-self:flex-start}
+.wash-tier{font-size:2rem;margin-bottom:12px}
+.wash-name{font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--white);margin-bottom:10px}
+.wash-desc{font-size:.9rem;color:var(--mid);line-height:1.65;flex:1;margin-bottom:0}
+.wash-price{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:#5bf3ff;letter-spacing:2px;margin-top:20px;line-height:1}
+
+/* WHY US */
+.why{background:var(--offwhite);padding:100px 60px}
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;max-width:1100px;margin:0 auto;align-items:center}
+.why-big-num{font-family:'Bebas Neue',sans-serif;font-size:clamp(8rem,12vw,13rem);line-height:1;letter-spacing:-4px;background:linear-gradient(135deg,var(--navy),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:.15;user-select:none}
+.why-cards{display:flex;flex-direction:column;gap:20px;margin-top:-60px;position:relative;z-index:1}
+.why-card{background:var(--white);border:1px solid #dde3f0;border-radius:12px;padding:28px 32px;display:flex;align-items:flex-start;gap:20px;box-shadow:0 4px 20px rgba(0,0,0,.06);transition:transform .2s,box-shadow .2s}
+.why-card:hover{transform:translateX(6px);box-shadow:0 8px 30px rgba(0,0,0,.1)}
+.why-card-icon{width:48px;height:48px;min-width:48px;background:linear-gradient(135deg,var(--blue2),var(--blue));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.why-card h4{font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--navy);margin-bottom:6px}
+.why-card p{font-size:.88rem;color:#667;line-height:1.6}
+.why-right .section-title{text-align:left;margin-bottom:20px}
+.why-right .section-eyebrow{text-align:left}
+.why-desc{font-size:1.05rem;color:#445;line-height:1.8;margin-bottom:36px}
+.trust-badges{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:40px}
+.badge{display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid #dde3f0;padding:10px 18px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:600;letter-spacing:.5px;color:var(--navy);box-shadow:0 2px 8px rgba(0,0,0,.05)}
+
+/* REVIEWS */
+.reviews{background:var(--dark);padding:100px 60px;overflow:hidden}
+.reviews .section-title{color:var(--white);text-align:center}
+.reviews .section-eyebrow{text-align:center}
+.reviews-track{display:flex;gap:24px;margin-top:56px;animation:scroll 35s linear infinite;width:max-content}
+.review-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:32px 36px;min-width:340px;max-width:340px;flex-shrink:0}
+.review-stars{color:var(--yellow);font-size:1rem;margin-bottom:14px;letter-spacing:2px}
+.review-text{font-size:.95rem;color:var(--silver);line-height:1.75;margin-bottom:20px;font-style:italic}
+.review-author{font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--white)}
+.review-loc{font-size:.8rem;color:var(--mid);margin-top:2px}
+
+/* CTA */
+.cta-strip{background:linear-gradient(135deg,var(--blue2),var(--blue),#0066cc);padding:80px 60px;text-align:center;position:relative;overflow:hidden}
+.cta-strip::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.3) 0px,rgba(255,255,255,.3) 14px,transparent 14px,transparent 28px)}
+.cta-strip::after{content:'';position:absolute;bottom:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.3) 0px,rgba(255,255,255,.3) 14px,transparent 14px,transparent 28px)}
+.cta-strip h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,5vw,4.5rem);letter-spacing:2px;color:var(--white);margin-bottom:12px}
+.cta-strip p{font-size:1.1rem;color:rgba(255,255,255,.8);margin-bottom:40px;max-width:500px;margin-left:auto;margin-right:auto}
+.cta-num{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,5vw,4.5rem);color:var(--white);letter-spacing:4px;text-decoration:none;display:inline-block;margin-bottom:32px;text-shadow:0 0 40px rgba(255,255,255,.3);animation:shimmer 2s ease-in-out infinite}
+
+/* FOOTER */
+footer{background:var(--dark);border-top:2px solid var(--navy2);padding:60px 60px 32px}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;max-width:1100px;margin:0 auto 48px}
+.footer-brand p{font-size:.9rem;color:var(--mid);line-height:1.7;max-width:240px;margin-top:12px}
+.footer-col h4{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--silver);margin-bottom:18px}
+.footer-col ul{list-style:none}
+.footer-col li{margin-bottom:10px}
+.footer-col a{font-size:.9rem;color:var(--mid);text-decoration:none;transition:color .2s}
+.footer-col a:hover{color:#5bf3ff}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.06);padding-top:28px;max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--mid)}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  nav{padding:0 20px}
+  .nav-links{display:none}
+  .hero{grid-template-columns:1fr;padding:100px 24px 60px;text-align:center}
+  .hero-sub{margin:0 auto 36px}
+  .hero-actions{justify-content:center}
+  .hero-right{margin-top:48px}
+  .phone-card{padding:36px 24px}
+  .steps{grid-template-columns:1fr}
+  .step:not(:last-child)::after{display:none}
+  .addon-grid{grid-template-columns:1fr 1fr}
+  .service-grid{grid-template-columns:1fr}
+  .exterior-wash-grid{grid-template-columns:1fr}
+  .why-grid{grid-template-columns:1fr}
+  .why-visual{display:none}
+  .why-right .section-title,.why-right .section-eyebrow{text-align:center}
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .how,.services,.why,.reviews,.cta-strip{padding:70px 24px}
+  footer{padding:48px 24px 24px}
+  .footer-bottom{flex-direction:column;gap:8px;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#"><span class="wow">WOW</span> CLEAN</a>
+  <ul class="nav-links">
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#services">Services</a></li>
+    <li><a href="#why">Why Us</a></li>
+    <li><a href="#reviews">Reviews</a></li>
+    <li><a href="tel:18009692536" class="nav-cta">📞 Book Now</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow1"></div>
+  <div class="hero-glow2"></div>
+
+  <div class="hero-left">
+    <div class="hero-badge">🏆 Calgary's #1 Rated Mobile Detailing Service</div>
+    <h1>
+      Your Car Deserves
+      <span class="big">WOW</span>
+    </h1>
+    <p class="hero-tagline">We Come to You — You Stay Amazed</p>
+    <p class="hero-sub">
+      Premium mobile auto detailing delivered to your driveway, office, or anywhere you choose.
+      No drop-offs. No waiting. Just a showroom-worthy shine.
+    </p>
+    <div class="hero-actions">
+      <a href="tel:18009692536" class="btn-prime">📞 Call WOW CLEAN</a>
+      <a href="#services" class="btn-sec">View Services →</a>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="phone-card">
+      <p class="phone-label">Book Your Detail Today</p>
+      <div class="phone-num"><span>WOW</span> CLEAN</div>
+      <p class="phone-sub">Available 7 Days a Week &nbsp;·&nbsp; 7am – 8pm</p>
+      <a href="tel:18009692536" class="book-btn">⚡ Get a Free Quote</a>
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-num">5K+</div>
+          <div class="stat-label">Cars Detailed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">4.9★</div>
+          <div class="stat-label">Avg Rating</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">24hr</div>
+          <div class="stat-label">Booking</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <p class="section-eyebrow">Simple as 1 – 2 – 3</p>
+  <h2 class="section-title">How It <span>Works</span></h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-icon">📞</div>
+      <h3>Call or Book Online</h3>
+      <p>Dial WOW CLEAN or book in minutes online. Tell us your vehicle type and location — we handle the rest.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-icon">🚐</div>
+      <h3>We Come to You</h3>
+      <p>Our fully-equipped mobile unit arrives at your home, office, or any spot you choose — on your schedule.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-icon">✨</div>
+      <h3>Drive Away Amazed</h3>
+      <p>Our professional detailers deliver a showroom-quality finish. You inspect it, love it, and drive off gleaming.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section class="services" id="services">
+
+  <style>
+    /* Vehicle size guide */
+    .size-guide{max-width:700px;margin:0 auto 64px;text-align:center}
+    .size-guide p{color:var(--mid);font-size:.95rem;line-height:1.7;margin-bottom:20px}
+    .size-chips{display:flex;justify-content:center;flex-wrap:wrap;gap:12px}
+    .size-chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 20px;font-family:'Barlow Condensed',sans-serif;font-size:.85rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--silver)}
+    .size-chip strong{color:#5bf3ff;display:block;font-size:.72rem;letter-spacing:2px;margin-bottom:3px}
+
+    /* Package section wrapper */
+    .pkg-section{max-width:1200px;margin:0 auto 72px}
+    .pkg-header{display:flex;align-items:flex-start;justify-content:space-between;gap:32px;margin-bottom:32px;flex-wrap:wrap}
+    .pkg-title-block{}
+    .pkg-name{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,4vw,3rem);letter-spacing:2px;color:var(--white);margin-bottom:6px}
+    .pkg-name span{color:#5bf3ff}
+    .pkg-desc{font-size:.95rem;color:var(--mid);line-height:1.7;max-width:560px}
+    .pkg-badge-block{flex-shrink:0}
+    .shop-only-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.4);color:#ffe066;font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:8px 16px;border-radius:6px}
+
+    /* Two-col layout: includes + pricing */
+    .pkg-body{display:grid;grid-template-columns:1fr 1.4fr;gap:32px;align-items:start}
+    .pkg-includes{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:32px}
+    .includes-label{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#5bf3ff;margin-bottom:18px}
+    .includes-sub{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#ffe066;margin:16px 0 10px}
+    .pkg-list{list-style:none;margin:0 0 0 0;padding:0}
+    .pkg-list li{font-size:.88rem;color:var(--silver);padding:5px 0;display:flex;align-items:flex-start;gap:8px;line-height:1.45}
+    .pkg-list li::before{content:'✓';color:#5bf3ff;font-weight:700;flex-shrink:0;margin-top:1px}
+    .pkg-list li.plus::before{content:'＋';color:#ffe066}
+
+    /* Pricing table */
+    .pkg-pricing{display:flex;flex-direction:column;gap:16px}
+    .price-table{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden}
+    .price-table table{width:100%;border-collapse:collapse}
+    .price-table th{background:rgba(255,255,255,.06);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mid);padding:12px 18px;text-align:left}
+    .price-table th:not(:first-child){text-align:center}
+    .price-table td{padding:12px 18px;border-top:1px solid rgba(255,255,255,.06);font-size:.9rem;color:var(--silver)}
+    .price-table td:not(:first-child){text-align:center;font-family:'Bebas Neue',sans-serif;font-size:1.15rem;color:#5bf3ff;letter-spacing:.5px}
+    .price-table tr:last-child td{background:rgba(26,74,255,.08)}
+    .price-table tr:last-child td:first-child{font-weight:600;color:var(--white)}
+    .price-table tr:last-child td:not(:first-child){color:#5bf3ff}
+    .pkg-cta{display:block;background:rgba(91,243,255,.08);border:1px solid rgba(91,243,255,.2);color:#5bf3ff;font-family:'Barlow Condensed',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:center;padding:14px;border-radius:8px;text-decoration:none;transition:background .2s,color .2s}
+    .pkg-cta:hover{background:rgba(91,243,255,.18);color:#fff}
+
+    /* Section divider */
+    .pkg-divider{border:none;border-top:1px solid rgba(255,255,255,.07);max-width:1200px;margin:0 auto 72px}
+
+    /* Exclusive shop-only note */
+    .shop-note{background:rgba(255,193,7,.06);border:1px solid rgba(255,193,7,.2);border-radius:10px;padding:20px 24px;margin-bottom:28px;font-size:.88rem;color:rgba(255,255,255,.7);line-height:1.7}
+    .shop-note strong{color:#ffe066}
+
+    /* New add-ons table */
+    .addons-table-wrap{max-width:1200px;margin:0 auto}
+    .addon-table{width:100%;border-collapse:collapse}
+    .addon-table th{background:rgba(255,255,255,.06);font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mid);padding:12px 20px;text-align:left}
+    .addon-table th:last-child{text-align:right}
+    .addon-table td{padding:11px 20px;border-top:1px solid rgba(255,255,255,.05);font-size:.9rem;color:var(--silver)}
+    .addon-table td:last-child{text-align:right;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#5bf3ff;letter-spacing:.5px;white-space:nowrap}
+    .addon-table tr:hover td{background:rgba(255,255,255,.02)}
+    .addon-custom{color:#ffe066!important;font-family:'Barlow Condensed',sans-serif!important;font-size:.9rem!important;letter-spacing:1px}
+
+    /* Important notes */
+    .pkg-notes{max-width:1200px;margin:48px auto 0;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:28px 32px}
+    .pkg-notes-title{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--mid);margin-bottom:14px}
+    .pkg-notes ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+    .pkg-notes li{font-size:.88rem;color:var(--mid);padding-left:18px;position:relative;line-height:1.6}
+    .pkg-notes li::before{content:'•';position:absolute;left:0;color:var(--blue)}
+    .pkg-notes li strong{color:var(--silver)}
+
+    @media(max-width:860px){
+      .pkg-body{grid-template-columns:1fr}
+      .pkg-header{flex-direction:column}
+    }
+  </style>
+
+  <p class="section-eyebrow" style="text-align:center">Automotive Detailing Packages</p>
+  <h2 class="section-title" style="text-align:center;margin-bottom:20px">Choose Your <span>Package</span></h2>
+
+  <p style="text-align:center;color:var(--mid);font-size:1rem;max-width:660px;margin:0 auto 48px;line-height:1.8">
+    Professional detailing built for clients who want convenience, quality, and results that actually stand out. Whether you need a simple maintenance clean or a full cosmetic reset, our packages are designed to keep your vehicle looking sharp, protected, and ready for the road.
+  </p>
+
+  <!-- Vehicle Size Guide -->
+  <div class="size-guide">
+    <p style="font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--blue);margin-bottom:16px">Vehicle Size Guide</p>
+    <div class="size-chips">
+      <div class="size-chip"><strong>Small</strong>Coupe · Sedan · Hatchback</div>
+      <div class="size-chip"><strong>Medium</strong>Crossover · Small SUV · Wagon</div>
+      <div class="size-chip"><strong>Large</strong>Full-Size SUV · Truck · Minivan</div>
+    </div>
+  </div>
+
+  <!-- ── THE STANDARD ── -->
+  <div class="pkg-section">
+    <div class="pkg-header">
+      <div class="pkg-title-block">
+        <div class="pkg-name">The <span>Standard</span></div>
+        <p class="pkg-desc">A strong maintenance package for vehicles that need a proper refresh. Perfect for regular upkeep — keeping your car clean, glossy, and presentable.</p>
+      </div>
+    </div>
+    <div class="pkg-body">
+      <div class="pkg-includes">
+        <div class="includes-label">What's Included</div>
+        <div class="includes-sub">Interior</div>
+        <ul class="pkg-list">
+          <li>Full interior vacuum</li>
+          <li>Wipe down of dash, console, door panels &amp; accessible surfaces</li>
+          <li>Interior glass cleaned</li>
+          <li>Light dust &amp; debris removal</li>
+        </ul>
+        <div class="includes-sub">Exterior</div>
+        <ul class="pkg-list">
+          <li>Hand wash and dry</li>
+          <li>Wheels cleaned</li>
+          <li>Tire dressing</li>
+          <li>Exterior glass cleaned</li>
+          <li>Paint sealant applied for added shine &amp; short-term protection</li>
+        </ul>
+      </div>
+      <div class="pkg-pricing">
+        <div class="price-table">
+          <table>
+            <thead>
+              <tr><th>Service</th><th>Small</th><th>Medium</th><th>Large</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Interior Only</td><td>$150</td><td>$175</td><td>$200</td></tr>
+              <tr><td>Exterior Only</td><td>$80</td><td>$100</td><td>$125</td></tr>
+              <tr><td>Full Detail</td><td>$260</td><td>$295</td><td>$335</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <a href="tel:18009692536" class="pkg-cta">📞 Book The Standard →</a>
+      </div>
+    </div>
+  </div>
+
+  <hr class="pkg-divider"/>
+
+  <!-- ── SUPREME DETAIL ── -->
+  <div class="pkg-section">
+    <div class="pkg-header">
+      <div class="pkg-title-block">
+        <div class="pkg-name"><span>Supreme</span> Detail</div>
+        <p class="pkg-desc">A more in-depth service for vehicles that need extra attention inside and out. Ideal for seasonal cleanups, neglected vehicles, or anyone wanting a more complete detail with added protection and presentation.</p>
+      </div>
+      <div class="pkg-badge-block">
+        <div class="service-badge hot" style="font-size:.8rem;padding:6px 14px">⭐ Most Popular</div>
+      </div>
+    </div>
+    <div class="pkg-body">
+      <div class="pkg-includes">
+        <div class="includes-label">What's Included</div>
+        <p style="font-size:.82rem;color:var(--mid);margin-bottom:12px;font-style:italic">Everything in The Standard, plus:</p>
+        <div class="includes-sub">Interior</div>
+        <ul class="pkg-list">
+          <li class="plus">Deep wipe down of all interior surfaces</li>
+          <li class="plus">Leather cleaning &amp; conditioning where applicable</li>
+          <li class="plus">Extra attention to cracks, crevices, cupholders, vents &amp; high-touch areas</li>
+        </ul>
+        <div class="includes-sub">Exterior</div>
+        <ul class="pkg-list">
+          <li class="plus">Chemical &amp; physical decontamination treatment</li>
+          <li class="plus">Engine bay clean and dressing</li>
+          <li class="plus">Enhanced finish and protection</li>
+        </ul>
+      </div>
+      <div class="pkg-pricing">
+        <div class="price-table">
+          <table>
+            <thead>
+              <tr><th>Service</th><th>Small</th><th>Medium</th><th>Large</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Interior Only</td><td>$225</td><td>$260</td><td>$295</td></tr>
+              <tr><td>Exterior Only</td><td>$125</td><td>$150</td><td>$185</td></tr>
+              <tr><td>Full Detail</td><td>$380</td><td>$435</td><td>$495</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <a href="tel:18009692536" class="pkg-cta">📞 Book Supreme Detail →</a>
+      </div>
+    </div>
+  </div>
+
+  <hr class="pkg-divider"/>
+
+  <!-- ── EXCLUSIVE DETAIL ── -->
+  <div class="pkg-section">
+    <div class="pkg-header">
+      <div class="pkg-title-block">
+        <div class="pkg-name"><span>Exclusive</span> Detail</div>
+        <p class="pkg-desc">Our top-tier detailing package for clients who want the closest thing to a full cosmetic reset. This is the package for vehicles needing a higher level of correction, restoration, and finish quality.</p>
+      </div>
+      <div class="pkg-badge-block">
+        <div class="shop-only-badge">🏢 In-Shop Only</div>
+      </div>
+    </div>
+    <div class="shop-note">
+      <strong>Available In-Shop Only.</strong> To ensure the best possible results, the Exclusive Detail is performed at our facility. This package requires additional time, specialized equipment, professional lighting, and controlled working conditions — and cannot be offered as a mobile service.
+    </div>
+    <div class="pkg-body">
+      <div class="pkg-includes">
+        <div class="includes-label">What's Included</div>
+        <p style="font-size:.82rem;color:var(--mid);margin-bottom:12px;font-style:italic">Everything in Supreme, plus:</p>
+        <div class="includes-sub">Interior</div>
+        <ul class="pkg-list">
+          <li class="plus">Carpet &amp; floor mat shampoo or steam treatment</li>
+          <li class="plus">Deep interior restoration treatment</li>
+          <li class="plus">More intensive stain &amp; grime removal</li>
+        </ul>
+        <div class="includes-sub">Exterior</div>
+        <ul class="pkg-list">
+          <li class="plus">Stage 1 machine polish</li>
+          <li class="plus">Gloss enhancement for improved depth &amp; clarity</li>
+          <li class="plus">Premium finishing treatment for a standout look</li>
+        </ul>
+      </div>
+      <div class="pkg-pricing">
+        <div class="price-table">
+          <table>
+            <thead>
+              <tr><th>Service</th><th>Small</th><th>Medium</th><th>Large</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Interior Only</td><td>$450</td><td>$500</td><td>$550</td></tr>
+              <tr><td>Exterior Only</td><td>$450</td><td>$500</td><td>$575</td></tr>
+              <tr><td>Full Detail</td><td>$665</td><td>$745</td><td>$845</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <a href="tel:18009692536" class="pkg-cta">📞 Inquire About Exclusive →</a>
+      </div>
+    </div>
+  </div>
+
+  <hr class="pkg-divider"/>
+
+  <!-- ── ADD-ONS ── -->
+  <div class="addons-inner">
+    <div class="addons-header">
+      <h2>Customize Your <span>Detail</span></h2>
+      <p>Add any of the following services to any package based on your vehicle's condition and needs.</p>
+    </div>
+    <div class="addons-table-wrap">
+      <div class="price-table">
+        <table class="addon-table">
+          <thead>
+            <tr><th>Add-On Service</th><th style="text-align:right">Starting Price</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Pet Hair Removal</td><td>from $40</td></tr>
+            <tr><td>Heavy Salt / Sand Cleanup</td><td>from $40</td></tr>
+            <tr><td>Seat Shampoo</td><td>from $60</td></tr>
+            <tr><td>Carpet Shampoo</td><td>from $80</td></tr>
+            <tr><td>Leather Conditioning</td><td>from $50</td></tr>
+            <tr><td>Engine Bay Detail</td><td>from $60</td></tr>
+            <tr><td>Headlight Restoration</td><td>from $80</td></tr>
+            <tr><td>Clay Bar Treatment</td><td>from $100</td></tr>
+            <tr><td>Iron / Fallout Decontamination</td><td>from $75</td></tr>
+            <tr><td>Spray Sealant Upgrade</td><td>from $50</td></tr>
+            <tr><td>Stage 1 Polish</td><td>from $200</td></tr>
+            <tr><td>Ceramic Coating</td><td><span class="addon-custom">Custom Quote</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Important Notes -->
+  <div class="pkg-notes">
+    <div class="pkg-notes-title">Important Notes</div>
+    <ul>
+      <li>Final pricing depends on <strong>vehicle size, condition, and time required</strong>.</li>
+      <li>Excessively dirty vehicles may be subject to <strong>additional charges</strong>.</li>
+      <li>Mobile service pricing may vary slightly based on <strong>location</strong>.</li>
+      <li><strong>Exclusive Detail is performed at our shop only</strong> and is not available as a mobile service.</li>
+    </ul>
+  </div>
+
+</section>
+
+<!-- WHY US -->
+<section class="why" id="why">
+  <div class="why-grid">
+    <div class="why-visual">
+      <div class="why-big-num">WOW</div>
+      <div class="why-cards">
+        <div class="why-card">
+          <div class="why-card-icon">🛡️</div>
+          <div>
+            <h4>Fully Insured &amp; Bonded</h4>
+            <p>Every technician is background-checked, trained, and our work is fully insured for your peace of mind.</p>
+          </div>
+        </div>
+        <div class="why-card">
+          <div class="why-card-icon">⏱️</div>
+          <div>
+            <h4>On-Time Guarantee</h4>
+            <p>We show up when we say we will — or your next detail gets a discount. Your time is valuable.</p>
+          </div>
+        </div>
+        <div class="why-card">
+          <div class="why-card-icon">🔁</div>
+          <div>
+            <h4>100% Satisfaction Promise</h4>
+            <p>Not thrilled? We come back and make it right at no charge. We don't rest until you say WOW.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="why-right">
+      <p class="section-eyebrow">Why WOW CLEAN</p>
+      <h2 class="section-title">We Don't Just Clean.<br><span>We Impress.</span></h2>
+      <p class="why-desc">
+        We built WOW CLEAN because car owners deserve better — no waiting at a shop, no mediocre results, no surprises on the bill.
+        Our mobile detailers bring professional-grade equipment and products directly to you, delivering results that rival the finest detail shops anywhere.
+      </p>
+      <div class="trust-badges">
+        <div class="badge"><span>📍</span> Comes to Your Location</div>
+        <div class="badge"><span>🌿</span> Eco-Friendly Products</div>
+        <div class="badge"><span>💳</span> Easy Online Payment</div>
+        <div class="badge"><span>📅</span> Same-Day Available</div>
+        <div class="badge"><span>🏢</span> Fleet Discounts</div>
+      </div>
+      <a href="tel:18009692536" class="btn-prime">Get a Free Quote →</a>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section class="reviews" id="reviews">
+  <p class="section-eyebrow">Customer Love</p>
+  <h2 class="section-title">Real People. Real <span style="color:#5bf3ff">WOW.</span></h2>
+  <div style="overflow:hidden;margin:0 -60px">
+    <div class="reviews-track">
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"I was skeptical about mobile detailing but these guys showed up on time with all the gear and my 5-year-old SUV looks brand new. Absolutely floored."</p><div class="review-author">Mike T.</div><div class="review-loc">Houston, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Booked the ceramic package for my Porsche. The attention to detail is insane — every panel, every crevice. Worth every penny and then some."</p><div class="review-author">Amanda R.</div><div class="review-loc">Dallas, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"They came to my office parking lot while I worked. Came back to a car that looked like it just rolled off the showroom floor. Game changer."</p><div class="review-author">James L.</div><div class="review-loc">Austin, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"The interior shampoo removed 3 years of kid mess. I genuinely said WOW out loud when I saw it. Great name, great service."</p><div class="review-author">Sarah K.</div><div class="review-loc">San Antonio, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Used them for my entire sales fleet — 8 vehicles. Competitive pricing, professional crew, and every car came back immaculate. Will use monthly."</p><div class="review-author">David M.</div><div class="review-loc">Plano, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Didn't expect much from a phone booking but the technician was a true pro. Explained every step, used top-shelf products. 10/10 experience."</p><div class="review-author">Priya N.</div><div class="review-loc">The Woodlands, TX</div></div>
+      <!-- Duplicate for seamless loop -->
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"I was skeptical about mobile detailing but these guys showed up on time with all the gear and my 5-year-old SUV looks brand new. Absolutely floored."</p><div class="review-author">Mike T.</div><div class="review-loc">Houston, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Booked the ceramic package for my Porsche. The attention to detail is insane — every panel, every crevice. Worth every penny and then some."</p><div class="review-author">Amanda R.</div><div class="review-loc">Dallas, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"They came to my office parking lot while I worked. Came back to a car that looked like it just rolled off the showroom floor. Game changer."</p><div class="review-author">James L.</div><div class="review-loc">Austin, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"The interior shampoo removed 3 years of kid mess. I genuinely said WOW out loud when I saw it. Great name, great service."</p><div class="review-author">Sarah K.</div><div class="review-loc">San Antonio, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Used them for my entire sales fleet — 8 vehicles. Competitive pricing, professional crew, and every car came back immaculate. Will use monthly."</p><div class="review-author">David M.</div><div class="review-loc">Plano, TX</div></div>
+      <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Didn't expect much from a phone booking but the technician was a true pro. Explained every step, used top-shelf products. 10/10 experience."</p><div class="review-author">Priya N.</div><div class="review-loc">The Woodlands, TX</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA STRIP -->
+<section class="cta-strip">
+  <h2>Ready for Your WOW Moment?</h2>
+  <p>Same-day appointments available. We bring the shine to you.</p>
+  <a href="tel:18009692536" class="cta-num">WOW CLEAN</a><br>
+  <a href="tel:18009692536" class="btn-prime" style="font-size:1.15rem;padding:18px 48px;margin-top:8px">📞 Book My Detail Now</a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a class="nav-logo" href="#"><span class="wow">WOW</span> CLEAN</a>
+      <p>Professional mobile auto &amp; home detailing. We come to you, 7 days a week.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Services</h4>
+      <ul>
+        <li><a href="#">Standard Interior</a></li>
+        <li><a href="#">Deluxe Interior</a></li>
+        <li><a href="#">Supreme Interior</a></li>
+        <li><a href="#">Add-On Services</a></li>
+        <li><a href="#">Fleet Packages</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#">About Us</a></li>
+        <li><a href="#">Careers</a></li>
+        <li><a href="#">Franchise</a></li>
+        <li><a href="#">Blog</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul>
+        <li><a href="tel:18009692536">WOW CLEAN</a></li>
+        <li><a href="/cdn-cgi/l/email-protection#3058555c5c5f7001080000475f47535c55515e1e535f5d"><span class="__cf_email__" data-cfemail="1b737e7777745b2a232b2b6c746c78777e7a7535787476">[email&#160;protected]</span></a></li>
+        <li><a href="#">Service Areas</a></li>
+        <li><a href="#">FAQ</a></li>
+        <li><a href="#">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 WOW CLEAN. All 
