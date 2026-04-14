@@ -35,13 +35,7 @@ export async function updateBookingStatus(
   const supabase = await createClient();
   await verifyAdminOrOwner(supabase);
 
-  // Get booking details before updating (for email notification)
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("*, profiles(first_name, last_name)")
-    .eq("id", bookingId)
-    .single();
-
+  // Update the booking status first
   const { error } = await supabase
     .from("bookings")
     .update({ status })
@@ -50,12 +44,33 @@ export async function updateBookingStatus(
   if (error) throw new Error(error.message);
 
   // Send cancellation email if status is cancelled
-  if (status === "cancelled" && booking && process.env.RESEND_API_KEY) {
-    // Get email: try guest_email first, then auth.users lookup for logged-in users
-    let email = booking.guest_email;
-    const name = booking.profiles
-      ? `${booking.profiles.first_name}`
-      : booking.guest_first_name || "Customer";
+  if (status === "cancelled" && process.env.RESEND_API_KEY) {
+    // Re-fetch the booking after update to get all fields
+    const { data: booking, error: fetchErr } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .single();
+
+    if (fetchErr || !booking) {
+      console.error("Failed to fetch booking for cancel email:", fetchErr);
+      revalidatePath("/admin");
+      return;
+    }
+
+    // Get customer name
+    let name = booking.guest_first_name || "Customer";
+    if (booking.user_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("id", booking.user_id)
+        .single();
+      if (profile?.first_name) name = profile.first_name;
+    }
+
+    // Get email: guest_email is always set (even for logged-in users)
+    let email: string | null = booking.guest_email;
 
     if (!email && booking.user_id) {
       try {
