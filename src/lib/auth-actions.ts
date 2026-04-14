@@ -68,7 +68,7 @@ export async function signUp(formData: {
                 <a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://wowcleancalgary.com"}/book" style="display:inline-block;background:linear-gradient(135deg,#1262d4,#1a4aff);color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;letter-spacing:1px;text-transform:uppercase;">Book Your First Detail</a>
               </div>
               <div style="padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
-                <p style="color:#7a8baa;font-size:13px;line-height:1.6;margin:0;">Questions? Call <a href="tel:15874369605" style="color:#5bf3ff;text-decoration:none;">(587) 436-9605</a> or email <a href="mailto:info@wowcleancalgary.com" style="color:#5bf3ff;text-decoration:none;">info@wowcleancalgary.com</a></p>
+                <p style="color:#7a8baa;font-size:13px;line-height:1.6;margin:0;">Questions? Call <a href="tel:+15878913265" style="color:#5bf3ff;text-decoration:none;">(587) 891-3265</a> or email <a href="mailto:teamwowclean@gmail.com" style="color:#5bf3ff;text-decoration:none;">teamwowclean@gmail.com</a></p>
               </div>
             </div>
           </div>

@@ -29,8 +29,7 @@ export default function GalleryPage() {
               if (w.iFrameSetup) w.iFrameSetup(e.currentTarget);
             }}
             src="https://app.mirror-app.com/feed-instagram/696853a7-f99d-42d5-8a46-d9aba3a704ba/preview"
-            style={{ width: "100%", border: "none", overflow: "hidden", minHeight: "600px" }}
-            scrolling="no"
+            style={{ width: "100%", border: "none", overflow: "auto", minHeight: "600px", WebkitOverflowScrolling: "touch" }}
           />
         </div>
       </section>

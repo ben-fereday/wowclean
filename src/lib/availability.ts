@@ -114,7 +114,7 @@ export async function getBookedTimesForDate(
     for (const b of blocked) {
       if (!b.blocked_time) {
         // Whole day blocked — return all possible times
-        return ["8:00 AM", "10:00 AM", "12:00 PM", "2:00 PM", "4:00 PM"];
+        return ["8:00 AM", "10:00 AM", "12:00 PM", "2:00 PM", "4:00 PM", "6:00 PM"];
       }
       bookedTimes.push(b.blocked_time);
     }
@@ -201,4 +201,16 @@ export async function checkSubscriptionSlotAvailable(
   }
 
   return { available: true };
+}
+
+/**
+ * Check whether a subscription's proposed start date+time conflicts with
+ * any existing one-time booking, blocked slot, or other recurring subscription
+ * occurrence on that exact date. Used at subscription creation time.
+ */
+export async function checkSubscriptionStartConflict(
+  startDate: string,
+  time: string
+): Promise<{ available: boolean; reason?: string }> {
+  return checkTimeSlotAvailable(startDate, time);
 }

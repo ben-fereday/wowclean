@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ import {
   X,
   MapPin,
   Plus,
+  Gift,
 } from "lucide-react";
 import {
   SUBSCRIPTION_PLANS,
@@ -38,7 +40,6 @@ import {
   TIME_SLOTS,
   ADDONS,
   EXCLUSIVE_INCLUDED,
-  getPrice,
   type PackageId,
   type ServiceType,
   type VehicleSize,
@@ -46,6 +47,15 @@ import {
   type BookingStatus,
   type SubscriptionStatus,
 } from "@/lib/constants";
+import {
+  PRICING,
+  SUBSCRIPTION_PRICING,
+} from "@/lib/constants";
+import {
+  fetchAllPricing,
+  type BookingPricingGrid,
+  type SubPricingGrid,
+} from "@/lib/pricing-db";
 import {
   updateSubscription,
   cancelSubscription,
@@ -95,6 +105,8 @@ interface Profile {
   vehicle_make?: string;
   vehicle_model?: string;
   vehicle_colour?: string;
+  referral_code?: string;
+  referral_credits?: number;
 }
 
 const statusColors: Record<BookingStatus, string> = {
@@ -129,6 +141,34 @@ export default function AccountClient({
   vehicleLabels: Record<VehicleSize, string>;
 }) {
   const router = useRouter();
+
+  // DB pricing
+  const [dbBooking, setDbBooking] = useState<BookingPricingGrid>(
+    PRICING as unknown as BookingPricingGrid
+  );
+  const [dbSub, setDbSub] = useState<SubPricingGrid>(
+    SUBSCRIPTION_PRICING as unknown as SubPricingGrid
+  );
+
+  const [dbAddons, setDbAddons] = useState<{ id: string; name: string; price: number; sort_order: number; active: boolean }[]>(
+    ADDONS.map((a, i) => ({ id: a.id as string, name: a.name as string, price: a.price as number, sort_order: i, active: true }))
+  );
+
+  useEffect(() => {
+    fetchAllPricing().then((data) => {
+      setDbBooking(data.booking);
+      setDbSub(data.subscription);
+      setDbAddons(data.addons.filter((a) => a.active));
+    });
+  }, []);
+
+  function dbGetPrice(pkg: PackageId, vs: VehicleSize, st: ServiceType) {
+    return dbBooking?.[pkg]?.[vs]?.[st] ?? 0;
+  }
+
+  function dbGetSubPrice(plan: SubscriptionPlan, vs: VehicleSize, pkg: PackageId) {
+    return dbSub?.[plan]?.[pkg]?.[vs] ?? 0;
+  }
 
   // Edit subscription modal state
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
@@ -217,7 +257,7 @@ export default function AccountClient({
     setEditAddons([...(booking.addons || [])]);
   }
 
-  function toggleAddon(addon: typeof ADDONS[number]) {
+  function toggleAddon(addon: { id: string; name: string; price: number }) {
     if (!editingBookingAddons) return;
     if (editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(addon.id)) return;
     setEditAddons((prev) => {
@@ -230,12 +270,12 @@ export default function AccountClient({
   async function handleSaveAddons() {
     if (!editingBookingAddons) return;
     setSavingAddons(true);
-    const basePrice = getPrice(editingBookingAddons.package, editingBookingAddons.vehicle_size, editingBookingAddons.service_type);
+    const basePrice = dbGetPrice(editingBookingAddons.package, editingBookingAddons.vehicle_size, editingBookingAddons.service_type);
     const addonsTotal = editAddons
       .filter((a) => !(editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(a.id)))
       .reduce((sum, a) => sum + a.price, 0);
     try {
-      await updateBookingAddons(editingBookingAddons.id, editAddons, basePrice + addonsTotal);
+      await updateBookingAddons(editingBookingAddons.id, editAddons);
       setEditingBookingAddons(null);
       router.refresh();
     } catch { /* */ } finally {
@@ -285,6 +325,7 @@ export default function AccountClient({
 
         {/* Account Info */}
         {profile && (
+          <>
           <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
@@ -346,6 +387,62 @@ export default function AccountClient({
               </div>
             </CardContent>
           </Card>
+
+          {/* Referral Program */}
+          <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
+                <Gift className="h-5 w-5 text-[hsl(var(--accent))]" />
+                Referral Program
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
+                  Your Referral Code
+                </p>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-2xl font-bold text-[hsl(var(--accent))] tracking-[4px]">
+                    {profile.referral_code ?? "—"}
+                  </span>
+                  {profile.referral_code && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(profile.referral_code!);
+                        toast.success("Referral code copied!");
+                      }}
+                      className="text-xs text-[hsl(var(--muted-foreground))] hover:text-white border border-[hsl(var(--muted))]/60 rounded px-2 py-1 transition-colors"
+                    >
+                      Copy
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-1">
+                  Referral Credits
+                </p>
+                <p className="text-2xl font-bold text-white">
+                  {profile.referral_credits ?? 0}
+                  <span className="text-sm font-normal text-[hsl(var(--muted-foreground))]"> / 3 for a free Premium Detail</span>
+                </p>
+              </div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed">
+                Share your code with friends. When they book using your code they get 10% off, and you earn 1 credit. Collect 3 credits for a free Premium Detail!
+              </p>
+              {(profile.referral_credits ?? 0) >= 3 && (
+                <Link
+                  href="/book?redeem=referral"
+                  className="inline-flex items-center gap-2 bg-gradient-to-br from-[#1262d4] to-[#1a4aff] text-white font-[family-name:var(--font-barlow-condensed)] text-sm font-bold tracking-wider uppercase px-6 py-3 rounded-lg shadow-[0_0_30px_rgba(26,74,255,0.4)] hover:translate-y-[-2px] hover:shadow-[0_0_50px_rgba(26,74,255,0.6)] transition-all mt-2"
+                >
+                  <Gift className="h-4 w-4" />
+                  Redeem Free Premium Detail
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+          </>
         )}
 
         {/* Upcoming Visits */}
@@ -546,7 +643,7 @@ export default function AccountClient({
                       <div>
                         <p className="text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Price</p>
                         <p className="mt-1 font-[family-name:var(--font-barlow-condensed)] text-lg text-[hsl(var(--accent))]">
-                          ${getPrice(sub.package, sub.vehicle_size, sub.service_type)}<span className="text-xs text-[hsl(var(--muted-foreground))]">/visit</span>
+                          ${dbGetSubPrice(sub.plan, sub.vehicle_size, sub.package)}<span className="text-xs text-[hsl(var(--muted-foreground))]">/visit</span>
                         </p>
                       </div>
                     </div>
@@ -789,7 +886,7 @@ export default function AccountClient({
             {editingBookingAddons && (
               <div className="pt-2">
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                  {ADDONS.map((addon) => {
+                  {dbAddons.map((addon) => {
                     const isIncluded = editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(addon.id);
                     const isSelected = editAddons.some((a) => a.id === addon.id);
                     return (
@@ -818,7 +915,7 @@ export default function AccountClient({
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-white/10">
                   <span className="text-[hsl(var(--muted-foreground))] text-sm">New Total</span>
                   <span className="font-[family-name:var(--font-barlow-condensed)] text-2xl font-bold text-[hsl(var(--accent))]">
-                    ${getPrice(editingBookingAddons.package, editingBookingAddons.vehicle_size, editingBookingAddons.service_type) +
+                    ${dbGetPrice(editingBookingAddons.package, editingBookingAddons.vehicle_size, editingBookingAddons.service_type) +
                       editAddons
                         .filter((a) => !(editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(a.id)))
                         .reduce((sum, a) => sum + a.price, 0)}

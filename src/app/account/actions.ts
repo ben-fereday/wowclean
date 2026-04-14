@@ -73,16 +73,57 @@ export async function updateEmail(newEmail: string) {
 
 export async function updateBookingAddons(
   bookingId: string,
-  addons: { id: string; name: string; price: number }[],
-  newTotal: number
+  addons: { id: string; name: string; price: number }[]
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // Fetch the booking to get base price info
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("package, vehicle_size, service_type, promo_discount_pct")
+    .eq("id", bookingId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!booking) throw new Error("Booking not found");
+
+  // Re-validate addon prices from DB
+  const { data: dbAddons } = await supabase
+    .from("addon_items")
+    .select("id, name, price")
+    .eq("active", true);
+
+  const addonMap = new Map((dbAddons ?? []).map((a: { id: string; name: string; price: number }) => [a.id, a]));
+  const validatedAddons = addons
+    .filter((a) => addonMap.has(a.id))
+    .map((a) => {
+      const db = addonMap.get(a.id)!;
+      return { id: db.id, name: db.name, price: db.price };
+    });
+
+  // Re-fetch base price from DB
+  const { data: priceRow } = await supabase
+    .from("booking_prices")
+    .select("price")
+    .eq("package", booking.package)
+    .eq("vehicle_size", booking.vehicle_size)
+    .eq("service_type", booking.service_type)
+    .single();
+
+  const basePrice = priceRow?.price ?? 0;
+  const addonsTotal = validatedAddons.reduce((sum, a) => sum + a.price, 0);
+  let total = basePrice + addonsTotal;
+
+  // Re-apply promo discount if one was used
+  if (booking.promo_discount_pct) {
+    total = Math.round(total * (1 - booking.promo_discount_pct / 100));
+  }
+
   const { error } = await supabase
     .from("bookings")
-    .update({ addons, total_estimate: newTotal })
+    .update({ addons: validatedAddons, total_estimate: total })
     .eq("id", bookingId)
     .eq("user_id", user.id);
 

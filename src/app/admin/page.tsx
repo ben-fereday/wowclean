@@ -2,7 +2,18 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { updateBookingStatus, blockTimeSlot, unblockSlot, getBlockedSlots } from "./actions";
+import {
+  updateBookingStatus,
+  blockTimeSlot,
+  unblockSlot,
+  getBlockedSlots,
+  listPromoCodes,
+  createPromoCode,
+  updatePromoCode,
+  deletePromoCode,
+  resetUserPromoHistory,
+  type PromoCodeRow,
+} from "./actions";
 import { TIME_SLOTS } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,14 +57,24 @@ import {
   Ban,
   Trash2,
   XCircle,
+  Tag,
+  RotateCcw,
+  Gift,
+  DollarSign,
+  Search,
 } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { fetchSubscriptionPrices, type SubPricingGrid } from "@/lib/pricing-db";
 import {
   PACKAGE_LABELS,
   VEHICLE_LABELS,
   SERVICE_TYPE_LABELS,
   SUBSCRIPTION_PLANS,
-  getPrice,
+  SUBSCRIPTION_PRICING,
   type BookingStatus,
+  type SubscriptionPlan,
   type PackageId,
   type VehicleSize,
   type ServiceType,
@@ -90,6 +111,8 @@ interface Booking {
   total_estimate: number;
   addons: BookingAddon[];
   notes: string | null;
+  promo_code: string | null;
+  promo_discount_pct: number | null;
   profiles?: { first_name: string; last_name: string; phone: string } | null;
 }
 
@@ -100,6 +123,8 @@ interface Profile {
   phone: string;
   role: string;
   email?: string;
+  referral_code?: string;
+  referral_credits?: number;
 }
 
 interface Subscription {
@@ -188,8 +213,43 @@ export default function AdminPage() {
   const [cancelBooking, setCancelBooking] = useState<{ id: string; name: string; date: string; time: string } | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  // Customer detail modal
+  // Customer search + detail modal
+  const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Profile | null>(null);
+
+  // DB subscription pricing
+  const [dbSubPricing, setDbSubPricing] = useState<SubPricingGrid>(
+    SUBSCRIPTION_PRICING as unknown as SubPricingGrid
+  );
+
+  function dbGetSubPrice(plan: string, vs: string, pkg: string) {
+    return dbSubPricing?.[plan]?.[pkg]?.[vs] ?? 0;
+  }
+
+  // Promo codes
+  const [promoCodes, setPromoCodes] = useState<PromoCodeRow[]>([]);
+  const [promoForm, setPromoForm] = useState({
+    code: "",
+    discount_pct: 10,
+    scope: "booking" as "booking" | "subscription",
+    one_time_use: false,
+    active: true,
+  });
+  const [promoFormError, setPromoFormError] = useState("");
+
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    variant?: "default" | "destructive";
+    onConfirm: () => void;
+  }>({ open: false, title: "", description: "", onConfirm: () => {} });
+
+  function showConfirm(opts: Omit<typeof confirmModal, "open">) {
+    setConfirmModal({ ...opts, open: true });
+  }
 
   /* ---- Data fetching ---- */
 
@@ -255,7 +315,19 @@ export default function AdminPage() {
       };
     });
 
-    setProfiles((profileRes.data as Profile[]) ?? []);
+    // Fetch customer emails from auth.users via RPC
+    const { data: emailData } = await supabase.rpc("get_customer_emails");
+    const emailMap = new Map<string, string>();
+    if (emailData) {
+      for (const row of emailData) emailMap.set(row.id, row.email);
+    }
+
+    const profilesWithEmail = ((profileRes.data ?? []) as Profile[]).map((p) => ({
+      ...p,
+      email: emailMap.get(p.id),
+    }));
+
+    setProfiles(profilesWithEmail);
     setSubscriptions(subsWithProfiles as Subscription[]);
     setTeamMembers((teamRes.data as Profile[]) ?? []);
   }, [supabase]);
@@ -265,6 +337,15 @@ export default function AdminPage() {
     setBlockedSlots(data);
   }, []);
 
+  const fetchPromoCodes = useCallback(async () => {
+    try {
+      const data = await listPromoCodes();
+      setPromoCodes(data);
+    } catch (e) {
+      console.error("Promo fetch error:", e);
+    }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -272,6 +353,8 @@ export default function AdminPage() {
       fetchBookings(),
       fetchProfiles(),
       fetchBlocked(),
+      fetchPromoCodes(),
+      fetchSubscriptionPrices().then(setDbSubPricing),
     ]).finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -280,6 +363,8 @@ export default function AdminPage() {
     fetchBookings();
     fetchProfiles();
     fetchBlocked();
+    fetchPromoCodes();
+    fetchSubscriptionPrices().then(setDbSubPricing);
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---- Helpers ---- */
@@ -480,7 +565,7 @@ export default function AdminPage() {
               visits.push({
                 id: s.id, type: "subscription", date: s.next_service_date, time: s.recurring_time,
                 name, packageKey: s.package, serviceTypeKey: s.service_type, vehicleSizeKey: s.vehicle_size,
-                price: getPrice(s.package, s.vehicle_size, s.service_type), phone: s.profiles?.phone || undefined,
+                price: dbGetSubPrice(s.plan, s.vehicle_size, s.package), phone: s.profiles?.phone || undefined,
               });
             }
           }
@@ -590,6 +675,16 @@ export default function AdminPage() {
               <Sparkles className="mr-2 h-4 w-4" />
               Subscriptions
             </TabsTrigger>
+            <TabsTrigger value="promos" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
+              <Tag className="mr-2 h-4 w-4" />
+              Promos
+            </TabsTrigger>
+            <Link href="/admin/pricing">
+              <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-white transition-colors font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider cursor-pointer">
+                <DollarSign className="h-4 w-4" />
+                Pricing
+              </div>
+            </Link>
             {isOwner && (
               <TabsTrigger value="team" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
                 <UserCog className="mr-2 h-4 w-4" />
@@ -852,7 +947,7 @@ export default function AdminPage() {
                           <p className="text-[hsl(var(--accent))] font-semibold">
                             {selectedEntry.type === "booking"
                               ? `$${selectedEntry.booking!.total_estimate}`
-                              : `$${getPrice(selectedEntry.subscription!.package, selectedEntry.subscription!.vehicle_size, selectedEntry.subscription!.service_type)}/visit`
+                              : `$${dbGetSubPrice(selectedEntry.subscription!.plan, selectedEntry.subscription!.vehicle_size, selectedEntry.subscription!.package)}/visit`
                             }
                           </p>
                         </div>
@@ -987,20 +1082,50 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {profiles.length === 0 ? (
-                  <p className="py-4 text-[hsl(var(--muted-foreground))]">No customers found.</p>
-                ) : (
+                {/* Search bar */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                  <Input
+                    placeholder="Search by name, email, or phone..."
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    className="pl-10 border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
+                  />
+                </div>
+
+                {(() => {
+                  const q = customerSearch.toLowerCase().trim();
+                  const filtered = q
+                    ? profiles.filter((p) =>
+                        `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
+                        (p.email ?? "").toLowerCase().includes(q) ||
+                        (p.phone ?? "").toLowerCase().includes(q) ||
+                        (p.referral_code ?? "").toLowerCase().includes(q)
+                      )
+                    : profiles;
+
+                  if (filtered.length === 0) {
+                    return (
+                      <p className="py-4 text-[hsl(var(--muted-foreground))]">
+                        {q ? `No customers matching "${customerSearch}".` : "No customers found."}
+                      </p>
+                    );
+                  }
+
+                  return (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="border-[hsl(var(--muted))]">
                           <TableHead className="text-[hsl(var(--muted-foreground))]">Name</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Email</TableHead>
                           <TableHead className="text-[hsl(var(--muted-foreground))]">Phone</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Credits</TableHead>
                           <TableHead className="text-[hsl(var(--muted-foreground))]">Subscriptions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {profiles.map((p) => {
+                        {filtered.map((p) => {
                           const userSubs = getSubscriptionsForUser(p.id);
                           return (
                             <TableRow
@@ -1009,7 +1134,9 @@ export default function AdminPage() {
                               onClick={() => setSelectedCustomer(p)}
                             >
                               <TableCell className="font-medium text-white">{p.first_name} {p.last_name}</TableCell>
+                              <TableCell className="text-[hsl(var(--muted-foreground))] text-sm">{p.email || "—"}</TableCell>
                               <TableCell className="text-[hsl(var(--muted-foreground))]">{p.phone || "N/A"}</TableCell>
+                              <TableCell className="text-[hsl(var(--accent))] font-semibold">{p.referral_credits ?? 0}</TableCell>
                               <TableCell>
                                 {userSubs.length > 0 ? (
                                   <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">
@@ -1025,7 +1152,8 @@ export default function AdminPage() {
                       </TableBody>
                     </Table>
                   </div>
-                )}
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -1041,11 +1169,106 @@ export default function AdminPage() {
                   <div className="space-y-5 pt-2">
                     {/* Contact info */}
                     <div className="space-y-2">
+                      {selectedCustomer.email && (
+                        <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
+                          <Mail className="h-4 w-4" />
+                          <span>{selectedCustomer.email}</span>
+                        </div>
+                      )}
                       {selectedCustomer.phone && (
                         <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
                           <Phone className="h-4 w-4" />
                           <span>{selectedCustomer.phone}</span>
                         </div>
+                      )}
+                    </div>
+
+                    {/* Promo history reset */}
+                    <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold mb-1">
+                            Promo Code Use History
+                          </p>
+                          <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                            Reset to let this customer use one-time codes again.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            showConfirm({
+                              title: "Reset Promo History",
+                              description: `Reset promo code history for ${selectedCustomer.first_name} ${selectedCustomer.last_name}? They'll be able to use one-time codes again.`,
+                              confirmLabel: "Reset",
+                              onConfirm: async () => {
+                                const result = await resetUserPromoHistory(selectedCustomer.id);
+                                setConfirmModal((m) => ({ ...m, open: false }));
+                                if (result.error) toast.error(result.error);
+                                else toast.success("Promo code history reset.");
+                              },
+                            });
+                          }}
+                          className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider border-[hsl(var(--accent))]/40 text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent))]/10"
+                        >
+                          <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                          Reset
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Referral Info */}
+                    <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4 space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold flex items-center gap-1.5">
+                        <Gift className="h-3.5 w-3.5" /> Referrals
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Referral Code</p>
+                          <p className="font-mono font-bold text-white tracking-[3px]">{selectedCustomer.referral_code ?? "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Credits</p>
+                          <p className="text-white font-bold text-lg">
+                            {selectedCustomer.referral_credits ?? 0}
+                            <span className="text-xs font-normal text-[hsl(var(--muted-foreground))]"> / 3 = free detail</span>
+                          </p>
+                        </div>
+                      </div>
+                      {(selectedCustomer.referral_credits ?? 0) >= 3 && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            showConfirm({
+                              title: "Redeem Credits",
+                              description: `Redeem 3 credits for ${selectedCustomer.first_name}? This grants a free Premium Detail.`,
+                              confirmLabel: "Redeem",
+                              onConfirm: async () => {
+                                try {
+                                  const supabase = createClient();
+                                  const { error } = await supabase.rpc("redeem_referral_credits", { user_id_input: selectedCustomer.id });
+                                  setConfirmModal((m) => ({ ...m, open: false }));
+                                  if (error) {
+                                    toast.error(error.message);
+                                  } else {
+                                    toast.success("3 credits redeemed!");
+                                    fetchProfiles();
+                                    setSelectedCustomer({ ...selectedCustomer, referral_credits: (selectedCustomer.referral_credits ?? 0) - 3 });
+                                  }
+                                } catch (e) {
+                                  setConfirmModal((m) => ({ ...m, open: false }));
+                                  toast.error("Failed to redeem credits.");
+                                  console.error(e);
+                                }
+                              },
+                            });
+                          }}
+                          className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80"
+                        >
+                          <Gift className="mr-2 h-3.5 w-3.5" />
+                          Redeem 3 Credits — Free Premium Detail
+                        </Button>
                       )}
                     </div>
 
@@ -1072,7 +1295,7 @@ export default function AdminPage() {
                                       </Badge>
                                     </div>
                                     <span className="font-[family-name:var(--font-barlow-condensed)] text-lg font-bold text-[hsl(var(--accent))]">
-                                      ${getPrice(sub.package, sub.vehicle_size, sub.service_type)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
+                                      ${dbGetSubPrice(sub.plan, sub.vehicle_size, sub.package)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
                                     </span>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -1110,6 +1333,50 @@ export default function AdminPage() {
                                 </div>
                               );
                             })
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Booking History */}
+                    {(() => {
+                      const userBookings = bookings
+                        .filter((b) => b.user_id === selectedCustomer.id)
+                        .sort((a, b) => b.booking_date.localeCompare(a.booking_date));
+                      return (
+                        <div className="space-y-3">
+                          <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold">
+                            Booking History ({userBookings.length})
+                          </p>
+                          {userBookings.length === 0 ? (
+                            <p className="text-sm text-[hsl(var(--muted-foreground))]">No bookings yet.</p>
+                          ) : (
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                              {userBookings.map((b) => (
+                                <div key={b.id} className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-white font-medium text-sm">
+                                      {new Date(b.booking_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {b.booking_time}
+                                    </span>
+                                    <Badge variant="outline" className={statusColors[b.status]}>
+                                      {statusLabels[b.status]}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-wrap gap-3 text-xs text-[hsl(var(--muted-foreground))]">
+                                    <span>{PACKAGE_LABELS[b.package]}</span>
+                                    <span>{SERVICE_TYPE_LABELS[b.service_type]}</span>
+                                    <span>{VEHICLE_LABELS[b.vehicle_size]}</span>
+                                    <span className="text-[hsl(var(--accent))] font-semibold">${b.total_estimate}</span>
+                                    {b.promo_code && (
+                                      <span className="text-cyan">Promo: {b.promo_code} ({b.promo_discount_pct}% off)</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                                    Ref: {b.reference_code}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       );
@@ -1179,7 +1446,7 @@ export default function AdminPage() {
                               </div>
                               <div className="text-right">
                                 <p className="font-[family-name:var(--font-barlow-condensed)] text-xl font-bold text-[hsl(var(--accent))]">
-                                  ${getPrice(sub.package, sub.vehicle_size, sub.service_type)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
+                                  ${dbGetSubPrice(sub.plan, sub.vehicle_size, sub.package)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
                                 </p>
                                 {sub.next_service_date && (
                                   <p className="text-sm text-[hsl(var(--accent))] mt-1">
@@ -1193,6 +1460,214 @@ export default function AdminPage() {
                       })}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ============ PROMOS TAB ============ */}
+          <TabsContent value="promos" className="space-y-6">
+            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+              <CardHeader>
+                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
+                  Add Promo Code
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setPromoFormError("");
+                    const result = await createPromoCode({
+                      code: promoForm.code,
+                      discount_pct: promoForm.discount_pct,
+                      scope: promoForm.scope,
+                      max_uses_per_user: promoForm.one_time_use ? 1 : null,
+                      active: promoForm.active,
+                    });
+                    if (result.error) {
+                      setPromoFormError(result.error);
+                    } else {
+                      setPromoForm({
+                        code: "",
+                        discount_pct: 10,
+                        scope: "booking",
+                        one_time_use: false,
+                        active: true,
+                      });
+                      fetchPromoCodes();
+                    }
+                  }}
+                  className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end"
+                >
+                  <div className="md:col-span-2 space-y-2">
+                    <Label className="text-white text-xs uppercase tracking-wider">Code</Label>
+                    <Input
+                      value={promoForm.code}
+                      onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
+                      placeholder="SUMMER25"
+                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white uppercase tracking-wider"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white text-xs uppercase tracking-wider">% Off</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={promoForm.discount_pct}
+                      onChange={(e) => setPromoForm({ ...promoForm, discount_pct: Number(e.target.value) })}
+                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white text-xs uppercase tracking-wider">Scope</Label>
+                    <select
+                      value={promoForm.scope}
+                      onChange={(e) => setPromoForm({ ...promoForm, scope: e.target.value as "booking" | "subscription" })}
+                      className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
+                    >
+                      <option value="booking">One-Time Booking</option>
+                      <option value="subscription">Subscription</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white text-xs uppercase tracking-wider">Use Limit</Label>
+                    <select
+                      value={promoForm.one_time_use ? "one" : "unlimited"}
+                      onChange={(e) => setPromoForm({ ...promoForm, one_time_use: e.target.value === "one" })}
+                      className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
+                    >
+                      <option value="unlimited">Unlimited</option>
+                      <option value="one">One per account</option>
+                    </select>
+                  </div>
+                  <Button type="submit" className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80">
+                    Add Code
+                  </Button>
+                </form>
+                {promoFormError && (
+                  <p className="mt-3 text-sm text-red-400">{promoFormError}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+              <CardHeader>
+                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
+                  All Promo Codes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {promoCodes.length === 0 ? (
+                  <p className="py-4 text-[hsl(var(--muted-foreground))]">No promo codes yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-[hsl(var(--muted))]">
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Code</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Scope</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">% Off</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Use Limit</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Active</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))] text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {promoCodes.map((promo) => (
+                          <TableRow key={promo.id} className="border-[hsl(var(--muted))]">
+                            <TableCell className="font-mono font-bold text-white tracking-wider">
+                              {promo.code}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  promo.scope === "booking"
+                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                    : "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                                }
+                              >
+                                {promo.scope === "booking" ? "Booking" : "Subscription"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                defaultValue={promo.discount_pct}
+                                onBlur={async (e) => {
+                                  const newPct = Number(e.target.value);
+                                  if (newPct === promo.discount_pct) return;
+                                  const result = await updatePromoCode(promo.id, { discount_pct: newPct });
+                                  if (result.error) {
+                                    toast.error(result.error);
+                                    e.target.value = String(promo.discount_pct);
+                                  } else {
+                                    fetchPromoCodes();
+                                  }
+                                }}
+                                className="w-20 h-8 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-2"
+                              />
+                              <span className="ml-1 text-[hsl(var(--muted-foreground))]">%</span>
+                            </TableCell>
+                            <TableCell className="text-[hsl(var(--muted-foreground))]">
+                              {promo.max_uses_per_user === null ? "Unlimited" : `${promo.max_uses_per_user} per account`}
+                            </TableCell>
+                            <TableCell>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const result = await updatePromoCode(promo.id, { active: !promo.active });
+                                  if (result.error) toast.error(result.error);
+                                  else fetchPromoCodes();
+                                }}
+                              >
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    promo.active
+                                      ? "bg-green-500/20 text-green-400 border-green-500/30 cursor-pointer hover:bg-green-500/30"
+                                      : "bg-red-500/20 text-red-400 border-red-500/30 cursor-pointer hover:bg-red-500/30"
+                                  }
+                                >
+                                  {promo.active ? "Active" : "Inactive"}
+                                </Badge>
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  showConfirm({
+                                    title: "Delete Promo Code",
+                                    description: `Delete promo code ${promo.code}? This cannot be undone.`,
+                                    confirmLabel: "Delete",
+                                    variant: "destructive",
+                                    onConfirm: async () => {
+                                      const result = await deletePromoCode(promo.id);
+                                      setConfirmModal((m) => ({ ...m, open: false }));
+                                      if (result.error) toast.error(result.error);
+                                      else { toast.success("Promo code deleted."); fetchPromoCodes(); }
+                                    },
+                                  });
+                                }}
+                                className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                <p className="mt-4 text-xs text-[hsl(var(--muted-foreground))]">
+                  Discount % changes only affect <span className="text-white font-semibold">future</span> redemptions. Existing bookings and subscriptions keep the discount they were created with.
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1217,9 +1692,10 @@ export default function AdminPage() {
                       const { updateUserRole } = await import("./actions");
                       const result = await updateUserRole(email, "admin");
                       if (result.error) {
-                        alert(result.error);
+                        toast.error(result.error);
                       } else {
                         emailInput.value = "";
+                        toast.success("Admin access granted.");
                         fetchProfiles();
                       }
                     }}
@@ -1284,12 +1760,20 @@ export default function AdminPage() {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={async () => {
-                                      if (!confirm(`Remove admin access from ${member.first_name} ${member.last_name}?`)) return;
-                                      const { revokeAdmin } = await import("./actions");
-                                      const result = await revokeAdmin(member.id);
-                                      if (result.error) alert(result.error);
-                                      else fetchProfiles();
+                                    onClick={() => {
+                                      showConfirm({
+                                        title: "Revoke Admin",
+                                        description: `Remove admin access from ${member.first_name} ${member.last_name}?`,
+                                        confirmLabel: "Revoke",
+                                        variant: "destructive",
+                                        onConfirm: async () => {
+                                          const { revokeAdmin } = await import("./actions");
+                                          const result = await revokeAdmin(member.id);
+                                          setConfirmModal((m) => ({ ...m, open: false }));
+                                          if (result.error) toast.error(result.error);
+                                          else { toast.success("Admin access revoked."); fetchProfiles(); }
+                                        },
+                                      });
                                     }}
                                     className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider"
                                   >
@@ -1312,6 +1796,16 @@ export default function AdminPage() {
           )}
         </Tabs>
       </div>
+
+      <ConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal((m) => ({ ...m, open }))}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmLabel={confirmModal.confirmLabel}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 }

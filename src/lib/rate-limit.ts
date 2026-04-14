@@ -1,9 +1,19 @@
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_ATTEMPTS = 5;
+const DEFAULT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const DEFAULT_MAX_ATTEMPTS = 5;
 
-export function checkRateLimit(key: string): { allowed: boolean; retryAfterSeconds?: number } {
+interface RateLimitOptions {
+  windowMs?: number;
+  maxAttempts?: number;
+}
+
+export function checkRateLimit(
+  key: string,
+  opts?: RateLimitOptions
+): { allowed: boolean; retryAfterSeconds?: number } {
+  const windowMs = opts?.windowMs ?? DEFAULT_WINDOW_MS;
+  const maxAttempts = opts?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const now = Date.now();
   const entry = attempts.get(key);
 
@@ -15,11 +25,11 @@ export function checkRateLimit(key: string): { allowed: boolean; retryAfterSecon
   const current = attempts.get(key);
 
   if (!current) {
-    attempts.set(key, { count: 1, resetAt: now + WINDOW_MS });
+    attempts.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true };
   }
 
-  if (current.count >= MAX_ATTEMPTS) {
+  if (current.count >= maxAttempts) {
     const retryAfterSeconds = Math.ceil((current.resetAt - now) / 1000);
     return { allowed: false, retryAfterSeconds };
   }

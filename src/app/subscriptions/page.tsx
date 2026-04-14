@@ -1,27 +1,27 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createSubscription } from "./actions";
-import { getBookedTimesForDay } from "@/lib/availability";
+import { getBookedTimesForDate } from "@/lib/availability";
 import { isTimeBlocked } from "@/lib/time-utils";
 import {
   SUBSCRIPTION_PLANS,
   PACKAGES,
-  DAYS_OF_WEEK,
   TIME_SLOTS,
   VEHICLE_LABELS,
   VEHICLE_EXAMPLES,
-  SERVICE_TYPE_LABELS,
   PACKAGE_LABELS,
-  getPrice,
+  BILLING_CYCLES,
+  SUBSCRIPTION_PRICING,
+  applyDiscount,
   type SubscriptionPlan,
   type PackageId,
-  type ServiceType,
   type VehicleSize,
-  type LocationType,
+  type BillingCycle,
 } from "@/lib/constants";
+import { fetchSubscriptionPrices, type SubPricingGrid } from "@/lib/pricing-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,6 @@ import { Label } from "@/components/ui/label";
 import {
   CalendarClock,
   Package,
-  Sparkles,
   Car,
   Calendar,
   Clock,
@@ -39,6 +38,10 @@ import {
   RefreshCw,
   ArrowRight,
   DollarSign,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  Snowflake,
 } from "lucide-react";
 
 export default function SubscriptionsPage() {
@@ -56,107 +59,202 @@ function SubscriptionsContent() {
   const autoSubmitAttempted = useRef(false);
 
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle | null>(null);
   const [pkg, setPkg] = useState<PackageId | null>(null);
-  const [serviceType, setServiceType] = useState<ServiceType | null>(null);
   const [vehicleSize, setVehicleSize] = useState<VehicleSize | null>(null);
-  const [recurringDay, setRecurringDay] = useState<string | null>(null);
-  const [timeSlot, setTimeSlot] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string | null>(null);
-  // location is derived from package (standard/supreme = mobile, exclusive = shop)
-  const [address, setAddress] = useState("");
+  const [timeSlot, setTimeSlot] = useState<string | null>(null);
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+
+  // DB pricing
+  const [dbSubPricing, setDbSubPricing] = useState<SubPricingGrid>(
+    SUBSCRIPTION_PRICING as unknown as SubPricingGrid
+  );
+
+  useEffect(() => {
+    fetchSubscriptionPrices().then(setDbSubPricing);
+  }, []);
+
+  const [address, setAddress] = useState("");
+  const [vehicleMake, setVehicleMake] = useState("");
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [vehicleColour, setVehicleColour] = useState("");
+  const [notes, setNotes] = useState("");
+
+  // Promo code state
+  const [promoInput, setPromoInput] = useState("");
+  const [promoApplied, setPromoApplied] = useState<{
+    code: string;
+    discount_pct: number;
+  } | null>(null);
+  const [promoError, setPromoError] = useState("");
+  const [promoChecking, setPromoChecking] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // Fetch booked times when recurring day changes
-  useEffect(() => {
-    if (!recurringDay) { setBookedTimes([]); return; }
-    getBookedTimesForDay(recurringDay).then(setBookedTimes);
-  }, [recurringDay]);
+  // Calendar state
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const minStartDate = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 3);
+    return d;
+  }, [today]);
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [calYear, setCalYear] = useState(today.getFullYear());
 
-  // Restore selections from URL params (after login redirect)
+  // Weekly/Biweekly are locked to Standard. Monthly: user picks.
+  useEffect(() => {
+    if (plan === "weekly" || plan === "biweekly") {
+      setPkg("standard");
+    } else if (plan === "monthly") {
+      // Don't auto-pick — let the user choose
+      if (pkg === "exclusive") setPkg(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan]);
+
+  // Fetch booked times when start date changes
+  useEffect(() => {
+    if (!startDate) {
+      setBookedTimes([]);
+      return;
+    }
+    getBookedTimesForDate(startDate).then(setBookedTimes);
+  }, [startDate]);
+
+  // Restore from URL params (after login redirect)
   useEffect(() => {
     const p = searchParams.get("plan") as SubscriptionPlan | null;
+    const bc = searchParams.get("billing") as BillingCycle | null;
     const pk = searchParams.get("pkg") as PackageId | null;
-    const s = searchParams.get("service") as ServiceType | null;
     const v = searchParams.get("vehicle") as VehicleSize | null;
-    const d = searchParams.get("day");
-    const t = searchParams.get("time");
-    const loc = searchParams.get("location") as LocationType | null;
-    const addr = searchParams.get("address");
     const sd = searchParams.get("startDate");
+    const t = searchParams.get("time");
+    const addr = searchParams.get("address");
+    const vm = searchParams.get("make");
+    const vmo = searchParams.get("model");
+    const vc = searchParams.get("colour");
+    const n = searchParams.get("notes");
 
     if (p) setPlan(p);
+    if (bc) setBillingCycle(bc);
     if (pk) setPkg(pk);
-    if (s) setServiceType(s);
     if (v) setVehicleSize(v);
-    if (d) setRecurringDay(d);
-    if (t) setTimeSlot(t);
-    // location is derived from pkg, no need to restore
-    if (addr) setAddress(addr);
     if (sd) setStartDate(sd);
+    if (t) setTimeSlot(t);
+    if (addr) setAddress(addr);
+    if (vm) setVehicleMake(vm);
+    if (vmo) setVehicleModel(vmo);
+    if (vc) setVehicleColour(vc);
+    if (n) setNotes(n);
   }, [searchParams]);
 
-  // Subscribe handler for manual button clicks
-  function handleSubscribe() {
-    const p = plan;
-    const pk = pkg;
-    const st = serviceType;
-    const vs = vehicleSize;
-    const rd = recurringDay;
-    const ts = timeSlot;
-    const loc: LocationType = pk === "exclusive" ? "shop" : "mobile";
-    const addr = address;
-    const sd = startDate;
+  async function handleApplyPromo() {
+    setPromoError("");
+    const code = promoInput.trim();
+    if (!code) {
+      setPromoError("Enter a code first.");
+      return;
+    }
+    setPromoChecking(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const { validatePromoCode } = await import("@/lib/promo-codes");
+      const result = await validatePromoCode(
+        code,
+        "subscription",
+        user?.id ?? null
+      );
+      if (!result.valid || !result.code_text || result.discount_pct == null) {
+        setPromoError(result.error || "Invalid code.");
+        setPromoApplied(null);
+      } else {
+        setPromoApplied({
+          code: result.code_text,
+          discount_pct: result.discount_pct,
+        });
+      }
+    } finally {
+      setPromoChecking(false);
+    }
+  }
 
-    submitSubscription(p, pk, st, vs, rd, ts, loc, addr, sd);
+  function handleRemovePromo() {
+    setPromoApplied(null);
+    setPromoInput("");
+    setPromoError("");
+  }
+
+  function handleSubscribe() {
+    submitSubscription(
+      plan,
+      billingCycle,
+      pkg,
+      vehicleSize,
+      startDate,
+      timeSlot,
+      address,
+      vehicleMake,
+      vehicleModel,
+      vehicleColour,
+      notes
+    );
   }
 
   async function submitSubscription(
     p: SubscriptionPlan | null,
+    bc: BillingCycle | null,
     pk: PackageId | null,
-    st: ServiceType | null,
     vs: VehicleSize | null,
-    rd: string | null,
+    sd: string | null,
     ts: string | null,
-    loc: LocationType,
     addr: string,
-    sd?: string | null
+    vm: string,
+    vmo: string,
+    vc: string,
+    n: string
   ) {
     setError("");
 
-    if (!p || !pk || !st || !vs || !rd || !ts) {
+    if (!p || !bc || !pk || !vs || !sd || !ts) {
       setError("Please complete all selections before subscribing.");
       return;
     }
 
-    if (!sd) {
-      setError("Please select a start date for your subscription.");
-      return;
-    }
-
-    if (loc === "mobile" && !addr.trim()) {
-      setError("Please enter your service address for mobile detailing.");
+    if (!addr.trim()) {
+      setError("Please enter your service address.");
       return;
     }
 
     setLoading(true);
 
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       const params = new URLSearchParams();
       params.set("plan", p);
+      params.set("billing", bc);
       params.set("pkg", pk);
-      params.set("service", st);
       params.set("vehicle", vs);
-      params.set("day", rd);
+      params.set("startDate", sd);
       params.set("time", ts);
-      params.set("location", loc);
       if (addr) params.set("address", addr);
-      if (sd) params.set("startDate", sd);
+      if (vm) params.set("make", vm);
+      if (vmo) params.set("model", vmo);
+      if (vc) params.set("colour", vc);
+      if (n) params.set("notes", n);
       const redirectPath = `/subscriptions?${params.toString()}`;
       router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
       return;
@@ -165,13 +263,17 @@ function SubscriptionsContent() {
     const result = await createSubscription({
       plan: p,
       package_id: pk,
-      service_type: st,
       vehicle_size: vs,
-      recurring_day: rd,
-      time_slot: ts,
-      location: loc,
-      address: loc === "mobile" ? addr.trim() : undefined,
+      billing_cycle: bc,
       start_date: sd,
+      time_slot: ts,
+      location: "mobile",
+      address: addr.trim(),
+      vehicle_make: vm.trim() || undefined,
+      vehicle_model: vmo.trim() || undefined,
+      vehicle_colour: vc.trim() || undefined,
+      notes: n.trim() || undefined,
+      promo_code: promoApplied?.code ?? null,
     });
 
     setLoading(false);
@@ -185,43 +287,137 @@ function SubscriptionsContent() {
     }
   }
 
-  // Auto-submit after redirect from login (runs once)
+  // Auto-submit after redirect from login
   useEffect(() => {
     if (autoSubmitAttempted.current) return;
     const p = searchParams.get("plan") as SubscriptionPlan | null;
+    const bc = searchParams.get("billing") as BillingCycle | null;
     const pk = searchParams.get("pkg") as PackageId | null;
-    const s = searchParams.get("service") as ServiceType | null;
     const v = searchParams.get("vehicle") as VehicleSize | null;
-    const d = searchParams.get("day");
+    const sd = searchParams.get("startDate");
     const t = searchParams.get("time");
-    const loc = searchParams.get("location") as LocationType | null;
     const addr = searchParams.get("address") || "";
-    const sd = searchParams.get("startDate") || null;
+    const vm = searchParams.get("make") || "";
+    const vmo = searchParams.get("model") || "";
+    const vc = searchParams.get("colour") || "";
+    const n = searchParams.get("notes") || "";
 
-    if (p && pk && s && v && d && t && sd) {
+    if (p && bc && pk && v && sd && t && addr) {
       autoSubmitAttempted.current = true;
       setTimeout(() => {
-        submitSubscription(p, pk, s, v, d, t, loc || "mobile", addr, sd);
+        submitSubscription(p, bc, pk, v, sd, t, addr, vm, vmo, vc, n);
       }, 500);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const currentPrice =
-    pkg && vehicleSize && serviceType
-      ? getPrice(pkg, vehicleSize, serviceType)
+  // Pricing — subscription-specific rates from DB
+  const basePerVisit =
+    plan && pkg && vehicleSize
+      ? (dbSubPricing?.[plan]?.[pkg]?.[vehicleSize] ?? 0)
       : null;
+  // Apply billing cycle discount first (10% off for 3-month prepay)
+  const billingDiscounted =
+    basePerVisit !== null && billingCycle === "three_month"
+      ? applyDiscount(basePerVisit, 10)
+      : basePerVisit;
+  // Then apply promo discount on top
+  const rawPerVisit = billingDiscounted;
+  const perVisit =
+    rawPerVisit !== null && promoApplied
+      ? applyDiscount(rawPerVisit, promoApplied.discount_pct)
+      : rawPerVisit;
+  const visitsPerMonth = plan === "weekly" ? 4 : plan === "biweekly" ? 2 : 1;
+  const monthlyTotal =
+    perVisit !== null ? perVisit * visitsPerMonth : null;
+  const visitsPerThreeMonths =
+    plan === "weekly" ? 12 : plan === "biweekly" ? 6 : 3;
+  const threeMonthTotal =
+    perVisit !== null ? perVisit * visitsPerThreeMonths : null;
 
-  // Standard/Supreme = mobile, Exclusive = shop
-  const effectiveLocation: LocationType = pkg === "exclusive" ? "shop" : "mobile";
+  const visiblePackages = useMemo(() => {
+    if (plan === "monthly") {
+      return PACKAGES.filter((p) => p.id === "standard" || p.id === "premium");
+    }
+    return PACKAGES.filter((p) => p.id === "standard");
+  }, [plan]);
+
+  // Calendar grid (Mon-first)
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(calYear, calMonth, 1);
+    const lastDay = new Date(calYear, calMonth + 1, 0);
+    const startWeekday = (firstDay.getDay() + 6) % 7; // Mon=0
+    const days: {
+      day: number;
+      empty: boolean;
+      past: boolean;
+      tooSoon: boolean;
+      today: boolean;
+      date: Date | null;
+    }[] = [];
+
+    for (let i = 0; i < startWeekday; i++) {
+      days.push({
+        day: 0,
+        empty: true,
+        past: false,
+        tooSoon: false,
+        today: false,
+        date: null,
+      });
+    }
+
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      const dt = new Date(calYear, calMonth, d);
+      const past = dt < today;
+      const tooSoon = !past && dt < minStartDate;
+      const isToday =
+        dt.getFullYear() === today.getFullYear() &&
+        dt.getMonth() === today.getMonth() &&
+        dt.getDate() === today.getDate();
+      days.push({
+        day: d,
+        empty: false,
+        past,
+        tooSoon,
+        today: isToday,
+        date: dt,
+      });
+    }
+    return days;
+  }, [calYear, calMonth, today, minStartDate]);
+
+  const monthLabel = new Date(calYear, calMonth).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  function changeMonth(delta: number) {
+    let m = calMonth + delta;
+    let y = calYear;
+    if (m < 0) {
+      m = 11;
+      y -= 1;
+    } else if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+    // Don't allow navigating into past months
+    const targetEnd = new Date(y, m + 1, 0);
+    if (targetEnd < today) return;
+    setCalMonth(m);
+    setCalYear(y);
+  }
+
+  function isoDate(d: Date): string {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
   function scrollToForm() {
     formRef.current?.scrollIntoView({ behavior: "smooth" });
-  }
-
-  // Wrapper for the Subscribe button click
-  function onSubscribeClick() {
-    handleSubscribe();
   }
 
   if (success) {
@@ -236,9 +432,15 @@ function SubscriptionsContent() {
               You&apos;re <span className="text-cyan">Subscribed!</span>
             </h1>
             <p className="text-mid leading-relaxed mb-8">
-              Your {plan} {PACKAGE_LABELS[pkg!]} subscription has been created.
-              We&apos;ll see you every {recurringDay} at {timeSlot}, starting{" "}
-              {startDate ? new Date(startDate + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "soon"}.
+              Your {plan} {pkg && PACKAGE_LABELS[pkg]} subscription has been
+              created. Your first visit is on{" "}
+              {startDate
+                ? new Date(startDate + "T12:00:00").toLocaleDateString(
+                    "en-US",
+                    { month: "long", day: "numeric", year: "numeric" }
+                  )
+                : "soon"}{" "}
+              at {timeSlot}.
             </p>
             <Button
               onClick={() => router.push("/account")}
@@ -299,79 +501,27 @@ function SubscriptionsContent() {
                     {p.desc}
                   </p>
                   <p className="text-xs text-mid/60 italic">
-                    Payments collected in person at each visit
+                    Pay monthly or save 10% by paying every 3 months
                   </p>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* ── How It Works ── */}
-      <section className="bg-dark py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold tracking-[3px] uppercase text-cyan mb-4">
-            Simple Process
-          </p>
-          <h2 className="font-[family-name:var(--font-heading)] text-4xl md:text-5xl tracking-wider text-white mb-12">
-            How It <span className="text-cyan">Works</span>
-          </h2>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                step: "01",
-                icon: CalendarClock,
-                title: "Choose Frequency",
-                desc: "Pick weekly, bi-weekly, or monthly service",
-              },
-              {
-                step: "02",
-                icon: Package,
-                title: "Customize",
-                desc: "Select your package, vehicle size, day & time",
-              },
-              {
-                step: "03",
-                icon: Sparkles,
-                title: "Create Account",
-                desc: "Sign up so we can manage your subscription",
-              },
-              {
-                step: "04",
-                icon: Car,
-                title: "Enjoy the Shine",
-                desc: "We show up on schedule — you just relax",
-              },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="w-14 h-14 rounded-xl bg-blue/20 flex items-center justify-center mx-auto mb-4">
-                  <item.icon className="w-6 h-6 text-cyan" />
-                </div>
-                <p className="font-[family-name:var(--font-heading)] text-cyan text-sm tracking-wider mb-1">
-                  Step {item.step}
-                </p>
-                <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-wider text-white mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-mid text-sm leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
+          <div className="text-center mt-10">
+            <Button
+              onClick={scrollToForm}
+              className="bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-lg font-bold tracking-wider uppercase px-10 py-5 rounded-lg shadow-[0_0_40px_rgba(26,74,255,0.4)] hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] transition-all"
+            >
+              Build Your Plan
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
           </div>
-
-          <Button
-            onClick={scrollToForm}
-            className="mt-12 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-lg font-bold tracking-wider uppercase px-10 py-5 rounded-lg shadow-[0_0_40px_rgba(26,74,255,0.4)] hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] transition-all"
-          >
-            Get Started
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
         </div>
       </section>
 
       {/* ── Signup Form ── */}
-      <section ref={formRef} className="bg-navy py-20 px-6">
+      <section ref={formRef} className="bg-dark py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <p className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold tracking-[3px] uppercase text-cyan mb-4">
@@ -382,9 +532,53 @@ function SubscriptionsContent() {
             </h2>
           </div>
 
+          {/* Info banners — not a step, just context */}
+          <div className="space-y-3 mb-12">
+            <div className="bg-dark/50 border border-cyan/20 rounded-lg p-4 flex items-start gap-3">
+              <Info className="w-5 h-5 text-cyan mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">
+                  Standard Full Detail, per vehicle
+                </p>
+                <p className="text-mid text-sm">
+                  Every visit is a complete interior &amp; exterior detail.
+                  Subscriptions cover one vehicle &mdash; sign up another plan
+                  if you have multiple cars.
+                </p>
+              </div>
+            </div>
+            <div className="bg-dark/50 border border-yellow/20 rounded-lg p-4 flex items-start gap-3">
+              <Snowflake className="w-5 h-5 text-yellow mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">
+                  Cold Weather Restriction
+                </p>
+                <p className="text-mid text-sm">
+                  Exterior services may be limited or rescheduled in freezing
+                  conditions for safety and quality. We&apos;ll contact you
+                  ahead of time if a visit is affected.
+                </p>
+              </div>
+            </div>
+            <div className="bg-dark/50 border border-white/[0.08] rounded-lg p-4 flex items-start gap-3">
+              <Clock className="w-5 h-5 text-mid mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">
+                  Scheduling Policy
+                </p>
+                <p className="text-mid text-sm">
+                  Your selected slot becomes your recurring appointment time.
+                  We understand schedules change &mdash; members can reschedule
+                  via text or email with at least 48 hours&apos; notice. Missed
+                  details without notice will not receive a credit.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-12">
             {/* Step 1 — Plan */}
-            <FormStep number="01" title="Select Plan" icon={CalendarClock}>
+            <FormStep number="01" title="Pick Your Plan" icon={CalendarClock}>
               <div className="grid sm:grid-cols-3 gap-4">
                 {SUBSCRIPTION_PLANS.map((p) => (
                   <SelectionCard
@@ -409,51 +603,89 @@ function SubscriptionsContent() {
               </div>
             </FormStep>
 
-            {/* Step 2 — Package */}
-            <FormStep number="02" title="Select Package" icon={Package}>
-              <div className="grid sm:grid-cols-3 gap-4">
-                {PACKAGES.map((p) => (
-                  <SelectionCard
-                    key={p.id}
-                    selected={pkg === p.id}
-                    onClick={() => {
-                      setPkg(p.id as PackageId);
-                    }}
-                  >
-                    <h4 className="font-[family-name:var(--font-heading)] text-xl tracking-wider text-white">
-                      {p.name}
-                    </h4>
-                    <p className="text-mid text-sm mt-1 line-clamp-2">
-                      {p.desc}
-                    </p>
-                    {p.shopOnly && (
-                      <p className="text-yellow text-xs mt-2 font-semibold">
-                        In-shop only
-                      </p>
-                    )}
-                  </SelectionCard>
-                ))}
+            {/* Step 2 — Billing Cycle */}
+            <FormStep number="02" title="Billing Cycle" icon={DollarSign}>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {BILLING_CYCLES.map((bc) => {
+                  const selected = billingCycle === bc.id;
+                  return (
+                    <button
+                      key={bc.id}
+                      type="button"
+                      onClick={() => setBillingCycle(bc.id)}
+                      className={`relative text-left w-full p-6 rounded-xl border transition-all ${
+                        selected
+                          ? "border-cyan/60 bg-blue/10 shadow-[0_0_20px_rgba(26,74,255,0.15)]"
+                          : "border-white/[0.08] bg-dark/50 hover:border-cyan/30"
+                      }`}
+                    >
+                      {selected && (
+                        <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-cyan flex items-center justify-center">
+                          <Check className="w-4 h-4 text-dark" />
+                        </div>
+                      )}
+                      {bc.discountPct > 0 && (
+                        <div className="inline-block mb-3 px-3 py-1 rounded-full bg-yellow text-dark font-[family-name:var(--font-barlow-condensed)] text-xs font-extrabold tracking-wider uppercase shadow-[0_0_20px_rgba(255,224,102,0.5)]">
+                          Save {bc.discountPct}%
+                        </div>
+                      )}
+                      <h4 className="font-[family-name:var(--font-heading)] text-xl tracking-wider text-white">
+                        {bc.name}
+                      </h4>
+                      <p className="text-mid text-sm mt-1">{bc.desc}</p>
+                      {bc.id === "three_month" &&
+                        basePerVisit !== null && (
+                          <p className="text-cyan text-sm mt-3 font-semibold">
+                            ${applyDiscount(basePerVisit, 10) * visitsPerThreeMonths}{" "}
+                            <span className="text-mid line-through font-normal">
+                              ${basePerVisit * visitsPerThreeMonths}
+                            </span>{" "}
+                            <span className="text-mid font-normal">
+                              / 3 months
+                            </span>
+                          </p>
+                        )}
+                    </button>
+                  );
+                })}
               </div>
             </FormStep>
 
-            {/* Step 3 — Service Type */}
-            <FormStep number="03" title="Select Service Type" icon={Sparkles}>
-              <div className="grid sm:grid-cols-3 gap-4">
-                {(
-                  Object.entries(SERVICE_TYPE_LABELS) as [ServiceType, string][]
-                ).map(([id, label]) => (
-                  <SelectionCard
-                    key={id}
-                    selected={serviceType === id}
-                    onClick={() => setServiceType(id)}
-                  >
-                    <h4 className="font-[family-name:var(--font-heading)] text-xl tracking-wider text-white">
-                      {label}
-                    </h4>
-                  </SelectionCard>
-                ))}
-              </div>
-            </FormStep>
+            {/* Package step — only meaningful for monthly. Weekly/biweekly = locked Standard */}
+            {plan === "monthly" ? (
+              <FormStep number="03" title="Choose Your Package" icon={Package}>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {visiblePackages.map((p) => (
+                    <SelectionCard
+                      key={p.id}
+                      selected={pkg === p.id}
+                      onClick={() => setPkg(p.id as PackageId)}
+                    >
+                      <h4 className="font-[family-name:var(--font-heading)] text-xl tracking-wider text-white">
+                        {p.name}
+                      </h4>
+                      <p className="text-mid text-sm mt-1 line-clamp-2">
+                        {p.desc}
+                      </p>
+                    </SelectionCard>
+                  ))}
+                </div>
+              </FormStep>
+            ) : plan ? (
+              <FormStep number="03" title="Your Package" icon={Package}>
+                <div className="bg-dark/50 border border-cyan/30 rounded-xl p-5 max-w-md">
+                  <Badge className="mb-3 bg-cyan/20 text-cyan border-cyan/30">
+                    Included with {plan === "weekly" ? "Weekly" : "Bi-Weekly"}
+                  </Badge>
+                  <h4 className="font-[family-name:var(--font-heading)] text-xl tracking-wider text-white">
+                    The Standard
+                  </h4>
+                  <p className="text-mid text-sm mt-1">
+                    Full interior &amp; exterior detail every visit.
+                  </p>
+                </div>
+              </FormStep>
+            ) : null}
 
             {/* Step 4 — Vehicle Size */}
             <FormStep number="04" title="Select Vehicle Size" icon={Car}>
@@ -477,151 +709,280 @@ function SubscriptionsContent() {
               </div>
             </FormStep>
 
-            {/* Step 5 — Recurring Day */}
-            <FormStep number="05" title="Select Recurring Day" icon={Calendar}>
-              <div className="flex flex-wrap gap-3">
-                {DAYS_OF_WEEK.map((day) => (
+            {/* Step 5 — Start Date (calendar) */}
+            <FormStep
+              number="05"
+              title="When Should We Start?"
+              icon={Calendar}
+            >
+              <p className="text-mid text-sm mb-4">
+                Pick the date of your first visit. Subscriptions must start at
+                least 3 days from today, and your service will recur on this
+                same date going forward.
+              </p>
+              <div className="bg-dark/50 border border-white/[0.08] rounded-xl p-5 max-w-md">
+                <div className="flex items-center justify-between mb-5">
                   <button
-                    key={day}
                     type="button"
-                    onClick={() => { setRecurringDay(day); setStartDate(null); }}
-                    className={`px-5 py-3 rounded-lg font-[family-name:var(--font-barlow-condensed)] text-sm font-semibold tracking-wider uppercase transition-all ${
-                      recurringDay === day
-                        ? "bg-blue text-white shadow-[0_0_20px_rgba(26,74,255,0.4)]"
-                        : "bg-dark/50 border border-white/[0.08] text-mid hover:border-cyan/40 hover:text-white"
-                    }`}
+                    onClick={() => changeMonth(-1)}
+                    className="bg-transparent border border-white/15 text-silver w-9 h-9 rounded-lg cursor-pointer flex items-center justify-center transition-all hover:border-cyan hover:text-cyan"
                   >
-                    {day}
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
-                ))}
+                  <div className="font-[family-name:var(--font-heading)] text-[1.4rem] tracking-[2px] text-white">
+                    {monthLabel.toUpperCase()}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => changeMonth(1)}
+                    className="bg-transparent border border-white/15 text-silver w-9 h-9 rounded-lg cursor-pointer flex items-center justify-center transition-all hover:border-cyan hover:text-cyan"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+                    (d) => (
+                      <div
+                        key={d}
+                        className="font-[family-name:var(--font-barlow-condensed)] text-[0.68rem] font-bold tracking-[2px] uppercase text-mid text-center py-1.5"
+                      >
+                        {d}
+                      </div>
+                    )
+                  )}
+                  {calendarDays.map((cell, idx) => {
+                    if (cell.empty)
+                      return <div key={`e-${idx}`} className="h-9" />;
+                    const disabled = cell.past || cell.tooSoon;
+                    const dateIso = cell.date ? isoDate(cell.date) : "";
+                    const selected = startDate === dateIso;
+                    return (
+                      <button
+                        key={`d-${cell.day}`}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          if (!disabled && cell.date) {
+                            setStartDate(dateIso);
+                            setTimeSlot(null);
+                          }
+                        }}
+                        className={`h-9 flex items-center justify-center rounded-md text-[0.82rem] font-medium transition-all border ${
+                          disabled
+                            ? "text-white/20 cursor-not-allowed border-white/[0.04]"
+                            : selected
+                            ? "bg-blue border-blue text-white font-bold"
+                            : cell.today
+                            ? "border-cyan/40 text-cyan cursor-pointer hover:bg-cyan/10"
+                            : "border-white/[0.08] cursor-pointer hover:bg-cyan/10 hover:border-cyan/30 text-white"
+                        }`}
+                      >
+                        {cell.day}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </FormStep>
-
-            {/* Step 6 — Time Slot */}
-            <FormStep number="06" title="Select Time Slot" icon={Clock}>
-              <div className="flex flex-wrap gap-3">
-                {TIME_SLOTS.map((slot) => {
-                  const blocked = isTimeBlocked(slot, bookedTimes);
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      disabled={blocked}
-                      onClick={() => { if (!blocked) { setTimeSlot(slot); setStartDate(null); } }}
-                      className={`px-5 py-3 rounded-lg font-[family-name:var(--font-barlow-condensed)] text-sm font-semibold tracking-wider uppercase transition-all ${
-                        blocked
-                          ? "bg-dark/30 border border-white/[0.04] text-mid/30 cursor-not-allowed opacity-40 line-through"
-                          : timeSlot === slot
-                          ? "bg-blue text-white shadow-[0_0_20px_rgba(26,74,255,0.4)]"
-                          : "bg-dark/50 border border-white/[0.08] text-mid hover:border-cyan/40 hover:text-white"
-                      }`}
-                    >
-                      {slot}
-                      {blocked && <span className="block text-[10px] text-red-400/60 mt-0.5 no-underline font-normal normal-case">Booked</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              {recurringDay && TIME_SLOTS.every((s) => isTimeBlocked(s, bookedTimes)) && (
-                <p className="mt-3 text-sm text-red-400">{recurringDay}s are fully booked. Please select a different day.</p>
+              {startDate && (
+                <p className="mt-3 text-sm text-cyan">
+                  First visit:{" "}
+                  {new Date(startDate + "T12:00:00").toLocaleDateString(
+                    "en-US",
+                    {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    }
+                  )}
+                </p>
               )}
             </FormStep>
 
-            {/* Step 7 — Start Date */}
-            {recurringDay && timeSlot && (
-              <FormStep number="07" title="When Should We Start?" icon={CalendarClock}>
+            {/* Step 6 — Time Slot */}
+            {startDate && (
+              <FormStep number="06" title="Select Recurring Time" icon={Clock}>
                 <p className="text-mid text-sm mb-4">
-                  Pick the {recurringDay} you&apos;d like your first {timeSlot} appointment.
+                  Need to change a single visit&apos;s time later? Contact us
+                  at{" "}
+                  <a
+                    href="mailto:teamwowclean@gmail.com"
+                    className="text-cyan hover:underline"
+                  >
+                    teamwowclean@gmail.com
+                  </a>{" "}
+                  or (587) 891-3265 and we&apos;ll adjust that one
+                  appointment.
                 </p>
-                <div className="flex flex-wrap gap-3">
-                  {(() => {
-                    const dayMap: Record<string, number> = {
-                      Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
-                      Thursday: 4, Friday: 5, Saturday: 6,
-                    };
-                    const target = dayMap[recurringDay];
-                    const dates: string[] = [];
-                    const today = new Date();
-                    // Find next occurrence
-                    let daysUntil = target - today.getDay();
-                    if (daysUntil <= 0) daysUntil += 7;
-                    const first = new Date(today);
-                    first.setDate(today.getDate() + daysUntil);
-                    // Generate 4 upcoming dates (use local date formatting to avoid UTC shift)
-                    for (let i = 0; i < 4; i++) {
-                      const d = new Date(first);
-                      d.setDate(first.getDate() + i * 7);
-                      const yyyy = d.getFullYear();
-                      const mm = String(d.getMonth() + 1).padStart(2, "0");
-                      const dd = String(d.getDate()).padStart(2, "0");
-                      dates.push(`${yyyy}-${mm}-${dd}`);
-                    }
-                    return dates.map((dateStr) => {
-                      const d = new Date(dateStr + "T12:00:00");
-                      const label = d.toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      });
-                      return (
-                        <button
-                          key={dateStr}
-                          type="button"
-                          onClick={() => setStartDate(dateStr)}
-                          className={`px-5 py-3 rounded-lg font-[family-name:var(--font-barlow-condensed)] text-sm font-semibold tracking-wider uppercase transition-all ${
-                            startDate === dateStr
-                              ? "bg-blue text-white shadow-[0_0_20px_rgba(26,74,255,0.4)]"
-                              : "bg-dark/50 border border-white/[0.08] text-mid hover:border-cyan/40 hover:text-white"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    });
-                  })()}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                  {TIME_SLOTS.map((slot) => {
+                    const blocked = isTimeBlocked(slot, bookedTimes);
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        disabled={blocked}
+                        onClick={() => {
+                          if (!blocked) setTimeSlot(slot);
+                        }}
+                        className={`px-3 py-3 rounded-lg font-[family-name:var(--font-barlow-condensed)] text-sm font-semibold tracking-wider uppercase transition-all border ${
+                          blocked
+                            ? "bg-dark/30 border-white/[0.04] text-mid/30 cursor-not-allowed opacity-40 line-through"
+                            : timeSlot === slot
+                            ? "bg-blue border-blue text-white shadow-[0_0_20px_rgba(26,74,255,0.4)]"
+                            : "bg-dark/50 border-white/[0.08] text-mid hover:border-cyan/40 hover:text-white"
+                        }`}
+                      >
+                        {slot}
+                        {blocked && (
+                          <span className="block text-[10px] text-red-400/60 mt-0.5 no-underline font-normal normal-case">
+                            Booked
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-                {startDate && (
-                  <p className="mt-3 text-sm text-cyan">
-                    First visit: {new Date(startDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} at {timeSlot}
+                {TIME_SLOTS.every((s) => isTimeBlocked(s, bookedTimes)) && (
+                  <p className="mt-3 text-sm text-red-400">
+                    This day is fully booked. Please pick a different start
+                    date.
                   </p>
                 )}
               </FormStep>
             )}
 
-            {/* Step 8 — Service Location */}
-            <FormStep number="08" title="Service Location" icon={MapPin}>
-              {pkg === "exclusive" ? (
-                <div className="bg-dark/50 border border-white/[0.08] rounded-lg p-4">
-                  <p className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">In-Shop Service</p>
-                  <p className="text-mid text-sm">
-                    Exclusive Detail is performed in-shop only. We&apos;ll contact you with the shop location and details after you subscribe.
-                  </p>
+            {/* Step 7 — Address & Vehicle Details */}
+            <FormStep
+              number="07"
+              title="Address &amp; Vehicle"
+              icon={MapPin}
+            >
+              <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
+                <div className="sm:col-span-2">
+                  <Label htmlFor="address" className="text-white mb-2 block">
+                    Service Address *
+                  </Label>
+                  <Input
+                    id="address"
+                    type="text"
+                    placeholder="123 Main St, Calgary, AB"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
+                  />
                 </div>
-              ) : (
                 <div>
-                  <div className="bg-dark/50 border border-cyan/20 rounded-lg p-4 mb-4">
-                    <p className="text-cyan font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">Mobile Service — We Come to You</p>
-                    <p className="text-mid text-sm">Standard and Supreme packages are mobile services. Enter your address below.</p>
-                  </div>
-                  <div className="max-w-md">
-                    <Label htmlFor="address" className="text-white mb-2 block">
-                      Service Address
-                    </Label>
-                    <Input
-                      id="address"
-                      type="text"
-                      placeholder="123 Main St, Calgary, AB"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
-                    />
-                  </div>
+                  <Label htmlFor="make" className="text-white mb-2 block">
+                    Vehicle Make
+                  </Label>
+                  <Input
+                    id="make"
+                    type="text"
+                    placeholder="e.g. Toyota"
+                    value={vehicleMake}
+                    onChange={(e) => setVehicleMake(e.target.value)}
+                    className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
+                  />
                 </div>
-              )}
+                <div>
+                  <Label htmlFor="model" className="text-white mb-2 block">
+                    Model &amp; Year
+                  </Label>
+                  <Input
+                    id="model"
+                    type="text"
+                    placeholder="e.g. RAV4 2021"
+                    value={vehicleModel}
+                    onChange={(e) => setVehicleModel(e.target.value)}
+                    className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="colour" className="text-white mb-2 block">
+                    Colour
+                  </Label>
+                  <Input
+                    id="colour"
+                    type="text"
+                    placeholder="e.g. Pearl White"
+                    value={vehicleColour}
+                    onChange={(e) => setVehicleColour(e.target.value)}
+                    className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="notes" className="text-white mb-2 block">
+                    Notes (Optional)
+                  </Label>
+                  <textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Pet hair, heavy staining, access instructions, gate codes..."
+                    rows={4}
+                    className="w-full bg-[hsl(var(--background))] border border-[hsl(var(--muted-foreground))]/30 rounded-md px-3 py-2 text-white text-sm placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:border-cyan resize-y min-h-[100px]"
+                  />
+                </div>
+              </div>
             </FormStep>
 
             {/* ── Price Display & Submit ── */}
-            <div className="bg-dark/50 border border-white/[0.08] rounded-2xl p-8">
+            <div className="bg-dark/50 border border-white/[0.08] rounded-2xl p-8 space-y-6">
+              {/* Promo Code */}
+              <div>
+                <p className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold tracking-[3px] uppercase text-mid mb-2">
+                  Promo Code
+                </p>
+                {promoApplied ? (
+                  <div className="flex items-center justify-between gap-3 bg-cyan/[0.08] border border-cyan/30 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Check className="w-4 h-4 text-cyan" />
+                      <div>
+                        <p className="text-cyan font-[family-name:var(--font-barlow-condensed)] tracking-wider uppercase text-sm font-bold">
+                          {promoApplied.code} applied
+                        </p>
+                        <p className="text-mid text-xs">
+                          {promoApplied.discount_pct}% off every visit
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemovePromo}
+                      className="text-mid hover:text-white text-xs font-semibold uppercase tracking-wider transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      value={promoInput}
+                      onChange={(e) => {
+                        setPromoInput(e.target.value);
+                        if (promoError) setPromoError("");
+                      }}
+                      placeholder="Enter code"
+                      className="flex-1 border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))] uppercase tracking-wider"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyPromo}
+                      disabled={promoChecking || !promoInput.trim()}
+                      className="bg-cyan/[0.12] border border-cyan/30 text-cyan hover:bg-cyan/[0.2] hover:text-white font-[family-name:var(--font-barlow-condensed)] text-sm font-bold tracking-wider uppercase px-5 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {promoChecking ? "..." : "Apply"}
+                    </button>
+                  </div>
+                )}
+                {promoError && (
+                  <p className="text-red-400 text-xs mt-2">{promoError}</p>
+                )}
+              </div>
+
               <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-xl bg-blue/20 flex items-center justify-center">
@@ -632,19 +993,40 @@ function SubscriptionsContent() {
                       Per Visit
                     </p>
                     <p className="font-[family-name:var(--font-heading)] text-4xl tracking-wider text-white">
-                      {currentPrice !== null ? (
+                      {perVisit !== null ? (
                         <>
-                          <span className="text-cyan">${currentPrice}</span>
+                          {(billingCycle === "three_month" || promoApplied) && basePerVisit !== null && basePerVisit !== perVisit && (
+                            <span className="text-mid line-through text-2xl mr-2">
+                              ${basePerVisit}
+                            </span>
+                          )}
+                          <span className="text-cyan">${perVisit}</span>
                         </>
                       ) : (
                         <span className="text-mid/40">---</span>
                       )}
                     </p>
+                    {monthlyTotal !== null && (
+                      <p className="text-xs text-mid mt-1">
+                        ${monthlyTotal}/month
+                      </p>
+                    )}
+                    {billingCycle === "three_month" &&
+                      threeMonthTotal !== null && (
+                        <p className="text-xs text-yellow mt-1 font-semibold">
+                          ${threeMonthTotal} every 3 months (10% off)
+                        </p>
+                      )}
+                    {promoApplied && (
+                      <p className="text-xs text-cyan mt-1 font-semibold">
+                        {promoApplied.discount_pct}% off applied per visit
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <Button
-                  onClick={onSubscribeClick}
+                  onClick={handleSubscribe}
                   disabled={loading}
                   className="bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-lg font-bold tracking-wider uppercase px-10 py-5 rounded-lg shadow-[0_0_40px_rgba(26,74,255,0.4)] hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >

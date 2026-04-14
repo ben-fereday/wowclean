@@ -62,10 +62,10 @@ export default function ContactPage() {
                     Phone
                   </h3>
                   <a
-                    href="tel:15874369605"
+                    href="tel:+15878913265"
                     className="font-[family-name:var(--font-heading)] text-2xl text-cyan tracking-wider hover:opacity-80 transition-opacity"
                   >
-                    (587) 436-9605
+                    (587) 891-3265
                   </a>
                 </div>
               </div>
@@ -79,10 +79,10 @@ export default function ContactPage() {
                     Email
                   </h3>
                   <a
-                    href="mailto:info@wowcleancalgary.com"
+                    href="mailto:teamwowclean@gmail.com"
                     className="text-cyan hover:opacity-80 transition-opacity"
                   >
-                    info@wowcleancalgary.com
+                    teamwowclean@gmail.com
                   </a>
                 </div>
               </div>
@@ -114,9 +114,7 @@ export default function ContactPage() {
                     Hours
                   </h3>
                   <p className="text-silver">
-                    Monday – Saturday: 7:00 AM – 8:00 PM
-                    <br />
-                    <span className="text-mid text-sm">Sunday: Closed</span>
+                    7 Days a Week: 8:00 AM – 8:00 PM
                   </p>
                 </div>
               </div>

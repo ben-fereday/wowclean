@@ -10,7 +10,6 @@ const serviceLinks = [
   { label: "Exterior Wash", href: "/#services" },
   { label: "Interior Detail", href: "/#services" },
   { label: "Full Detail", href: "/#services" },
-  { label: "Ceramic Coating", href: "/#services" },
   { label: "Paint Correction", href: "/#services" },
   { label: "Subscriptions", href: "/subscriptions" },
 ];
@@ -18,7 +17,6 @@ const serviceLinks = [
 const companyLinks = [
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Why Us", href: "/#why-us" },
-  { label: "Reviews", href: "/#reviews" },
   { label: "Gallery", href: "/gallery" },
   { label: "Book Now", href: "/book" },
 ];
@@ -97,23 +95,23 @@ export function Footer() {
             <ul className="flex flex-col gap-3">
               <li>
                 <a
-                  href="tel:+15874369605"
+                  href="tel:+15878913265"
                   className="flex items-center gap-2.5 text-sm text-mid hover:text-cyan transition-colors group"
                 >
                   <Phone className="size-4 text-cyan/60 group-hover:text-cyan transition-colors" />
                   <span className="font-[family-name:var(--font-barlow-condensed)]">
-                    (587) 436-9605
+                    (587) 891-3265
                   </span>
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:info@wowcleancalgary.com"
+                  href="mailto:teamwowclean@gmail.com"
                   className="flex items-center gap-2.5 text-sm text-mid hover:text-cyan transition-colors group"
                 >
                   <Mail className="size-4 text-cyan/60 group-hover:text-cyan transition-colors" />
                   <span className="font-[family-name:var(--font-barlow-condensed)]">
-                    info@wowcleancalgary.com
+                    teamwowclean@gmail.com
                   </span>
                 </a>
               </li>
@@ -135,9 +133,25 @@ export function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-navy2">
         <div className="mx-auto max-w-7xl px-4 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-mid/60 font-[family-name:var(--font-barlow-condensed)]">
-            &copy; {new Date().getFullYear()} WowClean. All rights reserved.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-5">
+            <p className="text-xs text-mid/60 font-[family-name:var(--font-barlow-condensed)]">
+              &copy; {new Date().getFullYear()} WowClean. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/terms"
+                className="text-xs text-mid/60 hover:text-cyan transition-colors font-[family-name:var(--font-barlow-condensed)]"
+              >
+                Terms of Service
+              </Link>
+              <Link
+                href="/privacy"
+                className="text-xs text-mid/60 hover:text-cyan transition-colors font-[family-name:var(--font-barlow-condensed)]"
+              >
+                Privacy Policy
+              </Link>
+            </div>
+          </div>
           <div className="flex items-center gap-4">
             {socialLinks.map((social) => (
               <a

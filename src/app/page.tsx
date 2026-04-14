@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fetchAllPricing, type BookingPricingGrid, type AddonItem } from "@/lib/pricing-db";
 import {
   CalendarCheck,
   Truck,
@@ -18,8 +19,6 @@ import {
   ArrowRight,
   Check,
 } from "lucide-react";
-import ReviewsCarousel from "@/components/reviews-carousel";
-
 /* ───────────────────────── HERO ───────────────────────── */
 function Hero() {
   return (
@@ -83,7 +82,7 @@ function Hero() {
             <span className="text-cyan">WOW</span> CLEAN
           </div>
           <p className="text-[0.85rem] text-mid mb-9">
-            Available 7 Days a Week &nbsp;&middot;&nbsp; 7am – 8pm
+            Available 7 Days a Week &nbsp;&middot;&nbsp; 8am – 8pm
           </p>
           <Link
             href="/book"
@@ -93,27 +92,6 @@ function Hero() {
             Get a Free Quote
           </Link>
 
-          {/* Stats */}
-          <div className="flex gap-0 mt-7 border border-white/[0.08] rounded-xl overflow-hidden">
-            {[
-              { num: "5K+", label: "Cars Detailed" },
-              { num: "4.9", label: "Avg Rating", hasStar: true },
-              { num: "24hr", label: "Booking" },
-            ].map((stat, i) => (
-              <div
-                key={i}
-                className={`flex-1 py-[18px] px-5 text-center ${i < 2 ? "border-r border-white/[0.08]" : ""}`}
-              >
-                <div className="font-[family-name:var(--font-heading)] text-[2rem] text-cyan tracking-wide leading-none flex items-center justify-center gap-1">
-                  {stat.num}
-                  {stat.hasStar && <Star className="size-5 fill-yellow text-yellow" />}
-                </div>
-                <div className="text-[0.68rem] text-mid tracking-[1.5px] uppercase mt-1">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -133,7 +111,7 @@ function HowItWorks() {
       num: "02",
       icon: <Truck className="size-7 text-white" />,
       title: "We Come to You",
-      desc: "Our fully-equipped mobile unit arrives at your home, office, or any spot you choose — on your schedule.",
+      desc: "Our fully-equipped mobile unit arrives at your home on your schedule.",
     },
     {
       num: "03",
@@ -191,14 +169,14 @@ function PriceTable({
   rows: { service: string; small: string; medium: string; large: string }[];
 }) {
   return (
-    <div className="bg-white/[0.04] border border-white/[0.08] rounded-[14px] overflow-hidden">
-      <table className="w-full border-collapse">
+    <div className="bg-white/[0.04] border border-white/[0.08] rounded-[14px] overflow-x-auto">
+      <table className="w-full border-collapse min-w-[340px]">
         <thead>
           <tr>
             {["Service", "Small", "Medium", "Large"].map((h, i) => (
               <th
                 key={h}
-                className={`bg-white/[0.06] font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[2px] uppercase text-mid py-3 px-[18px] ${i === 0 ? "text-left" : "text-center"}`}
+                className={`bg-white/[0.06] font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[2px] uppercase text-mid py-3 px-3 sm:px-[18px] ${i === 0 ? "text-left" : "text-center"}`}
               >
                 {h}
               </th>
@@ -211,14 +189,14 @@ function PriceTable({
             return (
               <tr key={i}>
                 <td
-                  className={`py-3 px-[18px] border-t border-white/[0.06] text-[0.9rem] ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-silver"}`}
+                  className={`py-3 px-3 sm:px-[18px] border-t border-white/[0.06] text-[0.9rem] ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-silver"}`}
                 >
                   {row.service}
                 </td>
                 {[row.small, row.medium, row.large].map((val, j) => (
                   <td
                     key={j}
-                    className={`py-3 px-[18px] border-t border-white/[0.06] text-center font-[family-name:var(--font-heading)] text-[1.15rem] tracking-wide ${isLast ? "bg-blue/[0.08] text-cyan" : "text-cyan"}`}
+                    className={`py-3 px-3 sm:px-[18px] border-t border-white/[0.06] text-center font-[family-name:var(--font-heading)] text-[1.15rem] tracking-wide ${isLast ? "bg-blue/[0.08] text-cyan" : "text-cyan"}`}
                   >
                     {val}
                   </td>
@@ -233,7 +211,17 @@ function PriceTable({
 }
 
 /* ───────────────────── SERVICES ───────────────────── */
-function Services() {
+function fmt(n: number) {
+  return `$${n}`;
+}
+
+function Services({
+  bp,
+  addons,
+}: {
+  bp: BookingPricingGrid;
+  addons: AddonItem[];
+}) {
   return (
     <section id="services" className="bg-navy py-[100px] px-6 md:px-[60px]">
       <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-cyan mb-4 text-center">
@@ -337,9 +325,9 @@ function Services() {
           <div className="flex flex-col gap-4">
             <PriceTable
               rows={[
-                { service: "Interior Only", small: "$150", medium: "$175", large: "$200" },
-                { service: "Exterior Only", small: "$80", medium: "$100", large: "$125" },
-                { service: "Full Detail", small: "$260", medium: "$295", large: "$335" },
+                { service: "Interior Only", small: fmt(bp?.standard?.small?.interior ?? 0), medium: fmt(bp?.standard?.medium?.interior ?? 0), large: fmt(bp?.standard?.large?.interior ?? 0) },
+                { service: "Exterior Only", small: fmt(bp?.standard?.small?.exterior ?? 0), medium: fmt(bp?.standard?.medium?.exterior ?? 0), large: fmt(bp?.standard?.large?.exterior ?? 0) },
+                { service: "Full Detail", small: fmt(bp?.standard?.small?.full ?? 0), medium: fmt(bp?.standard?.medium?.full ?? 0), large: fmt(bp?.standard?.large?.full ?? 0) },
               ]}
             />
             <Link
@@ -355,12 +343,12 @@ function Services() {
 
       <hr className="border-t border-white/[0.07] max-w-[1200px] mx-auto mb-[72px]" />
 
-      {/* ── SUPREME DETAIL ── */}
+      {/* ── PREMIUM DETAIL ── */}
       <div className="max-w-[1200px] mx-auto mb-[72px]">
         <div className="flex items-start justify-between gap-8 mb-8 flex-wrap">
           <div>
             <div className="font-[family-name:var(--font-heading)] text-[clamp(2rem,4vw,3rem)] tracking-wide text-white mb-1.5">
-              <span className="text-cyan">Supreme</span> Detail
+              <span className="text-cyan">Premium</span> Detail
             </div>
             <p className="text-[0.95rem] text-mid leading-[1.7] max-w-[560px]">
               A more in-depth service for vehicles that need extra attention
@@ -424,16 +412,16 @@ function Services() {
           <div className="flex flex-col gap-4">
             <PriceTable
               rows={[
-                { service: "Interior Only", small: "$225", medium: "$260", large: "$295" },
-                { service: "Exterior Only", small: "$125", medium: "$150", large: "$185" },
-                { service: "Full Detail", small: "$380", medium: "$435", large: "$495" },
+                { service: "Interior Only", small: fmt(bp?.premium?.small?.interior ?? 0), medium: fmt(bp?.premium?.medium?.interior ?? 0), large: fmt(bp?.premium?.large?.interior ?? 0) },
+                { service: "Exterior Only", small: fmt(bp?.premium?.small?.exterior ?? 0), medium: fmt(bp?.premium?.medium?.exterior ?? 0), large: fmt(bp?.premium?.large?.exterior ?? 0) },
+                { service: "Full Detail", small: fmt(bp?.premium?.small?.full ?? 0), medium: fmt(bp?.premium?.medium?.full ?? 0), large: fmt(bp?.premium?.large?.full ?? 0) },
               ]}
             />
             <Link
               href="/book"
               className="flex items-center justify-center gap-2 bg-cyan/[0.08] border border-cyan/20 text-cyan font-[family-name:var(--font-barlow-condensed)] text-[0.95rem] font-bold tracking-[1.5px] uppercase text-center py-3.5 rounded-lg hover:bg-cyan/[0.18] hover:text-white transition-all"
             >
-              Book Supreme Detail
+              Book Premium Detail
               <ArrowRight className="size-4" />
             </Link>
           </div>
@@ -477,7 +465,7 @@ function Services() {
               What&apos;s Included
             </div>
             <p className="text-[0.82rem] text-mid mb-3 italic">
-              Everything in Supreme, plus:
+              Everything in Premium, plus:
             </p>
             <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
               Interior
@@ -519,9 +507,9 @@ function Services() {
           <div className="flex flex-col gap-4">
             <PriceTable
               rows={[
-                { service: "Interior Only", small: "$450", medium: "$500", large: "$550" },
-                { service: "Exterior Only", small: "$450", medium: "$500", large: "$575" },
-                { service: "Full Detail", small: "$665", medium: "$745", large: "$845" },
+                { service: "Interior Only", small: fmt(bp?.exclusive?.small?.interior ?? 0), medium: fmt(bp?.exclusive?.medium?.interior ?? 0), large: fmt(bp?.exclusive?.large?.interior ?? 0) },
+                { service: "Exterior Only", small: fmt(bp?.exclusive?.small?.exterior ?? 0), medium: fmt(bp?.exclusive?.medium?.exterior ?? 0), large: fmt(bp?.exclusive?.large?.exterior ?? 0) },
+                { service: "Full Detail", small: fmt(bp?.exclusive?.small?.full ?? 0), medium: fmt(bp?.exclusive?.medium?.full ?? 0), large: fmt(bp?.exclusive?.large?.full ?? 0) },
               ]}
             />
             <Link
@@ -561,20 +549,10 @@ function Services() {
               </tr>
             </thead>
             <tbody>
-              {[
-                { name: "Pet Hair Removal", price: "from $40" },
-                { name: "Heavy Salt / Sand Cleanup", price: "from $40" },
-                { name: "Seat Shampoo", price: "from $60" },
-                { name: "Carpet Shampoo", price: "from $80" },
-                { name: "Leather Conditioning", price: "from $50" },
-                { name: "Engine Bay Detail", price: "from $60" },
-                { name: "Headlight Restoration", price: "from $80" },
-                { name: "Clay Bar Treatment", price: "from $100" },
-                { name: "Iron / Fallout Decontamination", price: "from $75" },
-                { name: "Spray Sealant Upgrade", price: "from $50" },
-                { name: "Stage 1 Polish", price: "from $200" },
-                { name: "Ceramic Coating", price: null },
-              ].map((addon) => (
+              {addons.filter(a => a.active).map((addon) => ({
+                name: addon.name,
+                price: `from $${addon.price}`,
+              })).map((addon) => (
                 <tr key={addon.name} className="hover:bg-white/[0.02]">
                   <td className="py-[11px] px-5 border-t border-white/[0.05] text-[0.9rem] text-silver">
                     {addon.name}
@@ -598,7 +576,7 @@ function Services() {
       </div>
 
       {/* Important Notes */}
-      <div className="max-w-[1200px] mx-auto mt-12 bg-white/[0.03] border border-white/[0.07] rounded-xl p-7 px-8">
+      <div className="max-w-[1200px] mx-auto mt-12 bg-white/[0.03] border border-white/[0.07] rounded-xl p-5 sm:p-7 sm:px-8">
         <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[3px] uppercase text-mid mb-3.5">
           Important Notes
         </div>
@@ -777,21 +755,6 @@ function WhyUs() {
   );
 }
 
-/* ───────────────────────── REVIEWS ───────────────────────── */
-function Reviews() {
-  return (
-    <section id="reviews" className="bg-dark py-[100px] px-6 md:px-[60px] overflow-hidden">
-      <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-cyan mb-4 text-center">
-        Customer Love
-      </p>
-      <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-white text-center">
-        Real People. Real <span className="text-cyan">WOW.</span>
-      </h2>
-      <ReviewsCarousel />
-    </section>
-  );
-}
-
 /* ─────────────────────── CTA STRIP ─────────────────────── */
 function CtaStrip() {
   return (
@@ -819,14 +782,14 @@ function CtaStrip() {
 }
 
 /* ───────────────────────── PAGE ───────────────────────── */
-export default function Home() {
+export default async function Home() {
+  const pricing = await fetchAllPricing();
   return (
     <>
       <Hero />
       <HowItWorks />
-      <Services />
+      <Services bp={pricing.booking} addons={pricing.addons} />
       <WhyUs />
-      <Reviews />
       <CtaStrip />
     </>
   );

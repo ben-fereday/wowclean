@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   Check,
@@ -21,18 +23,17 @@ import {
   Sparkles,
   Gem,
   Repeat,
+  Gift,
 } from "lucide-react";
 import {
-  PRICING,
   PACKAGES,
-  ADDONS,
   EXCLUSIVE_INCLUDED,
   VEHICLE_LABELS,
   VEHICLE_EXAMPLES,
   SERVICE_TYPE_LABELS,
   PACKAGE_LABELS,
   TIME_SLOTS,
-  getPrice,
+  applyDiscount,
   type VehicleSize,
   type ServiceType,
   type PackageId,
@@ -42,6 +43,12 @@ import { createBooking, type BookingPayload } from "./actions";
 import { getBookedTimesForDate } from "@/lib/availability";
 import { isTimeBlocked } from "@/lib/time-utils";
 import { createClient } from "@/lib/supabase/client";
+import {
+  fetchAllPricing,
+  type BookingPricingGrid,
+  type AddonItem,
+} from "@/lib/pricing-db";
+import { PRICING, ADDONS } from "@/lib/constants";
 
 // ─── Types ───
 type AddonSelection = { id: string; name: string; price: number };
@@ -81,6 +88,30 @@ function SubscriptionCta() {
 
 // ─── Component ───
 export default function BookPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-dark" />}>
+      <BookPageContent />
+    </Suspense>
+  );
+}
+
+function BookPageContent() {
+  const searchParams = useSearchParams();
+  // DB pricing
+  const [dbPricing, setDbPricing] = useState<BookingPricingGrid>(
+    PRICING as unknown as BookingPricingGrid
+  );
+  const [dbAddons, setDbAddons] = useState<AddonItem[]>(
+    ADDONS.map((a, i) => ({ id: a.id, name: a.name, price: a.price, sort_order: i, active: true }))
+  );
+
+  useEffect(() => {
+    fetchAllPricing().then((data) => {
+      setDbPricing(data.booking);
+      setDbAddons(data.addons.filter((a) => a.active));
+    });
+  }, []);
+
   // Wizard state
   const [step, setStep] = useState(1);
   const [vehicleSize, setVehicleSize] = useState<VehicleSize | null>(null);
@@ -102,6 +133,31 @@ export default function BookPage() {
   const [submitting, setSubmitting] = useState(false);
   const [refCode, setRefCode] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+
+  // Promo code state
+  const [promoInput, setPromoInput] = useState("");
+  const [promoApplied, setPromoApplied] = useState<{
+    code: string;
+    discount_pct: number;
+  } | null>(null);
+  const [promoError, setPromoError] = useState("");
+  const [promoChecking, setPromoChecking] = useState(false);
+
+  // Referral code state
+  const [referralInput, setReferralInput] = useState("");
+  const [referralApplied, setReferralApplied] = useState(false);
+  const [referralError, setReferralError] = useState("");
+  const [referralChecking, setReferralChecking] = useState(false);
+
+  // Referral credit redemption (free Premium Detail)
+  const isRedemption = searchParams.get("redeem") === "referral";
+
+  useEffect(() => {
+    if (isRedemption) {
+      setPackageId("premium");
+      setServiceType("full");
+    }
+  }, [isRedemption]);
 
   // Booked times for selected date
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
@@ -143,8 +199,8 @@ export default function BookPage() {
   // ─── Derived values ───
   const basePrice = useMemo(() => {
     if (!vehicleSize || !packageId) return 0;
-    return getPrice(packageId, vehicleSize, serviceType);
-  }, [vehicleSize, serviceType, packageId]);
+    return dbPricing?.[packageId]?.[vehicleSize]?.[serviceType] ?? 0;
+  }, [vehicleSize, serviceType, packageId, dbPricing]);
 
   const addonsTotal = useMemo(
     () =>
@@ -157,7 +213,18 @@ export default function BookPage() {
     [addons, packageId]
   );
 
-  const estimatedTotal = basePrice + addonsTotal;
+  const subtotal = basePrice + addonsTotal;
+  // Redemption = 100% off the base price (addons still charged)
+  const redemptionDiscount = isRedemption ? basePrice : 0;
+  const afterRedemption = subtotal - redemptionDiscount;
+  const promoDiscountAmount = promoApplied
+    ? afterRedemption - applyDiscount(afterRedemption, promoApplied.discount_pct)
+    : 0;
+  const afterPromo = afterRedemption - promoDiscountAmount;
+  const referralDiscountAmount = referralApplied
+    ? afterPromo - applyDiscount(afterPromo, 10)
+    : 0;
+  const estimatedTotal = afterPromo - referralDiscountAmount;
 
   const packageData = useMemo(
     () => PACKAGES.find((p) => p.id === packageId),
@@ -178,7 +245,7 @@ export default function BookPage() {
   );
 
   const toggleAddon = useCallback(
-    (addon: (typeof ADDONS)[number]) => {
+    (addon: { id: string; name: string; price: number }) => {
       if (packageId === "exclusive" && EXCLUSIVE_INCLUDED.includes(addon.id))
         return;
       setAddons((prev) => {
@@ -223,6 +290,66 @@ export default function BookPage() {
     return Object.keys(errors).length === 0;
   }, [firstName, lastName, phone, email, address, location]);
 
+  const handleApplyPromo = useCallback(async () => {
+    setPromoError("");
+    const code = promoInput.trim();
+    if (!code) {
+      setPromoError("Enter a code first.");
+      return;
+    }
+    setPromoChecking(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { validatePromoCode } = await import("@/lib/promo-codes");
+      const result = await validatePromoCode(code, "booking", user?.id ?? null);
+      if (!result.valid || !result.code_text || result.discount_pct == null) {
+        setPromoError(result.error || "Invalid code.");
+        setPromoApplied(null);
+      } else {
+        setPromoApplied({
+          code: result.code_text,
+          discount_pct: result.discount_pct,
+        });
+      }
+    } finally {
+      setPromoChecking(false);
+    }
+  }, [promoInput]);
+
+  const handleApplyReferral = useCallback(async () => {
+    setReferralError("");
+    const code = referralInput.trim();
+    if (!code) { setReferralError("Enter a referral code."); return; }
+    setReferralChecking(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { validateReferralCode } = await import("@/lib/referrals");
+      const result = await validateReferralCode(code, user?.id ?? null);
+      if (!result.valid) {
+        setReferralError(result.error || "Invalid referral code.");
+        setReferralApplied(false);
+      } else {
+        setReferralApplied(true);
+      }
+    } finally {
+      setReferralChecking(false);
+    }
+  }, [referralInput]);
+
+  const handleRemoveReferral = useCallback(() => {
+    setReferralApplied(false);
+    setReferralInput("");
+    setReferralError("");
+  }, []);
+
+  const handleRemovePromo = useCallback(() => {
+    setPromoApplied(null);
+    setPromoInput("");
+    setPromoError("");
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     if (!validateStep5()) return;
     if (!vehicleSize || !packageId || !selectedDate || !selectedTime) return;
@@ -253,6 +380,9 @@ export default function BookPage() {
       basePrice,
       addonsTotal,
       estimatedTotal,
+      promoCode: promoApplied?.code ?? null,
+      referralCode: referralApplied ? referralInput.trim().toUpperCase() : null,
+      redeemCredits: isRedemption || undefined,
     };
 
     try {
@@ -262,10 +392,10 @@ export default function BookPage() {
         setStep(6);
         window.scrollTo(0, 0);
       } else {
-        alert(result.error || "Something went wrong. Please try again.");
+        toast.error(result.error || "Something went wrong. Please try again.");
       }
     } catch {
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -290,6 +420,9 @@ export default function BookPage() {
     basePrice,
     addonsTotal,
     estimatedTotal,
+    promoApplied,
+    referralApplied,
+    referralInput,
   ]);
 
   // ─── Calendar helpers ───
@@ -446,6 +579,21 @@ export default function BookPage() {
             </div>
           )}
 
+          {/* Redemption banner */}
+          {isRedemption && step < 6 && (
+            <div className="mb-6 rounded-lg border border-green-500/30 bg-green-500/[0.08] p-4 flex items-center gap-3">
+              <Gift className="w-5 h-5 text-green-400 flex-shrink-0" />
+              <div>
+                <p className="text-green-400 font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-bold">
+                  Redeeming Free Premium Detail
+                </p>
+                <p className="text-mid text-xs mt-0.5">
+                  Your 3 referral credits will be deducted when you confirm. Package is locked to Premium Full Detail.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* ═══ STEP 1: Vehicle ═══ */}
           {step === 1 && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-350">
@@ -460,7 +608,7 @@ export default function BookPage() {
                 your detail.
               </p>
 
-              <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                 {(["small", "medium", "large"] as VehicleSize[]).map((size) => (
                   <button
                     key={size}
@@ -519,7 +667,7 @@ export default function BookPage() {
               </p>
 
               {/* Service type selector */}
-              <div className="grid grid-cols-3 gap-3.5 mb-10">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-10">
                 {(["interior", "exterior", "full"] as ServiceType[]).map(
                   (st) => (
                     <button
@@ -547,7 +695,7 @@ export default function BookPage() {
                 {PACKAGES.map((pkg) => {
                   const price =
                     vehicleSize
-                      ? getPrice(pkg.id, vehicleSize, serviceType)
+                      ? (dbPricing?.[pkg.id]?.[vehicleSize]?.[serviceType] ?? 0)
                       : 0;
                   const selected = packageId === pkg.id;
                   // Get the right features based on service type
@@ -656,7 +804,7 @@ export default function BookPage() {
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
-                {ADDONS.map((addon) => {
+                {dbAddons.map((addon) => {
                   const isExclusiveIncluded =
                     packageId === "exclusive" &&
                     EXCLUSIVE_INCLUDED.includes(addon.id);
@@ -813,7 +961,7 @@ export default function BookPage() {
                   <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[3px] uppercase text-cyan mb-3.5">
                     Available Times
                   </p>
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
                     {TIME_SLOTS.map((slot) => {
                       const blocked = isTimeBlocked(slot, bookedTimes);
                       return (
@@ -887,7 +1035,7 @@ export default function BookPage() {
                 ) : (
                   <>
                     <p className="text-cyan font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">Mobile Service — We Come to You</p>
-                    <p className="text-mid text-sm">Standard and Supreme packages are mobile services.</p>
+                    <p className="text-mid text-sm">Standard and Premium packages are mobile services.</p>
                   </>
                 )}
               </div>
@@ -1043,6 +1191,153 @@ export default function BookPage() {
                 </div>
               </div>
 
+              {/* Promo code (hidden during credit redemption) */}
+              {!isRedemption && <div className="mb-6 rounded-lg border border-white/[0.08] bg-white/[0.02] p-4">
+                <label className="font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase text-mid mb-2 block">
+                  Promo Code
+                </label>
+                {promoApplied ? (
+                  <div className="flex items-center justify-between gap-3 bg-cyan/[0.08] border border-cyan/30 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Check className="size-4 text-cyan" />
+                      <div>
+                        <p className="text-cyan font-[family-name:var(--font-barlow-condensed)] tracking-wider uppercase text-sm font-bold">
+                          {promoApplied.code} applied
+                        </p>
+                        <p className="text-mid text-xs">
+                          {promoApplied.discount_pct}% off your order
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemovePromo}
+                      className="text-mid hover:text-white text-xs font-semibold uppercase tracking-wider transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoInput}
+                      onChange={(e) => {
+                        setPromoInput(e.target.value);
+                        if (promoError) setPromoError("");
+                      }}
+                      placeholder="Enter code"
+                      className="flex-1 bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan uppercase tracking-wider"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyPromo}
+                      disabled={promoChecking || !promoInput.trim()}
+                      className="bg-cyan/[0.12] border border-cyan/30 text-cyan hover:bg-cyan/[0.2] hover:text-white font-[family-name:var(--font-barlow-condensed)] text-sm font-bold tracking-wider uppercase px-5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {promoChecking ? "..." : "Apply"}
+                    </button>
+                  </div>
+                )}
+                {promoError && (
+                  <p className="text-red-400 text-xs mt-2">{promoError}</p>
+                )}
+              </div>}
+
+              {/* Referral code (hidden during credit redemption) */}
+              {!isRedemption && <div className="mb-6 rounded-lg border border-white/[0.08] bg-white/[0.02] p-4">
+                <label className="font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase text-mid mb-2 block">
+                  Referral Code
+                </label>
+                <p className="text-mid text-xs mb-3">
+                  Have a friend&apos;s referral code? Enter it here for 10% off.
+                </p>
+                {referralApplied ? (
+                  <div className="flex items-center justify-between gap-3 bg-green-500/[0.08] border border-green-500/30 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Check className="size-4 text-green-400" />
+                      <div>
+                        <p className="text-green-400 font-[family-name:var(--font-barlow-condensed)] tracking-wider uppercase text-sm font-bold">
+                          Referral applied &mdash; 10% off
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveReferral}
+                      className="text-mid hover:text-white text-xs font-semibold uppercase tracking-wider transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={referralInput}
+                      onChange={(e) => {
+                        setReferralInput(e.target.value);
+                        if (referralError) setReferralError("");
+                      }}
+                      placeholder="e.g. ABCD1234"
+                      className="flex-1 bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan uppercase tracking-wider"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyReferral}
+                      disabled={referralChecking || !referralInput.trim()}
+                      className="bg-green-500/[0.12] border border-green-500/30 text-green-400 hover:bg-green-500/[0.2] hover:text-white font-[family-name:var(--font-barlow-condensed)] text-sm font-bold tracking-wider uppercase px-5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {referralChecking ? "..." : "Apply"}
+                    </button>
+                  </div>
+                )}
+                {referralError && (
+                  <p className="text-red-400 text-xs mt-2">{referralError}</p>
+                )}
+              </div>}
+
+              {/* Order summary */}
+              <div className="mb-6 rounded-lg border border-white/[0.08] bg-white/[0.02] p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-mid">Subtotal</span>
+                  <span className="text-silver font-semibold">${subtotal}</span>
+                </div>
+                {isRedemption && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-400">Referral Reward — Free Premium Detail</span>
+                    <span className="text-green-400 font-semibold">&minus;${redemptionDiscount}</span>
+                  </div>
+                )}
+                {promoApplied && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-cyan">
+                      Discount ({promoApplied.code} &mdash;{" "}
+                      {promoApplied.discount_pct}%)
+                    </span>
+                    <span className="text-cyan font-semibold">
+                      &minus;${promoDiscountAmount}
+                    </span>
+                  </div>
+                )}
+                {referralApplied && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-400">Referral (10%)</span>
+                    <span className="text-green-400 font-semibold">
+                      &minus;${referralDiscountAmount}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                  <span className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-bold">
+                    Estimated Total
+                  </span>
+                  <span className="text-cyan font-[family-name:var(--font-heading)] text-2xl tracking-wider">
+                    ${estimatedTotal}
+                  </span>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between mt-8 gap-4">
                 <button
                   onClick={() => goToStep(4)}
@@ -1152,7 +1447,7 @@ export default function BookPage() {
               {/* Action buttons */}
               <div className="flex gap-3.5 justify-center flex-wrap">
                 <a
-                  href="tel:15874369605"
+                  href="tel:+15878913265"
                   className="inline-flex items-center gap-2 border border-white/20 text-silver font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-semibold tracking-[1px] uppercase px-7 py-3 rounded-lg transition-all hover:border-cyan hover:text-cyan no-underline"
                 >
                   <Phone className="w-4 h-4" /> Call Us
