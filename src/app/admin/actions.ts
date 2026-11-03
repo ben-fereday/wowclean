@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import type { BookingStatus } from "@/lib/constants";
+import { syncBookingCalendar } from "@/lib/google-calendar";
 import { validateTimeRange } from "@/lib/admin-booking";
 
 async function verifyAdminOrOwner(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -43,6 +44,10 @@ export async function updateBookingStatus(
     .eq("id", bookingId);
 
   if (error) throw new Error(error.message);
+
+  const { data: calendarBooking } = await supabase.from("bookings").select("*").eq("id", bookingId).single();
+  const calendarResult = calendarBooking ? await syncBookingCalendar(calendarBooking) : { success: false };
+  if (!calendarResult.success) console.error("Calendar update pending; retry from booking details.");
 
   // Send cancellation email if status is cancelled
   if (status === "cancelled" && process.env.RESEND_API_KEY) {

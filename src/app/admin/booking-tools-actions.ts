@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
+import { syncBookingCalendar } from "@/lib/google-calendar";
 import { getBookingDurationMinutes, formatBookingTime, getBookableTimeSlots, isScheduledBookingTime, parseBookingTime } from "@/lib/booking-schedule";
 import { parseFinalAmount, type PaymentStatus, type PaymentMethod, type BookingAdminDetails } from "@/lib/admin-booking";
 import { PACKAGE_LABELS, SERVICE_TYPE_LABELS, type PackageId, type ServiceType } from "@/lib/constants";
@@ -80,7 +81,9 @@ export async function rescheduleBooking(bookingId: string, date: string, time: s
   if (!changed) return { error: "This booking changed. Refresh and try again." };
   revalidatePath("/admin");
   revalidatePath("/account");
-  const warning = "Booking rescheduled, but the customer email could not be sent. Please contact them directly.";
+  const calendarResult = await syncBookingCalendar({ ...booking, booking_date: date, booking_time: normalized });
+  const calendarWarning = calendarResult.success ? undefined : calendarResult.error;
+  const warning = (calendarWarning ? calendarWarning + " " : "") + "Booking rescheduled, but the customer email could not be sent. Please contact them directly.";
   let email: string | null = booking.guest_email;
   if (!email && booking.user_id) {
     try {
@@ -101,8 +104,15 @@ export async function rescheduleBooking(bookingId: string, date: string, time: s
       html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:28px;color:#17213d"><h1>WOW CLEAN</h1><h2>Your appointment has been rescheduled</h2><p>Hi ${escapeHtml(booking.guest_first_name || "there")}, here are your updated booking details.</p><p><strong>New date:</strong> ${escapeHtml(dateText)}<br><strong>Start time:</strong> ${escapeHtml(normalized)} (Calgary time)</p><p><strong>Previously:</strong> ${escapeHtml(oldDateText)} at ${escapeHtml(expectedTime)}</p><p><strong>Package:</strong> ${escapeHtml(PACKAGE_LABELS[booking.package as PackageId] || booking.package)}<br><strong>Service:</strong> ${escapeHtml(SERVICE_TYPE_LABELS[booking.service_type as ServiceType] || booking.service_type)}<br><strong>Address:</strong> ${escapeHtml(booking.service_address || booking.guest_address || "Please contact us")}<br><strong>Reference:</strong> ${escapeHtml(booking.reference_code)}</p><p>Customer-provided power is required. Winter appointments require a suitable heated workspace. Payment is due upon completion.</p><p>Questions? Reply to this email or call <a href="tel:+15874369605">(587) 436-9605</a>.</p></div>`,
     });
     if (result.error) return { success: true, emailSent: false, warning };
-    return { success: true, emailSent: true };
+    return { success: true, emailSent: true, warning: calendarWarning };
   } catch {
     return { success: true, emailSent: false, warning };
   }
+}
+
+export async function syncAdminBookingCalendar(bookingId: string) {
+  const { client } = await adminClient();
+  const { data: booking, error } = await client.from("bookings").select("*").eq("id", bookingId).single();
+  if (error || !booking) return { success: false, error: "Booking not found." };
+  return syncBookingCalendar(booking);
 }

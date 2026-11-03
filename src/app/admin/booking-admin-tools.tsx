@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getBookingAdminDetails, saveBookingAdminDetails, getAdminRescheduleTimes, rescheduleBooking } from "./booking-tools-actions";
+import { syncAdminBookingCalendar, getBookingAdminDetails, saveBookingAdminDetails, getAdminRescheduleTimes, rescheduleBooking } from "./booking-tools-actions";
 import { getCalgaryNow } from "@/lib/booking-schedule";
 import type { PaymentMethod, PaymentStatus } from "@/lib/admin-booking";
 
@@ -14,6 +14,7 @@ const fieldClass = "w-full rounded-lg border border-white/20 bg-[#0b1740] p-2.5 
 const buttonClass = "rounded-lg bg-blue px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed";
 
 export default function BookingAdminTools({ booking, onRescheduled }: Props) {
+  const [syncingCalendar, setSyncingCalendar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -77,6 +78,19 @@ export default function BookingAdminTools({ booking, onRescheduled }: Props) {
 
   return (
     <div className="space-y-5 border-t border-white/10 pt-5">
+      <section className="space-y-2" aria-label="Google Calendar">
+        <h3 className="text-base font-semibold text-white">Google Calendar</h3>
+        <p className="text-xs text-mid">Bookings sync to WOW Clean Bookings. Make appointment changes here on the website. Use this button to add an older booking or retry a calendar update.</p>
+        <button className={buttonClass} disabled={syncingCalendar} onClick={async () => {
+          setSyncingCalendar(true);
+          try {
+            const result = await syncAdminBookingCalendar(booking.id);
+            if (result.success) toast.success("Google Calendar is up to date.");
+            else toast.error(result.error || "Calendar sync failed.");
+          } catch { toast.error("Could not sync Google Calendar. Please try again."); }
+          finally { setSyncingCalendar(false); }
+        }}>{syncingCalendar ? "Syncing…" : "Sync to Google Calendar"}</button>
+      </section>
       <section className="space-y-3" aria-label="Payment and private notes">
         <h3 className="text-base font-semibold text-white">Payment tracking</h3>
         <p className="text-xs text-mid">Manual record only. This does not charge or refund a customer in Square.</p>

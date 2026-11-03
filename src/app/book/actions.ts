@@ -8,6 +8,7 @@ import { validateReferralCode, recordReferral } from "@/lib/referrals";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
 import { randomUUID } from "node:crypto";
+import { syncBookingCalendar } from "@/lib/google-calendar";
 import { getBookingDurationMinutes } from "@/lib/booking-schedule";
 import { isServiceBookable, isAddonBookable } from "@/lib/service-availability";
 
@@ -174,6 +175,14 @@ export async function createBooking(
         ? "This time is no longer available. Please choose another appointment time."
         : "We couldn’t save your booking. Please try again or call (587) 436-9605." };
     }
+
+    await syncBookingCalendar({
+      id: inserted.id, reference_code: refCode, booking_date: data.date, booking_time: data.time,
+      package: data.packageId, vehicle_size: data.vehicleSize, service_type: data.serviceType, status: "confirmed",
+      addons: data.addons, guest_first_name: data.firstName, guest_last_name: data.lastName,
+      guest_phone: data.phone, guest_email: data.email, service_address: data.address,
+      vehicle_make: data.vehicleMake, vehicle_model: data.vehicleModel, vehicle_colour: data.vehicleColour,
+    });
 
     // Record redemption (only if user is logged in — guests can't use
     // one-time codes against an account, but unlimited codes work for them
