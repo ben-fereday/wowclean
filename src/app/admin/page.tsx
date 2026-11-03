@@ -11,9 +11,9 @@ import {
   createPromoCode,
   updatePromoCode,
   deletePromoCode,
-  resetUserPromoHistory,
   type PromoCodeRow,
 } from "./actions";
+import { PROMO_LIMIT_LABELS, PROMO_LIMITS, type PromoUsageLimit } from "@/lib/promo-policy";
 import BookingAdminTools from "./booking-admin-tools";
 import AppointmentHistory from "./appointment-history";
 import type { Booking, BookingAddon } from "@/lib/admin-history";
@@ -229,9 +229,10 @@ export default function AdminPage() {
     code: "",
     discount_pct: 10,
     scope: "booking" as "booking" | "subscription",
-    one_time_use: false,
+    usage_limit: "unlimited" as PromoUsageLimit,
     active: true,
   });
+  const [promoLimitSaving, setPromoLimitSaving] = useState<string | null>(null);
   const [promoFormError, setPromoFormError] = useState("");
 
   // Confirm modal state
@@ -1239,41 +1240,6 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    {/* Promo history reset */}
-                    <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold mb-1">
-                            Promo Code Use History
-                          </p>
-                          <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                            Reset to let this customer use one-time codes again.
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            showConfirm({
-                              title: "Reset Promo History",
-                              description: `Reset promo code history for ${selectedCustomer.first_name} ${selectedCustomer.last_name}? They'll be able to use one-time codes again.`,
-                              confirmLabel: "Reset",
-                              onConfirm: async () => {
-                                const result = await resetUserPromoHistory(selectedCustomer.id);
-                                setConfirmModal((m) => ({ ...m, open: false }));
-                                if (result.error) toast.error(result.error);
-                                else toast.success("Promo code history reset.");
-                              },
-                            });
-                          }}
-                          className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider border-[hsl(var(--accent))]/40 text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent))]/10"
-                        >
-                          <RotateCcw className="mr-2 h-3.5 w-3.5" />
-                          Reset
-                        </Button>
-                      </div>
-                    </div>
-
                     {/* Referral Info */}
                     <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4 space-y-3">
                       <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold flex items-center gap-1.5">
@@ -1537,7 +1503,7 @@ export default function AdminPage() {
                       code: promoForm.code,
                       discount_pct: promoForm.discount_pct,
                       scope: promoForm.scope,
-                      max_uses_per_user: promoForm.one_time_use ? 1 : null,
+                      usage_limit: promoForm.usage_limit,
                       active: promoForm.active,
                     });
                     if (result.error) {
@@ -1547,7 +1513,7 @@ export default function AdminPage() {
                         code: "",
                         discount_pct: 10,
                         scope: "booking",
-                        one_time_use: false,
+                        usage_limit: "unlimited" as PromoUsageLimit,
                         active: true,
                       });
                       fetchPromoCodes();
@@ -1583,24 +1549,26 @@ export default function AdminPage() {
                       className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
                     >
                       <option value="booking">One-Time Booking</option>
-                      <option value="subscription">Subscription</option>
+                      <option value="subscription" disabled>Subscription (paused)</option>
                     </select>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-white text-xs uppercase tracking-wider">Use Limit</Label>
                     <select
-                      value={promoForm.one_time_use ? "one" : "unlimited"}
-                      onChange={(e) => setPromoForm({ ...promoForm, one_time_use: e.target.value === "one" })}
+                      value={promoForm.usage_limit}
+                      onChange={(e) => setPromoForm({ ...promoForm, usage_limit: e.target.value as PromoUsageLimit })}
                       className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
                     >
                       <option value="unlimited">Unlimited</option>
-                      <option value="one">One per account</option>
+                      <option value="once_per_email">Once per email address</option>
+                      <option value="single_use">Single use total</option>
                     </select>
                   </div>
                   <Button type="submit" className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80">
                     Add Code
                   </Button>
                 </form>
+                <p className="mt-3 text-xs text-mid">Booking limits work without an account. Email addresses are matched without case or surrounding spaces. Applying a code does not use it; saved bookings count, including cancelled and archived appointments. Changing a limit does not reset previous uses.</p>
                 {promoFormError && (
                   <p className="mt-3 text-sm text-red-400">{promoFormError}</p>
                 )}
@@ -1669,7 +1637,23 @@ export default function AdminPage() {
                               <span className="ml-1 text-[hsl(var(--muted-foreground))]">%</span>
                             </TableCell>
                             <TableCell className="text-[hsl(var(--muted-foreground))]">
-                              {promo.max_uses_per_user === null ? "Unlimited" : `${promo.max_uses_per_user} per account`}
+                              {promo.scope === "booking" ? <select
+                                aria-label={`Use limit for ${promo.code}`}
+                                value={promo.usage_limit}
+                                disabled={!!promoLimitSaving}
+                                className="min-w-[185px] rounded-md border border-white/20 bg-[#070d22] px-2 py-2 text-sm text-white disabled:opacity-50"
+                                onChange={async (event) => {
+                                  const limit = event.target.value as PromoUsageLimit;
+                                  setPromoLimitSaving(promo.id);
+                                  try {
+                                    const result = await updatePromoCode(promo.id, { usage_limit: limit });
+                                    if (result.error) toast.error(result.error);
+                                    else { await fetchPromoCodes(); toast.success("Promo use limit updated."); }
+                                  } catch { toast.error("Could not update this use limit. Please retry."); }
+                                  finally { setPromoLimitSaving(null); }
+                                }}>
+                                {PROMO_LIMITS.map(limit => <option key={limit} value={limit}>{PROMO_LIMIT_LABELS[limit]}</option>)}
+                              </select> : promo.max_uses_per_user === null ? "Unlimited" : "Legacy account limit"}
                             </TableCell>
                             <TableCell>
                               <button
@@ -1865,4 +1849,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
 

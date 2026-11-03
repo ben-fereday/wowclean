@@ -325,7 +325,7 @@ function BookPageContent() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       const { validatePromoCode } = await import("@/lib/promo-codes");
-      const result = await validatePromoCode(code, "booking", user?.id ?? null);
+      const result = await validatePromoCode(code, "booking", user?.id ?? null, email);
       if (!result.valid || !result.code_text || result.discount_pct == null) {
         setPromoError(result.error || "Invalid code.");
         setPromoApplied(null);
@@ -335,10 +335,13 @@ function BookPageContent() {
           discount_pct: result.discount_pct,
         });
       }
+    } catch {
+      setPromoError("Could not validate that code. Please try again.");
+      setPromoApplied(null);
     } finally {
       setPromoChecking(false);
     }
-  }, [promoInput]);
+  }, [promoInput, email]);
 
   const handleApplyReferral = useCallback(async () => {
     setReferralError("");
@@ -1122,7 +1125,7 @@ function BookPageContent() {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setPromoApplied(null); setPromoError(""); }}
                     placeholder="john@email.com"
                     className={`bg-white/5 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
                       formErrors.email
@@ -1632,4 +1635,5 @@ function BookPageContent() {
     </div>
   );
 }
+
 

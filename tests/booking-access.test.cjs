@@ -70,6 +70,7 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
  const bookingActions=compile("src/app/book/actions.ts",{
   "@/lib/supabase/server":{createClient:async()=>({auth:{getUser:async()=>({data:{user:null}})},from:table=>({insert:async value=>{assert.equal(table,"bookings");inserted=value;return {error:null};}})})},
   "@/lib/constants":{generateRefCode:()=>"WOW-TEST",applyDiscount:(value,pct)=>value*(1-pct/100)},
+  "@/lib/promo-policy":{normalizeBookingEmail:value=>value.trim().toLowerCase()},
   "@/lib/availability":{checkTimeSlotAvailable:async()=>({available:true})},
   "@/lib/promo-codes":{},"@/lib/referrals":{},
   "@/lib/rate-limit":{checkRateLimit:()=>({allowed:true})},
@@ -107,3 +108,4 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
  }
  console.log("All changed TypeScript and TSX syntax checks passed.");
 })().catch(error=>{global.fetch=originalFetch;console.error(error);process.exitCode=1;});
+

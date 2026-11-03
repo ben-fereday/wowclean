@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { applyDiscount, generateRefCode } from "@/lib/constants";
 import { checkTimeSlotAvailable } from "@/lib/availability";
+import { normalizeBookingEmail } from "@/lib/promo-policy";
 import { validatePromoCode } from "@/lib/promo-codes";
 import { validateReferralCode, recordReferral } from "@/lib/referrals";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -55,6 +56,9 @@ export async function createBooking(
   data: BookingPayload
 ): Promise<BookingResult> {
   try {
+    if (typeof data.email !== "string" || data.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim()))
+      return { success: false, error: "Enter a valid booking email address." };
+    data = { ...data, email: normalizeBookingEmail(data.email) };
     if (data.requirementsConfirmed !== true) {
       return { success: false, error: "Please confirm that power and a permitted workspace are available, including a heated indoor workspace for winter appointments." };
     }
@@ -104,7 +108,6 @@ export async function createBooking(
     // Re-validate promo code server-side and snapshot the discount
     let promoCodeText: string | null = null;
     let promoDiscountPct: number | null = null;
-    let promoCodeId: string | null = null;
     const subtotal = data.basePrice + data.addonsTotal;
     let finalTotal = subtotal;
 
@@ -112,14 +115,14 @@ export async function createBooking(
       const result = await validatePromoCode(
         data.promoCode,
         "booking",
-        user?.id ?? null
+        user?.id ?? null,
+        data.email
       );
       if (!result.valid) {
         return { success: false, error: result.error || "Invalid promo code." };
       }
       promoCodeText = result.code_text ?? null;
       promoDiscountPct = result.discount_pct ?? null;
-      promoCodeId = result.code_id ?? null;
       finalTotal = applyDiscount(subtotal, promoDiscountPct);
     }
 
@@ -178,6 +181,8 @@ export async function createBooking(
 
     if (error) {
       console.error("Supabase insert error:", error);
+      if (error.code === "P0001" && error.message.startsWith("PROMO: "))
+        return { success: false, error: error.message.slice(7) };
       return { success: false, error: error.code === "23514"
         ? "This time is no longer available. Please choose another appointment time."
         : "We couldn’t save your booking. Please try again or call (587) 436-9605." };
@@ -191,22 +196,7 @@ export async function createBooking(
       vehicle_make: data.vehicleMake, vehicle_model: data.vehicleModel, vehicle_colour: data.vehicleColour,
     });
 
-    // Record redemption (only if user is logged in — guests can't use
-    // one-time codes against an account, but unlimited codes work for them
-    // since there's no limit to enforce)
-    if (user && promoCodeId && inserted?.id) {
-      const { error: redErr } = await supabase
-        .from("promo_redemptions")
-        .insert({
-          promo_code_id: promoCodeId,
-          user_id: user.id,
-          booking_id: inserted.id,
-        });
-      if (redErr) {
-        console.error("Redemption insert error:", redErr);
-        // Don't fail the booking — the discount was already applied
-      }
-    }
+    // Promo usage is committed atomically with the booking by the database.
 
     // Record referral and credit the referrer
     if (user && referrerId && inserted?.id) {
@@ -305,4 +295,5 @@ export async function createBooking(
     return { success: false, error: "An unexpected error occurred." };
   }
 }
+
 

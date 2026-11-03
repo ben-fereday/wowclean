@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { previewBookingPromo } from "@/lib/promo-preview";
+import { normalizeBookingEmail } from "@/lib/promo-policy";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { PromoScope } from "@/lib/constants";
 
@@ -12,18 +14,16 @@ export interface PromoValidationResult {
   discount_pct?: number;
 }
 
-/**
- * Validate a promo code for a given scope and (optional) user.
- * Enforces: code exists, scope match, active=true, and per-user use limits.
- * If userId is null (guest checkout), per-user limits are skipped — those
- * codes are still allowed for guests because there's no account to count
- * against.
- */
+/** Booking codes use the entered booking email, independently of accounts.
+ * The database enforces the limit again when the booking is saved. */
 export async function validatePromoCode(
   rawCode: string,
   scope: PromoScope,
-  userId: string | null
+  userId: string | null,
+  bookingEmail = ""
 ): Promise<PromoValidationResult> {
+  if (typeof rawCode !== "string" || rawCode.length > 100 || typeof bookingEmail !== "string" || bookingEmail.length > 254)
+    return { valid: false, error: "Enter a valid promo code and booking email." };
   const code = rawCode.trim().toUpperCase();
   if (!code) {
     return { valid: false, error: "Enter a promo code." };
@@ -35,10 +35,15 @@ export async function validatePromoCode(
   }
 
   // Rate limit: 10 attempts per 15 minutes per user/scope combo
-  const rlKey = `promo:${userId ?? "anon"}:${scope}`;
+  const rlKey = `promo:${normalizeBookingEmail(bookingEmail) || userId || "anon"}:${scope}`;
   const rl = checkRateLimit(rlKey, { maxAttempts: 10 });
   if (!rl.allowed) {
     return { valid: false, error: "Too many attempts. Please try again later." };
+  }
+
+  if (scope === "booking") {
+    try { return await previewBookingPromo(code, bookingEmail); }
+    catch { return { valid: false, error: "Couldn’t validate that code right now. Please retry." }; }
   }
 
   const supabase = await createClient();
@@ -97,3 +102,4 @@ export async function validatePromoCode(
     discount_pct: promo.discount_pct,
   };
 }
+

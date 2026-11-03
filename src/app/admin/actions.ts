@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import type { BookingStatus } from "@/lib/constants";
 import { syncBookingCalendar } from "@/lib/google-calendar";
+import { isPromoUsageLimit, type PromoUsageLimit } from "@/lib/promo-policy";
 import { validateTimeRange } from "@/lib/admin-booking";
 
 async function verifyAdminOrOwner(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -285,6 +286,7 @@ export interface PromoCodeRow {
   code: string;
   discount_pct: number;
   scope: "booking" | "subscription";
+  usage_limit: PromoUsageLimit;
   max_uses_per_user: number | null;
   active: boolean;
   created_at: string;
@@ -309,15 +311,18 @@ export async function createPromoCode(input: {
   code: string;
   discount_pct: number;
   scope: "booking" | "subscription";
-  max_uses_per_user: number | null;
+  usage_limit: PromoUsageLimit;
   active: boolean;
 }) {
   const supabase = await createClient();
   await verifyAdminOrOwner(supabase);
 
   const code = input.code.trim().toUpperCase();
-  if (!code) return { error: "Code is required." };
-  if (input.discount_pct <= 0 || input.discount_pct > 100) {
+  if (!/^[A-Z0-9_-]{1,30}$/.test(code)) return { error: "Use 1–30 letters, numbers, underscores or hyphens." };
+  if (input.scope !== "booking") return { error: "New subscription promotions are paused." };
+  if (!isPromoUsageLimit(input.usage_limit)) return { error: "Choose a valid use limit." };
+  if (typeof input.active !== "boolean") return { error: "Invalid active status." };
+  if (!Number.isInteger(input.discount_pct) || input.discount_pct <= 0 || input.discount_pct > 100) {
     return { error: "Discount must be between 1 and 100." };
   }
 
@@ -325,7 +330,8 @@ export async function createPromoCode(input: {
     code,
     discount_pct: input.discount_pct,
     scope: input.scope,
-    max_uses_per_user: input.max_uses_per_user,
+    usage_limit: input.usage_limit,
+    max_uses_per_user: null,
     active: input.active,
   });
 
@@ -345,7 +351,7 @@ export async function updatePromoCode(
   patch: Partial<{
     discount_pct: number;
     active: boolean;
-    max_uses_per_user: number | null;
+    usage_limit: PromoUsageLimit;
   }>
 ) {
   const supabase = await createClient();
@@ -353,14 +359,22 @@ export async function updatePromoCode(
 
   if (
     patch.discount_pct !== undefined &&
-    (patch.discount_pct <= 0 || patch.discount_pct > 100)
+    (!Number.isInteger(patch.discount_pct) || patch.discount_pct <= 0 || patch.discount_pct > 100)
   ) {
     return { error: "Discount must be between 1 and 100." };
   }
 
+  if (patch.usage_limit !== undefined && !isPromoUsageLimit(patch.usage_limit))
+    return { error: "Choose a valid use limit." };
+  if (patch.active !== undefined && typeof patch.active !== "boolean") return { error: "Invalid active status." };
   const { error } = await supabase
     .from("promo_codes")
-    .update({ ...patch, updated_at: new Date().toISOString() })
+    .update({
+      ...(patch.discount_pct !== undefined ? { discount_pct: patch.discount_pct } : {}),
+      ...(patch.active !== undefined ? { active: patch.active } : {}),
+      ...(patch.usage_limit !== undefined ? { usage_limit: patch.usage_limit, max_uses_per_user: null } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
 
   if (error) return { error: error.message };
@@ -391,3 +405,4 @@ export async function resetUserPromoHistory(userId: string) {
   revalidatePath("/admin");
   return { success: true };
 }
+
