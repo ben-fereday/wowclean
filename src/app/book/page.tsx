@@ -982,23 +982,18 @@ function BookPageContent() {
                   {timesLoading && <p className="text-sm text-mid mb-3" role="status">Checking availability…</p>}
                   {timesError && <div className="text-sm text-red-400 mb-3" role="alert">{timesError} <button type="button" className="underline" onClick={() => setAvailabilityAttempt((attempt) => attempt + 1)}>Retry</button></div>}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                    {!timesLoading && !timesError && scheduledTimes.map((slot) => {
-                      const blocked = isTimeBlocked(slot, bookedTimes);
+                    {!timesLoading && !timesError && scheduledTimes.filter((slot) => !isTimeBlocked(slot, bookedTimes)).map((slot) => {
                       return (
                         <button
                           key={slot}
-                          onClick={() => !blocked && setSelectedTime(slot)}
-                          disabled={blocked}
+                          onClick={() => setSelectedTime(slot)}
                           className={`bg-white/[0.04] border rounded-lg px-2 py-3 text-center font-[family-name:var(--font-barlow-condensed)] text-[0.9rem] font-bold tracking-[0.5px] transition-all ${
-                            blocked
-                              ? "border-white/[0.04] text-mid/30 cursor-not-allowed opacity-40 line-through"
-                              : selectedTime === slot
+                            selectedTime === slot
                               ? "bg-blue border-blue text-white cursor-pointer"
                               : "border-white/[0.08] text-silver hover:border-cyan/30 hover:text-white cursor-pointer"
                           }`}
                         >
                           {slot}
-                          {blocked && <span className="block text-[10px] text-red-400/60 mt-0.5 no-underline">Booked</span>}
                         </button>
                       );
                     })}
