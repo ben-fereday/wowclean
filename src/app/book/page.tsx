@@ -698,7 +698,7 @@ function BookPageContent() {
                       </div>
                       <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.95rem] font-bold tracking-[1px] uppercase text-white">
                         {SERVICE_TYPE_LABELS[st]}
-                        {!isServiceBookable(st) && <span className="block text-xs font-normal normal-case mt-1">spring / summer only</span>}
+                        {!isServiceBookable(st) && <span className="block text-xs font-normal uppercase mt-1">SPRING / SUMMER ONLY</span>}
                       </div>
                     </button>
                   )
