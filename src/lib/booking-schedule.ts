@@ -47,13 +47,13 @@ export function getCalgaryNow(now: Date = new Date()): { date: string; minutes: 
   };
 }
 
-export function getOperatingTimeSlots(date: string): string[] {
+export function getOperatingTimeSlots(date: string, durationMinutes = BOOKING_WINDOW_MINUTES): string[] {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
   const day = new Date(date + "T12:00:00Z");
   if (!Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== date) return [];
   const hours = WEEKLY_HOURS[day.getUTCDay()];
   if (!hours) return [];
-  const latest = Math.min(hours.close - BOOKING_WINDOW_MINUTES, hours.lastStart ?? Infinity);
+  const latest = Math.min(hours.close - durationMinutes, hours.lastStart ?? Infinity);
   const slots: string[] = [];
   for (let minute = hours.open; minute <= latest; minute += SLOT_INTERVAL_MINUTES) {
     slots.push(formatBookingTime(minute));
@@ -61,21 +61,29 @@ export function getOperatingTimeSlots(date: string): string[] {
   return slots;
 }
 
-export function getBookableTimeSlots(date: string, now: Date = new Date()): string[] {
+export function getBookableTimeSlots(date: string, now: Date = new Date(), durationMinutes = BOOKING_WINDOW_MINUTES): string[] {
   const current = getCalgaryNow(now);
   if (date < current.date) return [];
-  return getOperatingTimeSlots(date).filter(
+  return getOperatingTimeSlots(date, durationMinutes).filter(
     (slot) => date !== current.date || parseBookingTime(slot)! > current.minutes
   );
 }
 
-export function isScheduledBookingTime(date: string, time: string, now: Date = new Date()): boolean {
+export function isScheduledBookingTime(date: string, time: string, now: Date = new Date(), durationMinutes = BOOKING_WINDOW_MINUTES): boolean {
   const minute = parseBookingTime(time);
-  return minute !== null && getBookableTimeSlots(date, now).includes(formatBookingTime(minute));
+  return minute !== null && getBookableTimeSlots(date, now, durationMinutes).includes(formatBookingTime(minute));
 }
 
 export function bookingTimesConflict(first: string, second: string): boolean {
   const a = parseBookingTime(first);
   const b = parseBookingTime(second);
   return a === null || b === null || Math.abs(a - b) < BOOKING_WINDOW_MINUTES;
+}
+
+export function getBookingDurationMinutes(packageId: string, vehicleSize: string, addons: readonly { id: string }[] = []): number {
+  const extra = new Set(addons.filter((addon) => ["seat_shamp", "carpet_shamp", "salt"].includes(addon.id)).map((addon) => addon.id)).size;
+  return (packageId === "premium" || vehicleSize === "large" ? 150 : 120) + extra * 30;
+}
+export function formatBookingDuration(minutes: number): string {
+  return minutes % 60 ? `${Math.floor(minutes / 60)} hours 30 minutes` : `${minutes / 60} hours`;
 }

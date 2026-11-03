@@ -12,11 +12,12 @@ const hoursConflict = bookingTimesConflict;
  */
 export async function checkTimeSlotAvailable(
   date: string,
-  time: string
+  time: string,
+  durationMinutes = BOOKING_WINDOW_MINUTES
 ): Promise<{ available: boolean; reason?: string }> {
-  if (!isScheduledBookingTime(date, time)) return { available: false, reason: "Please choose an available appointment time within our Calgary business hours." };
+  if (!isScheduledBookingTime(date, time, new Date(), durationMinutes)) return { available: false, reason: "Please choose an available appointment time within our Calgary business hours." };
   try {
-    const unavailable = await getBookedTimesForDate(date);
+    const unavailable = await getBookedTimesForDate(date, durationMinutes);
     return unavailable.includes(formatBookingTime(parseBookingTime(time)!))
       ? { available: false, reason: "This time overlaps an existing appointment or blocked time." }
       : { available: true };
@@ -26,9 +27,9 @@ export async function checkTimeSlotAvailable(
 }
 
 /** Returns unavailable appointment STARTS, already accounting for the two-hour window. */
-export async function getBookedTimesForDate(date: string): Promise<string[]> {
+export async function getBookedTimesForDate(date: string, durationMinutes = BOOKING_WINDOW_MINUTES): Promise<string[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("booking_busy_times", { p_date: date });
+  const { data, error } = await supabase.rpc("booking_busy_times_for_duration", { p_date: date, p_duration: durationMinutes });
   if (error) throw new Error("Availability could not be confirmed.");
   return data ?? [];
 }

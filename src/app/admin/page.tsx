@@ -15,7 +15,7 @@ import {
   type PromoCodeRow,
 } from "./actions";
 import BookingAdminTools from "./booking-admin-tools";
-import { formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
+import { getBookingDurationMinutes, formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput, EventClickArg } from "@fullcalendar/core";
-import { addWeeks, differenceInCalendarWeeks, addDays, startOfDay, format } from "date-fns";
+import { addMinutes, addWeeks, differenceInCalendarWeeks, addDays, startOfDay, format } from "date-fns";
 import {
   Table,
   TableBody,
@@ -419,6 +419,7 @@ export default function AdminPage() {
         id: `booking-${b.id}`,
         title: `${b.booking_time} ${name}`,
         start: `${b.booking_date}T${time24}:00`,
+        end: format(addMinutes(new Date(`${b.booking_date}T${time24}:00`), getBookingDurationMinutes(b.package, b.vehicle_size, b.addons ?? [])), "yyyy-MM-dd'T'HH:mm:ss"),
         backgroundColor: b.status === "confirmed" ? "#1a4aff" : b.status === "completed" ? "#22c55e" : "#f5c518",
         borderColor: "transparent",
         extendedProps: { type: "booking", booking: b, name },

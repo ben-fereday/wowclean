@@ -41,7 +41,7 @@ import {
 import { createBooking, type BookingPayload } from "./actions";
 import { getBookedTimesForDate } from "@/lib/availability";
 import { isTimeBlocked } from "@/lib/time-utils";
-import { getCalgaryNow, getBookableTimeSlots } from "@/lib/booking-schedule";
+import { getCalgaryNow, getBookableTimeSlots, getBookingDurationMinutes, formatBookingDuration } from "@/lib/booking-schedule";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchAllPricing,
@@ -172,7 +172,8 @@ function BookPageContent() {
   const selectedDateISO = selectedDate
     ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
     : "";
-  const scheduledTimes = selectedDateISO ? getBookableTimeSlots(selectedDateISO) : [];
+  const durationMinutes = getBookingDurationMinutes(packageId ?? "standard", vehicleSize ?? "small", addons);
+  const scheduledTimes = selectedDateISO ? getBookableTimeSlots(selectedDateISO, new Date(), durationMinutes) : [];
 
   // Calendar state
   const now = new Date(getCalgaryNow().date + "T12:00:00");
@@ -205,14 +206,16 @@ function BookPageContent() {
   useEffect(() => {
     if (!selectedDateISO) { setBookedTimes([]); return; }
     let cancelled = false;
+    setSelectedTime(null);
+    setBookedTimes([]);
     setTimesLoading(true);
     setTimesError("");
-    getBookedTimesForDate(selectedDateISO)
+    getBookedTimesForDate(selectedDateISO, durationMinutes)
       .then((times) => { if (!cancelled) setBookedTimes(times); })
       .catch(() => { if (!cancelled) setTimesError("Unable to load availability. Please retry or contact WOW CLEAN."); })
       .finally(() => { if (!cancelled) setTimesLoading(false); });
     return () => { cancelled = true; };
-  }, [selectedDateISO, availabilityAttempt]);
+  }, [selectedDateISO, availabilityAttempt, durationMinutes]);
 
   // ─── Derived values ───
   const basePrice = useMemo(() => {
@@ -482,7 +485,7 @@ function BookPageContent() {
       const dt = new Date(calYear, calMonth, d);
       const dateISO = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       const isPast = dateISO < todayISO;
-      const isClosed = getBookableTimeSlots(dateISO).length === 0;
+      const isClosed = getBookableTimeSlots(dateISO, new Date(), durationMinutes).length === 0;
       const isToday = dateISO === todayISO;
       days.push({
         day: d,
@@ -494,7 +497,7 @@ function BookPageContent() {
       });
     }
     return days;
-  }, [calYear, calMonth]);
+  }, [calYear, calMonth, durationMinutes]);
 
   const monthLabel = new Date(calYear, calMonth).toLocaleDateString("en-US", {
     month: "long",
@@ -905,7 +908,7 @@ function BookPageContent() {
               </h1>
               <p className="text-[0.95rem] text-mid mb-10 leading-relaxed">
                 Choose an available appointment start time. All times are Calgary time.
-                Each appointment reserves a two-hour window.
+                This appointment reserves {formatBookingDuration(durationMinutes)}.
               </p>
 
               {/* Calendar */}

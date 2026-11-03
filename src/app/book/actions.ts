@@ -8,6 +8,7 @@ import { validateReferralCode, recordReferral } from "@/lib/referrals";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
 import { randomUUID } from "node:crypto";
+import { getBookingDurationMinutes } from "@/lib/booking-schedule";
 import { isServiceBookable, isAddonBookable } from "@/lib/service-availability";
 
 export type BookingPayload = {
@@ -67,7 +68,7 @@ export async function createBooking(
     }
 
     // Check for time slot conflicts (2-hour buffer)
-    const slotCheck = await checkTimeSlotAvailable(data.date, data.time);
+    const slotCheck = await checkTimeSlotAvailable(data.date, data.time, getBookingDurationMinutes(data.packageId, data.vehicleSize, data.addons));
     if (!slotCheck.available) {
       return { success: false, error: slotCheck.reason };
     }

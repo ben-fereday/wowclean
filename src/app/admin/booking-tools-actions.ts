@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
-import { formatBookingTime, getBookableTimeSlots, isScheduledBookingTime, parseBookingTime } from "@/lib/booking-schedule";
+import { getBookingDurationMinutes, formatBookingTime, getBookableTimeSlots, isScheduledBookingTime, parseBookingTime } from "@/lib/booking-schedule";
 import { parseFinalAmount, type PaymentStatus, type PaymentMethod, type BookingAdminDetails } from "@/lib/admin-booking";
 import { PACKAGE_LABELS, SERVICE_TYPE_LABELS, type PackageId, type ServiceType } from "@/lib/constants";
 
@@ -46,9 +46,12 @@ export async function saveBookingAdminDetails(bookingId: string, input: {
 
 export async function getAdminRescheduleTimes(bookingId: string, date: string) {
   const { client } = await adminClient();
-  const slots = getBookableTimeSlots(date);
+  const { data: booking, error: bookingError } = await client.from("bookings").select("package,vehicle_size,addons").eq("id", bookingId).single();
+  if (bookingError || !booking) throw new Error("Booking not found.");
+  const durationMinutes = getBookingDurationMinutes(booking.package, booking.vehicle_size, booking.addons ?? []);
+  const slots = getBookableTimeSlots(date, new Date(), durationMinutes);
   if (!slots.length) return [];
-  const { data, error } = await client.rpc("booking_busy_times", { p_date: date, p_exclude: bookingId });
+  const { data, error } = await client.rpc("booking_busy_times_for_duration", { p_date: date, p_exclude: bookingId, p_duration: durationMinutes });
   if (error) throw new Error("Could not check appointment availability.");
   return slots.filter((slot) => !(data ?? []).includes(slot));
 }
