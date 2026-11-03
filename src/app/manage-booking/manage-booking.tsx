@@ -24,6 +24,12 @@ export default function ManageBooking() {
   const [requestError, setRequestError] = useState("");
 
   useEffect(() => {
+    const changed = () => { setBooking(null); setSent(false); setMessage(""); setRequestError(""); setRetry(v => v + 1); };
+    window.addEventListener("hashchange", changed);
+    return () => window.removeEventListener("hashchange", changed);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     const access = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
     setToken(access); setLoading(true); setError("");
