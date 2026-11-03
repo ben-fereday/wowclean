@@ -136,6 +136,9 @@ function BookPageContent() {
   const [refCode, setRefCode] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
 
+  const [requirementsConfirmed, setRequirementsConfirmed] = useState(false);
+  const showReferralCode = false;
+
   // Promo code state
   const [promoInput, setPromoInput] = useState("");
   const [promoApplied, setPromoApplied] = useState<{
@@ -301,9 +304,10 @@ function BookPageContent() {
     if (!phone.trim()) errors.phone = true;
     if (!email.trim() || !email.includes("@")) errors.email = true;
     if (location === "mobile" && !address.trim()) errors.address = true;
+    if (!requirementsConfirmed) errors.requirements = true;
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [firstName, lastName, phone, email, address, location]);
+  }, [firstName, lastName, phone, email, address, location, requirementsConfirmed]);
 
   const handleApplyPromo = useCallback(async () => {
     setPromoError("");
@@ -392,6 +396,7 @@ function BookPageContent() {
       vehicleModel: vehicleModel.trim(),
       vehicleColour: vehicleColour.trim(),
       notes: notes.trim(),
+      requirementsConfirmed,
       basePrice,
       addonsTotal,
       estimatedTotal,
@@ -416,6 +421,7 @@ function BookPageContent() {
     }
   }, [
     validateStep5,
+    requirementsConfirmed,
     vehicleSize,
     serviceType,
     packageId,
@@ -1198,6 +1204,19 @@ function BookPageContent() {
                 </div>
               </div>
 
+              <div className="mb-6 rounded-lg border border-cyan/30 bg-cyan/5 p-4">
+                <h2 className="text-white font-semibold mb-3">Before you book</h2>
+                <label className="flex items-start gap-3 text-sm text-silver cursor-pointer">
+                  <input type="checkbox" checked={requirementsConfirmed}
+                    onChange={(event) => setRequirementsConfirmed(event.target.checked)}
+                    aria-invalid={!!formErrors.requirements}
+                    aria-describedby={formErrors.requirements ? "requirements-error" : undefined}
+                    className="mt-1 size-5 shrink-0 accent-cyan" />
+                  <span>I confirm that I can provide power and a suitable place where detailing is permitted. For a winter appointment, I will provide a heated indoor workspace with enough room to work around the vehicle.</span>
+                </label>
+                {formErrors.requirements && !requirementsConfirmed && <p id="requirements-error" role="alert" className="text-red-400 text-sm mt-2">Please confirm the workspace and power requirements before booking.</p>}
+              </div>
+
               {/* Promo code (hidden during credit redemption) */}
               {!isRedemption && <div className="mb-6 rounded-lg border border-white/[0.08] bg-white/[0.02] p-4">
                 <label className="font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase text-mid mb-2 block">
@@ -1251,8 +1270,8 @@ function BookPageContent() {
                 )}
               </div>}
 
-              {/* Referral code (hidden during credit redemption) */}
-              {!isRedemption && <div className="mb-6 rounded-lg border border-white/[0.08] bg-white/[0.02] p-4">
+              {/* Referral entry is paused; promo codes remain available. */}
+              {showReferralCode && !isRedemption && <div className="mb-6 rounded-lg border border-white/[0.08] bg-white/[0.02] p-4">
                 <label className="font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase text-mid mb-2 block">
                   Referral Code
                 </label>

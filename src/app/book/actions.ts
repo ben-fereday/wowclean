@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { isServiceBookable, isAddonBookable } from "@/lib/service-availability";
 
 export type BookingPayload = {
+  requirementsConfirmed: boolean;
   vehicleSize: string;
   serviceType: string;
   packageId: string;
@@ -46,6 +47,9 @@ export async function createBooking(
   data: BookingPayload
 ): Promise<BookingResult> {
   try {
+    if (data.requirementsConfirmed !== true) {
+      return { success: false, error: "Please confirm that power and a permitted workspace are available, including a heated indoor workspace for winter appointments." };
+    }
     if (
       !["standard", "premium"].includes(data.packageId) ||
       data.location !== "mobile" ||

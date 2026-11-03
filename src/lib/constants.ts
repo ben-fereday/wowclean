@@ -58,7 +58,7 @@ export const PACKAGES = [
   {
     id: "premium" as PackageId,
     name: "Premium Detail",
-    desc: "More thorough inside and out. Perfect for seasonal cleanups or vehicles needing more attention.",
+    desc: "Thorough interior cleaning with extra attention to surfaces, crevices, cupholders and vents.",
     features: [
       "Everything in Standard",
       "Thorough surface cleaning",
