@@ -7,6 +7,7 @@ import { validatePromoCode } from "@/lib/promo-codes";
 import { validateReferralCode, recordReferral } from "@/lib/referrals";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
+import { randomUUID } from "node:crypto";
 import { isServiceBookable, isAddonBookable } from "@/lib/service-availability";
 
 export type BookingPayload = {
@@ -131,9 +132,13 @@ export async function createBooking(
       finalTotal = applyDiscount(finalTotal, 10);
     }
 
-    const { data: inserted, error } = await supabase
+    // Generate the ID locally: INSERT ... RETURNING requires a SELECT policy,
+    // which guests intentionally do not have for private booking records.
+    const inserted = { id: randomUUID() };
+    const { error } = await supabase
       .from("bookings")
       .insert({
+        id: inserted.id,
         user_id: user?.id ?? null,
         reference_code: refCode,
         vehicle_size: data.vehicleSize,
@@ -156,13 +161,13 @@ export async function createBooking(
         promo_code: promoCodeText,
         promo_discount_pct: promoDiscountPct,
         status: "confirmed",
-      })
-      .select("id")
-      .single();
+      });
 
     if (error) {
       console.error("Supabase insert error:", error);
-      return { success: false, error: "Failed to create booking." };
+      return { success: false, error: error.code === "23514"
+        ? "This time is no longer available. Please choose another appointment time."
+        : "We couldn’t save your booking. Please try again or call (587) 436-9605." };
     }
 
     // Record redemption (only if user is logged in — guests can't use
