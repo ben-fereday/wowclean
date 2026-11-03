@@ -899,7 +899,7 @@ function BookPageContent() {
               </h1>
               <p className="text-[0.95rem] text-mid mb-10 leading-relaxed">
                 Choose an available appointment start time. All times are Calgary time.
-                Each appointment reserves a two-hour window. Mondays are unavailable; Sunday starts end at 10 a.m.
+                Each appointment reserves a two-hour window.
               </p>
 
               {/* Calendar */}
