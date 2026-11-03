@@ -55,7 +55,7 @@
   --color-cyan: #5bf3ff;
   --color-silver: #c8cfd8;
   --color-chrome: #e8ecf2;
-  --color-mid: #7a8baa;
+  --color-mid: #a8b6cc;
   --color-dark: #070d22;
   --color-yellow: #f5c518;
 }
@@ -73,7 +73,7 @@
   --secondary: #0d1f52;
   --secondary-foreground: #c8cfd8;
   --muted: #0d1f52;
-  --muted-foreground: #7a8baa;
+  --muted-foreground: #a8b6cc;
   --accent: #5bf3ff;
   --accent-foreground: #0b1740;
   --destructive: #ef4444;
@@ -131,7 +131,7 @@
 .fc-dark-theme .fc-button {
   background: #0d1f52 !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
-  color: #7a8baa !important;
+  color: #a8b6cc !important;
   font-family: var(--font-barlow-condensed);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -150,7 +150,7 @@
 }
 
 .fc-dark-theme .fc-col-header-cell {
-  color: #7a8baa;
+  color: #a8b6cc;
   font-family: var(--font-barlow-condensed);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -188,7 +188,7 @@
 }
 
 .fc-dark-theme .fc-timegrid-slot-label {
-  color: #7a8baa;
+  color: #a8b6cc;
   font-size: 0.7rem;
   font-family: var(--font-barlow-condensed);
 }
