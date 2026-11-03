@@ -35,14 +35,14 @@ export const PACKAGES = [
     desc: "Ideal for regular maintenance and upkeep. Keeps your car clean, protected, and road-ready.",
     features: [
       "Full interior vacuum",
-      "Surface wipe-down",
+      "Surface cleaning",
       "Interior & exterior glass",
       "Tire dressing",
       "Paint sealant",
     ],
     interiorFeatures: [
       "Full interior vacuum",
-      "Wipe down of dash, console, door panels & surfaces",
+      "Cleaning of dash, console, door panels and accessible surfaces",
       "Interior glass cleaned",
       "Light dust & debris removal",
     ],
@@ -61,15 +61,14 @@ export const PACKAGES = [
     desc: "More thorough inside and out. Perfect for seasonal cleanups or vehicles needing more attention.",
     features: [
       "Everything in Standard",
-      "Deep surface wipe",
+      "Thorough surface cleaning",
       "Leather conditioning",
       "Decontamination",
       "Engine bay clean",
     ],
     interiorFeatures: [
-      "Deep wipe down of all interior surfaces",
+      "Thorough interior surface cleaning, including detailed attention to crevices, cupholders and vents",
       "Leather cleaning & conditioning",
-      "Extra attention to cracks, crevices, cupholders, vents",
     ],
     exteriorFeatures: [
       "Chemical & physical decontamination treatment",

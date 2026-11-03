@@ -277,7 +277,7 @@ function Services({
             <ul className="space-y-1">
               {[
                 "Full interior vacuum",
-                "Wipe down of dash, console, door panels & accessible surfaces",
+                "Cleaning of dash, console, door panels and accessible surfaces",
                 "Interior glass cleaned",
                 "Light dust & debris removal",
               ].map((item) => (
@@ -361,9 +361,8 @@ function Services({
             </div>
             <ul className="space-y-1">
               {[
-                "Deep wipe down of all interior surfaces",
+                "Thorough interior surface cleaning, including detailed attention to crevices, cupholders and vents",
                 "Leather cleaning & conditioning where applicable",
-                "Extra attention to cracks, crevices, cupholders, vents & high-touch areas",
               ].map((item) => (
                 <li
                   key={item}

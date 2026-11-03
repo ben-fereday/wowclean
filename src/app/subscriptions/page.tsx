@@ -692,7 +692,7 @@ function SubscriptionsContent() {
                     The Standard
                   </h4>
                   <p className="text-mid text-sm mt-1">
-                    Interior vacuuming, accessible surface wipe-down, and interior glass every visit.
+                    Interior vacuuming, accessible surface cleaning, and interior glass every visit.
                   </p>
                 </div>
               </FormStep>
