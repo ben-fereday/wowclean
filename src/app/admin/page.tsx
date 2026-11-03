@@ -14,7 +14,8 @@ import {
   resetUserPromoHistory,
   type PromoCodeRow,
 } from "./actions";
-import { TIME_SLOTS } from "@/lib/constants";
+import BookingAdminTools from "./booking-admin-tools";
+import { formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -200,9 +201,11 @@ export default function AdminPage() {
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
 
   // Blocked slots
-  const [blockedSlots, setBlockedSlots] = useState<{ id: string; blocked_date: string; blocked_time: string | null; reason: string | null }[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<{ id: string; blocked_date: string; blocked_time: string | null; start_time: string | null; end_time: string | null; reason: string | null }[]>([]);
   const [blockDate, setBlockDate] = useState("");
-  const [blockTime, setBlockTime] = useState<string>("");
+  const [blockStart, setBlockStart] = useState("09:00");
+  const [blockEnd, setBlockEnd] = useState("17:00");
+  const [blockSaving, setBlockSaving] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [blockWholeDay, setBlockWholeDay] = useState(false);
 
@@ -378,6 +381,11 @@ export default function AdminPage() {
     return "Guest";
   }
 
+  function formatRangeTime(time: string): string {
+    const [hour, minute] = time.split(":").map(Number);
+    return formatBookingTime(hour * 60 + minute);
+  }
+
   function parseTimeTo24(time: string): string {
     const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
     if (!match) return "00:00";
@@ -458,7 +466,7 @@ export default function AdminPage() {
 
     // Blocked slots
     for (const bl of blockedSlots) {
-      if (!bl.blocked_time) {
+      if (!bl.blocked_time && !bl.start_time) {
         events.push({
           id: `blocked-${bl.id}`,
           title: bl.reason || "Blocked",
@@ -469,11 +477,12 @@ export default function AdminPage() {
           display: "background",
         });
       } else {
-        const time24 = parseTimeTo24(bl.blocked_time);
+        const time24 = bl.start_time ? bl.start_time.slice(0, 5) : parseTimeTo24(bl.blocked_time!);
         events.push({
           id: `blocked-${bl.id}`,
-          title: `${bl.blocked_time} — ${bl.reason || "Blocked"}`,
+          title: `${bl.start_time ? formatRangeTime(bl.start_time) + "–" + formatRangeTime(bl.end_time!) : bl.blocked_time} — ${bl.reason || "Blocked"}`,
           start: `${bl.blocked_date}T${time24}:00`,
+          end: bl.end_time ? `${bl.blocked_date}T${bl.end_time}` : undefined,
           backgroundColor: "#ef4444",
           borderColor: "transparent",
           extendedProps: { type: "blocked" },
@@ -750,49 +759,31 @@ export default function AdminPage() {
                     <Label className="text-xs text-[hsl(var(--muted-foreground))]">Date</Label>
                     <Input
                       type="date"
+                      min={getCalgaryNow().date}
                       value={blockDate}
                       onChange={(e) => setBlockDate(e.target.value)}
                       className="h-9 w-40 border-[hsl(var(--muted))] bg-[hsl(var(--background))] text-white"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-[hsl(var(--muted-foreground))]">Time (or whole day)</Label>
-                    <div className="flex items-center gap-2">
-                      {!blockWholeDay && (
-                        <div className="flex flex-wrap gap-1">
-                          {TIME_SLOTS.map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setBlockTime(t)}
-                              className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                                blockTime === t
-                                  ? "bg-red-500 text-white"
-                                  : "bg-[hsl(var(--background))] border border-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-white"
-                              }`}
-                            >
-                              {t}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => { setBlockWholeDay(!blockWholeDay); setBlockTime(""); }}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                          blockWholeDay
-                            ? "bg-red-500 text-white"
-                            : "bg-[hsl(var(--background))] border border-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-white"
-                        }`}
-                      >
-                        Whole Day
-                      </button>
-                    </div>
-                  </div>
+                  <label className="flex items-center gap-2 text-sm text-white h-9">
+                    <input type="checkbox" checked={blockWholeDay} onChange={(event) => setBlockWholeDay(event.target.checked)} />
+                    All day
+                  </label>
+                  {!blockWholeDay && (
+                    <>
+                      <label className="space-y-1 text-xs text-mid">Start time
+                        <input type="time" step="900" value={blockStart} onChange={(event) => setBlockStart(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
+                      </label>
+                      <label className="space-y-1 text-xs text-mid">End time
+                        <input type="time" step="900" value={blockEnd} onChange={(event) => setBlockEnd(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
+                      </label>
+                    </>
+                  )}
                   <div className="space-y-1 flex-1 min-w-[120px]">
                     <Label className="text-xs text-[hsl(var(--muted-foreground))]">Reason (optional)</Label>
                     <Input
                       type="text"
+                      maxLength={250}
                       value={blockReason}
                       onChange={(e) => setBlockReason(e.target.value)}
                       placeholder="e.g. Personal day"
@@ -802,26 +793,30 @@ export default function AdminPage() {
                   <Button
                     onClick={async () => {
                       if (!blockDate) return;
-                      if (!blockWholeDay && !blockTime) return;
-                      await blockTimeSlot({
-                        date: blockDate,
-                        time: blockWholeDay ? undefined : blockTime,
-                        reason: blockReason || undefined,
-                      });
-                      setBlockDate("");
-                      setBlockTime("");
-                      setBlockReason("");
-                      setBlockWholeDay(false);
-                      fetchBlocked();
-                      fetchBookings();
+                      setBlockSaving(true);
+                      try {
+                        const result = await blockTimeSlot({
+                          date: blockDate,
+                          startTime: blockWholeDay ? undefined : blockStart,
+                          endTime: blockWholeDay ? undefined : blockEnd,
+                          reason: blockReason || undefined,
+                        });
+                        if (result.error) { toast.error(result.error); return; }
+                        toast.success("Time blocked.");
+                        setBlockDate(""); setBlockReason(""); setBlockWholeDay(false);
+                        await fetchBlocked();
+                      } catch { toast.error("Could not block this time. Please try again."); }
+                      finally { setBlockSaving(false); }
                     }}
-                    disabled={!blockDate || (!blockWholeDay && !blockTime)}
+                    disabled={blockSaving || !blockDate || (!blockWholeDay && (!blockStart || !blockEnd || blockEnd <= blockStart))}
                     className="h-9 bg-red-600 text-white hover:bg-red-700 font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-xs"
                   >
                     <Ban className="mr-1.5 h-3.5 w-3.5" />
-                    Block
+                    {blockSaving ? "Blocking…" : "Block"}
                   </Button>
                 </div>
+
+                <p className="mt-3 text-xs text-mid">Calgary time. Appointments that overlap a block will be unavailable. Existing appointments must be moved or cancelled before blocking over them.</p>
 
                 {/* Current blocked slots */}
                 {blockedSlots.length > 0 && (
@@ -832,11 +827,12 @@ export default function AdminPage() {
                         <div key={slot.id} className="flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-400">
                           <span>
                             {new Date(slot.blocked_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            {slot.blocked_time ? ` ${slot.blocked_time}` : " (all day)"}
+                            {slot.start_time ? ` ${formatRangeTime(slot.start_time)}–${formatRangeTime(slot.end_time!)}` : slot.blocked_time ? ` ${slot.blocked_time}` : " (all day)"}
                           </span>
                           {slot.reason && <span className="text-red-400/60">— {slot.reason}</span>}
                           <button
-                            onClick={async () => { await unblockSlot(slot.id); fetchBlocked(); }}
+                            aria-label="Remove blocked time"
+                            onClick={async () => { try { const result = await unblockSlot(slot.id); if (result.error) toast.error(result.error); else { await fetchBlocked(); toast.success("Time unblocked."); } } catch { toast.error("Could not remove this block."); } }}
                             className="ml-1 text-red-400 hover:text-white"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -851,7 +847,7 @@ export default function AdminPage() {
 
             {/* Entry detail modal */}
             <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
-              <DialogContent className="border-[hsl(var(--accent))]/20 bg-[hsl(var(--card))] shadow-xl">
+              <DialogContent className="border-[hsl(var(--accent))]/20 bg-[hsl(var(--card))] shadow-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
                     {selectedEntry?.type === "subscription" ? "Subscription Details" : "Booking Details"}
@@ -975,6 +971,11 @@ export default function AdminPage() {
                         <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider mb-1">Notes</p>
                         <p className="text-white text-sm">{selectedEntry.booking.notes}</p>
                       </div>
+                    )}
+
+                    {selectedEntry.type === "booking" && selectedEntry.booking && (
+                      <BookingAdminTools key={selectedEntry.booking.id} booking={selectedEntry.booking}
+                        onRescheduled={async () => { await fetchBookings(); setSelectedEntry(null); }} />
                     )}
 
                     {/* Booking status change */}

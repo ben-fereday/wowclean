@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import type { BookingStatus } from "@/lib/constants";
+import { validateTimeRange } from "@/lib/admin-booking";
 
 async function verifyAdminOrOwner(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -223,15 +224,21 @@ export async function revokeAdmin(userId: string) {
 
 export async function blockTimeSlot(data: {
   date: string;
-  time?: string; // null/undefined = block whole day
+  startTime?: string;
+  endTime?: string;
   reason?: string;
 }) {
   const supabase = await createClient();
   const { user } = await verifyAdminOrOwner(supabase);
+  try { validateTimeRange(data.date, data.startTime, data.endTime); }
+  catch (error) { return { error: error instanceof Error ? error.message : "Invalid time range." }; }
+  if (data.reason && data.reason.length > 250) return { error: "Keep the reason under 250 characters." };
 
   const { error } = await supabase.from("blocked_slots").insert({
     blocked_date: data.date,
-    blocked_time: data.time || null,
+    blocked_time: null,
+    start_time: data.startTime || null,
+    end_time: data.endTime || null,
     reason: data.reason || null,
     created_by: user.id,
   });
@@ -257,10 +264,12 @@ export async function unblockSlot(slotId: string) {
 
 export async function getBlockedSlots() {
   const supabase = await createClient();
-  const { data } = await supabase
+  await verifyAdminOrOwner(supabase);
+  const { data, error } = await supabase
     .from("blocked_slots")
     .select("*")
     .order("blocked_date", { ascending: true });
+  if (error) throw new Error("Could not load blocked times.");
   return data ?? [];
 }
 
