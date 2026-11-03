@@ -15,6 +15,8 @@ import {
   type PromoCodeRow,
 } from "./actions";
 import BookingAdminTools from "./booking-admin-tools";
+import AppointmentHistory from "./appointment-history";
+import type { Booking, BookingAddon } from "@/lib/admin-history";
 import { syncCalendarRange } from "./booking-tools-actions";
 import { parseBookingTime, getBookingDurationMinutes, formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Calendar,
+  History,
   Users,
   Clock,
   Car,
@@ -95,37 +98,6 @@ function normalizeBlockTime(value: string): string | null {
     minutes = hours * 60 + mins;
   }
   return minutes === null ? null : `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-}
-
-interface BookingAddon {
-  id: string;
-  name: string;
-  price: number;
-}
-
-interface Booking {
-  id: string;
-  user_id: string | null;
-  guest_first_name: string | null;
-  guest_last_name: string | null;
-  guest_email: string | null;
-  guest_phone: string | null;
-  guest_address: string | null;
-  service_address: string | null;
-  booking_date: string;
-  booking_time: string;
-  package: PackageId;
-  service_type: ServiceType;
-  vehicle_size: VehicleSize;
-  location: string;
-  status: BookingStatus;
-  reference_code: string;
-  total_estimate: number;
-  addons: BookingAddon[];
-  notes: string | null;
-  promo_code: string | null;
-  promo_discount_pct: number | null;
-  profiles?: { first_name: string; last_name: string; phone: string } | null;
 }
 
 interface Profile {
@@ -208,6 +180,7 @@ export default function AdminPage() {
   }, []);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
+  const [historyRevision, setHistoryRevision] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
 
   // Data state
@@ -296,6 +269,7 @@ export default function AdminPage() {
     ]);
 
     setBookings((allData as Booking[]) ?? []);
+    setHistoryRevision(v => v + 1);
     setAllBookings((upcomingData as Booking[]) ?? []);
   }, [supabase]);
 
@@ -693,10 +667,14 @@ export default function AdminPage() {
         })()}
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-[hsl(var(--muted))]">
+          <TabsList className="bg-[hsl(var(--muted))] h-auto flex-wrap justify-start">
             <TabsTrigger value="calendar" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
               <Calendar className="mr-2 h-4 w-4" />
               Calendar
+            </TabsTrigger>
+            <TabsTrigger value="history" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
+              <History className="mr-2 h-4 w-4" />
+              Appointment History
             </TabsTrigger>
             <TabsTrigger value="customers" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
               <Users className="mr-2 h-4 w-4" />
@@ -917,8 +895,14 @@ export default function AdminPage() {
               </CardContent>
             </Card>
 
+          </TabsContent>
+
+          <TabsContent value="history">
+            {tab === "history" && <AppointmentHistory refreshKey={historyRevision} onOpen={(booking, name) => setSelectedEntry({ type: "booking", time: booking.booking_time, name, booking })} />}
+          </TabsContent>
+
             {/* Entry detail modal */}
-            <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
+            <Dialog open={!!selectedEntry} onOpenChange={(open) => { if (!open) { setSelectedEntry(null); setHistoryRevision(v => v + 1); } }}>
               <DialogContent className="border-[hsl(var(--accent))]/20 bg-[hsl(var(--card))] shadow-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
@@ -968,7 +952,7 @@ export default function AdminPage() {
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
                           <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Time</p>
-                          <p className="text-white">{selectedEntry.time}</p>
+                          <p className="text-white">{selectedEntry.type === "booking" ? `${selectedEntry.booking!.booking_date} · ` : ""}{selectedEntry.time}</p>
                         </div>
                         <div>
                           <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Package</p>
@@ -1091,7 +1075,6 @@ export default function AdminPage() {
                 )}
               </DialogContent>
             </Dialog>
-          </TabsContent>
 
           {/* Cancel Booking Modal */}
           <Dialog open={!!cancelBooking} onOpenChange={(open) => !open && setCancelBooking(null)}>
@@ -1882,3 +1865,4 @@ export default function AdminPage() {
     </div>
   );
 }
+
