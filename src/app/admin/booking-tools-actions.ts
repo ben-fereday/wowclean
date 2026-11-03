@@ -116,3 +116,24 @@ export async function syncAdminBookingCalendar(bookingId: string) {
   if (error || !booking) return { success: false, error: "Booking not found." };
   return syncBookingCalendar(booking);
 }
+
+export async function syncCalendarRange(start: string, end: string, cursor?: string) {
+  const { client } = await adminClient();
+  const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+  const days = (Date.parse(end) - Date.parse(start)) / 86400000;
+  if (!validDate(start) || !validDate(end) || days <= 0 || days > 62)
+    throw new Error("Choose a calendar view covering up to two months.");
+  if (cursor && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursor))
+    throw new Error("Invalid sync cursor.");
+  let query = client.from("bookings").select("*").gte("booking_date", start).lt("booking_date", end).order("id").limit(4);
+  if (cursor) query = query.gt("id", cursor);
+  const { data, error } = await query;
+  if (error) throw new Error("Could not load bookings for calendar sync.");
+  const batch = (data ?? []).slice(0, 3);
+  const results = await Promise.all(batch.map((booking) => syncBookingCalendar(booking)));
+  return {
+    synced: results.filter((result) => result.success).length,
+    failed: results.filter((result) => !result.success).length,
+    nextCursor: (data?.length ?? 0) > 3 ? batch[batch.length - 1].id as string : null,
+  };
+}

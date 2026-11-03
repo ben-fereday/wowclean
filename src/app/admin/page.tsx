@@ -15,6 +15,7 @@ import {
   type PromoCodeRow,
 } from "./actions";
 import BookingAdminTools from "./booking-admin-tools";
+import { syncCalendarRange } from "./booking-tools-actions";
 import { parseBookingTime, getBookingDurationMinutes, formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -195,6 +196,14 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   // Calendar state
+  const [calendarRange, setCalendarRange] = useState<{ start: string; end: string } | null>(null);
+  const [calendarSyncing, setCalendarSyncing] = useState(false);
+  const [calendarSyncMessage, setCalendarSyncMessage] = useState("");
+  const handleCalendarRange = useCallback((range: { startStr: string; endStr: string }) => {
+    const start = range.startStr.slice(0, 10);
+    const end = range.endStr.slice(0, 10);
+    setCalendarRange((previous) => previous?.start === start && previous.end === end ? previous : { start, end });
+  }, []);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
@@ -717,10 +726,46 @@ export default function AdminPage() {
           <TabsContent value="calendar" className="space-y-6">
             <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
               <CardContent className="pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                  <div>
+                    <p className="text-sm text-mid">Sync bookings in this calendar view to WOW Clean Bookings.</p>
+                    <p className="text-xs text-mid mt-1" role="status" aria-live="polite">{calendarSyncMessage}</p>
+                  </div>
+                  <Button disabled={calendarSyncing || !calendarRange} onClick={async () => {
+                    if (!calendarRange || calendarSyncing) return;
+                    const range = { ...calendarRange };
+                    setCalendarSyncing(true);
+                    setCalendarSyncMessage("Syncing bookings…");
+                    let synced = 0;
+                    let failed = 0;
+                    let cursor: string | undefined;
+                    try {
+                      do {
+                        const result = await syncCalendarRange(range.start, range.end, cursor);
+                        synced += result.synced;
+                        failed += result.failed;
+                        cursor = result.nextCursor ?? undefined;
+                        setCalendarSyncMessage(`${synced} synced${failed ? `, ${failed} failed` : ""}…`);
+                      } while (cursor);
+                      const message = synced + failed === 0
+                        ? "No bookings in this calendar view."
+                        : `${synced} booking${synced === 1 ? "" : "s"} synced to Google Calendar.${failed ? ` ${failed} failed—click Sync again to retry.` : ""}`;
+                      setCalendarSyncMessage(message);
+                      if (failed) toast.warning(message); else toast.success(message);
+                    } catch {
+                      const message = `Sync interrupted after ${synced} updates. Click Sync again to retry.`;
+                      setCalendarSyncMessage(message);
+                      toast.error(message);
+                    } finally { setCalendarSyncing(false); }
+                  }}>
+                    {calendarSyncing ? "Syncing…" : "Sync to Google Calendar"}
+                  </Button>
+                </div>
                 <div className="fc-dark-theme">
                   <FullCalendar
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth"
+                    datesSet={handleCalendarRange}
                     headerToolbar={{
                       left: "prev,next today",
                       center: "title",
