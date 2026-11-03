@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
+import { getExternalUnavailableTimes } from "@/lib/google-availability";
 import { syncBookingCalendar } from "@/lib/google-calendar";
 import { getBookingDurationMinutes, formatBookingTime, getBookableTimeSlots, isScheduledBookingTime, parseBookingTime } from "@/lib/booking-schedule";
 import { parseFinalAmount, type PaymentStatus, type PaymentMethod, type BookingAdminDetails } from "@/lib/admin-booking";
@@ -52,9 +53,13 @@ export async function getAdminRescheduleTimes(bookingId: string, date: string) {
   const durationMinutes = getBookingDurationMinutes(booking.package, booking.vehicle_size, booking.addons ?? []);
   const slots = getBookableTimeSlots(date, new Date(), durationMinutes);
   if (!slots.length) return [];
-  const { data, error } = await client.rpc("booking_busy_times_for_duration", { p_date: date, p_exclude: bookingId, p_duration: durationMinutes });
-  if (error) throw new Error("Could not check appointment availability.");
-  return slots.filter((slot) => !(data ?? []).includes(slot));
+  const [bookingResult, externalTimes] = await Promise.all([
+    client.rpc("booking_busy_times_for_duration", { p_date: date, p_exclude: bookingId, p_duration: durationMinutes }),
+    getExternalUnavailableTimes(date, durationMinutes),
+  ]);
+  if (bookingResult.error) throw new Error("Could not check appointment availability.");
+  const busy = new Set<string>([...(bookingResult.data ?? []), ...externalTimes]);
+  return slots.filter((slot) => !busy.has(slot));
 }
 
 function escapeHtml(value: unknown) {

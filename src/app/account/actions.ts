@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getExternalUnavailableTimes } from "@/lib/google-availability";
+import { getBookingDurationMinutes, isScheduledBookingTime } from "@/lib/booking-schedule";
 import { syncBookingCalendar } from "@/lib/google-calendar";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -128,6 +130,13 @@ export async function updateBookingAddons(
   // Re-apply promo discount if one was used
   if (booking.promo_discount_pct) {
     total = Math.round(total * (1 - booking.promo_discount_pct / 100));
+  }
+
+  if (booking.status === "confirmed") {
+    const duration = getBookingDurationMinutes(booking.package, booking.vehicle_size, validatedAddons);
+    const externalTimes = await getExternalUnavailableTimes(booking.booking_date, duration);
+    if (!isScheduledBookingTime(booking.booking_date, booking.booking_time, new Date(), duration) || externalTimes.includes(booking.booking_time))
+      throw new Error("These add-ons need more time than is available. Please contact WOW CLEAN to reschedule.");
   }
 
   const { error } = await supabase
