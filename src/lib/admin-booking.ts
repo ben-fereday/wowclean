@@ -1,5 +1,5 @@
 export type PaymentStatus = "unpaid" | "paid";
-export type PaymentMethod = "credit" | "debit" | "cash" | "e_transfer";
+export type PaymentMethod = "credit" | "debit" | "cash" | "e_transfer" | "square";
 export interface BookingAdminDetails {
   booking_id: string;
   payment_status: PaymentStatus;
@@ -25,3 +25,4 @@ export function validateTimeRange(date: string, start?: string, end?: string) {
   if (!start || !end || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end) || end <= start)
     throw new Error("End time must be after start time on the same date.");
 }
+

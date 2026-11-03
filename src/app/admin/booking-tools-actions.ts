@@ -30,13 +30,18 @@ export async function saveBookingAdminDetails(bookingId: string, input: {
 }) {
   const { client, user } = await adminClient();
   if (!["unpaid", "paid"].includes(input.paymentStatus)) return { error: "Choose a valid payment status." };
-  if (input.paymentMethod && !["credit", "debit", "cash", "e_transfer"].includes(input.paymentMethod)) return { error: "Choose a valid payment method." };
+  if (input.paymentMethod && !["credit", "debit", "cash", "e_transfer", "square"].includes(input.paymentMethod)) return { error: "Choose a valid payment method." };
   if (input.notes.length > 5000) return { error: "Private notes must be 5,000 characters or fewer." };
   let amount: number | null;
   try { amount = parseFinalAmount(input.finalAmount); }
   catch (error) { return { error: error instanceof Error ? error.message : "Invalid amount." }; }
   if (input.paymentStatus === "paid" && (amount === null || !input.paymentMethod))
     return { error: "Record the final amount and payment method before marking this paid." };
+  const { data: invoice, error: invoiceError } = await client.from("booking_square_invoices").select("status,total_cents").eq("booking_id", bookingId).maybeSingle();
+  if (invoiceError) return { error: "Could not verify Square payment status. Please retry." };
+  if (invoice?.status === "PAID") {
+    input.paymentStatus = "paid"; input.paymentMethod = "square"; amount = Number(invoice.total_cents) / 100;
+  }
   const { error } = await client.from("booking_admin_details").upsert({
     booking_id: bookingId, payment_status: input.paymentStatus, payment_method: input.paymentMethod || null,
     final_amount: amount, internal_notes: input.notes.trim(), updated_by: user.id, updated_at: new Date().toISOString(),
@@ -142,3 +147,4 @@ export async function syncCalendarRange(start: string, end: string, cursor?: str
     nextCursor: (data?.length ?? 0) > 3 ? batch[batch.length - 1].id as string : null,
   };
 }
+

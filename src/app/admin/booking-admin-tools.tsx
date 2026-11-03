@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import SquareInvoiceTools from "./square-invoice-tools";
 import { toast } from "sonner";
 import { syncAdminBookingCalendar, getBookingAdminDetails, saveBookingAdminDetails, getAdminRescheduleTimes, rescheduleBooking } from "./booking-tools-actions";
 import { getCalgaryNow } from "@/lib/booking-schedule";
@@ -91,9 +92,10 @@ export default function BookingAdminTools({ booking, onRescheduled }: Props) {
           finally { setSyncingCalendar(false); }
         }}>{syncingCalendar ? "Syncing…" : "Sync to Google Calendar"}</button>
       </section>
+      <SquareInvoiceTools key={booking.id} bookingId={booking.id} finalAmount={amount || String(booking.total_estimate)} onStatusChange={() => setRetry(value => value + 1)} />
       <section className="space-y-3" aria-label="Payment and private notes">
         <h3 className="text-base font-semibold text-white">Payment tracking</h3>
-        <p className="text-xs text-mid">Manual record only. This does not charge or refund a customer in Square.</p>
+        <p className="text-xs text-mid">Use this for manual payments. Square invoices update this record when paid; use Refresh payment status above to check. Saving here does not charge or refund anyone.</p>
         {loading ? <p className="text-sm text-mid" role="status">Loading payment details and notes…</p> : loadError ? (
           <p className="text-sm text-red-400" role="alert">{loadError} <button className="underline" onClick={() => setRetry((value) => value + 1)}>Retry</button></p>
         ) : (
@@ -106,7 +108,7 @@ export default function BookingAdminTools({ booking, onRescheduled }: Props) {
               </label>
               <label className="space-y-1 text-sm text-mid">Payment method
                 <select className={fieldClass} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod | "")}>
-                  <option value="">Select method</option><option value="credit">Credit card</option><option value="debit">Debit card</option><option value="cash">Cash</option><option value="e_transfer">E-transfer</option>
+                  <option value="">Select method</option><option value="credit">Credit card</option><option value="debit">Debit card</option><option value="cash">Cash</option><option value="e_transfer">E-transfer</option><option value="square">Square invoice</option>
                 </select>
               </label>
               <label className="space-y-1 text-sm text-mid sm:col-span-2">Final amount (CAD)
@@ -145,3 +147,4 @@ export default function BookingAdminTools({ booking, onRescheduled }: Props) {
     </div>
   );
 }
+
