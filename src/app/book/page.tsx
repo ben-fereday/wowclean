@@ -1586,7 +1586,7 @@ function BookPageContent() {
           {/* Trust strip */}
           <div className="mt-auto pt-7 border-t border-white/[0.08] flex flex-col gap-2.5">
             {[
-              { icon: <Lock className="w-4 h-4" />, text: "Secure booking \u2014 no payment required now" },
+              { icon: <Lock className="w-4 h-4" />, text: "Payment due upon completion. Credit, debit, cash and e-transfer accepted." },
               {
                 icon: <CalendarDays className="w-4 h-4" />,
                 text: "Free rescheduling up to 24 hrs before",

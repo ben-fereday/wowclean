@@ -56,7 +56,7 @@ export default function TermsPage() {
               Appointments can be booked online, by phone, or via email. By
               placing a booking you authorize us to hold the requested time
               slot. Payment is due upon completion of service unless otherwise
-              agreed in writing.
+              agreed in writing. Credit, debit, cash and e-transfer accepted.
             </p>
           </div>
 
