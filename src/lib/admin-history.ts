@@ -9,6 +9,7 @@ export interface BookingAddon {
 
 export interface Booking {
   id: string;
+  archived_at?: string | null;
   user_id: string | null;
   guest_first_name: string | null;
   guest_last_name: string | null;
@@ -37,7 +38,7 @@ export interface Booking {
 export type HistoryPayment = { booking_id: string; payment_status: string; final_amount: number | null };
 export const historyName = (b: Booking) => b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}`.trim() : `${b.guest_first_name ?? ""} ${b.guest_last_name ?? ""}`.trim() || "Guest";
 
-export function filterAppointmentHistory(bookings: Booking[], paymentMap: Map<string, HistoryPayment>, filters: { search: string; range: string; from: string; to: string; status: string; payment: string }, now: {date: string; minutes: number}) {
+export function filterAppointmentHistory(bookings: Booking[], paymentMap: Map<string, HistoryPayment>, filters: { search: string; range: string; from: string; to: string; status: string; payment: string; showArchived?: boolean }, now: {date: string; minutes: number}) {
   const {search, range, from, to, status, payment} = filters;
   const invalidRange = range === "custom" && !!from && !!to && from > to;
     const cutoff = new Date(now.date + "T12:00:00Z");
@@ -46,6 +47,7 @@ export function filterAppointmentHistory(bookings: Booking[], paymentMap: Map<st
     const last = range === "custom" ? to : "";
     const query = search.trim().toLowerCase();
     return bookings.filter(b => {
+      if (b.archived_at && !filters.showArchived) return false;
       const minutes = parseBookingTime(b.booking_time);
       if (b.booking_date > now.date || (b.booking_date === now.date && (minutes === null || minutes >= now.minutes))) return false;
       if (invalidRange || (first && b.booking_date < first) || (last && b.booking_date > last)) return false;
@@ -54,3 +56,4 @@ export function filterAppointmentHistory(bookings: Booking[], paymentMap: Map<st
       return !query || [historyName(b), b.reference_code, b.guest_email, b.guest_phone, b.profiles?.phone].some(v => v?.toLowerCase().includes(query));
     }).sort((a, b) => b.booking_date.localeCompare(a.booking_date) || (parseBookingTime(b.booking_time) ?? 0) - (parseBookingTime(a.booking_time) ?? 0) || b.id.localeCompare(a.id));
 }
+

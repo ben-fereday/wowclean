@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getAppointmentHistoryPage } from "./history-actions";
+import { toast } from "sonner";
+import { getAppointmentHistoryPage, setAppointmentArchived } from "./history-actions";
 import { getCalgaryNow } from "@/lib/booking-schedule";
 import { PACKAGE_LABELS, SERVICE_TYPE_LABELS } from "@/lib/constants";
 import { filterAppointmentHistory, historyName as nameOf, type Booking, type HistoryPayment as Payment } from "@/lib/admin-history";
@@ -23,12 +24,24 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
   const [to, setTo] = useState("");
   const [status, setStatus] = useState("all");
   const [payment, setPayment] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [now, setNow] = useState(() => getCalgaryNow());
 
   useEffect(() => {
     const timer = setInterval(() => setNow(getCalgaryNow()), 60000);
-    return () => clearInterval(timer);
+    async function changeArchive(booking: Booking) {
+    setArchivingId(booking.id);
+    try {
+      const result = await setAppointmentArchived(booking.id, !booking.archived_at);
+      setBookings(previous => previous.map(b => b.id === booking.id ? { ...b, archived_at: result.archivedAt } : b));
+      toast.success(booking.archived_at ? "Appointment restored. No email sent." : "Appointment archived. No email sent.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not update the archive. Please retry."); }
+    finally { setArchivingId(null); }
+  }
+
+  return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -53,8 +66,8 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
   const paymentMap = useMemo(() => new Map(payments.map(p => [p.booking_id, p])), [payments]);
   const invalidRange = range === "custom" && !!from && !!to && from > to;
   const filtered = useMemo(() => {
-    return filterAppointmentHistory(bookings, paymentMap, { search, range, from, to, status, payment }, now);
-  }, [bookings, paymentMap, search, range, from, to, status, payment, now, invalidRange]);
+    return filterAppointmentHistory(bookings, paymentMap, { search, range, from, to, status, payment, showArchived }, now);
+  }, [bookings, paymentMap, search, range, from, to, status, payment, showArchived, now, invalidRange]);
   const pages = Math.max(1, Math.ceil(filtered.length / 25));
   const currentPage = Math.min(page, pages - 1);
 
@@ -64,8 +77,14 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
         <div><h2 className="font-[family-name:var(--font-heading)] text-2xl uppercase text-white">Appointment History</h2>
           <p className="text-sm text-mid mt-1">Past appointments, newest first. All dates and times are Calgary time.</p>
           <p className="text-xs text-mid mt-1">Past confirmed appointments stay awaiting completion until you update their status.</p></div>
-        <button className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40" disabled={loading} onClick={() => setRetry(v => v + 1)}>Refresh</button>
+        <button className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40" disabled={loading || !!archivingId} onClick={() => setRetry(v => v + 1)}>Refresh</button>
       </div>
+      <label className="flex items-center gap-2 text-sm text-mid">
+        <input type="checkbox" checked={showArchived} onChange={e => { setShowArchived(e.target.checked); setPage(0); }} className="size-4 accent-cyan" />
+        Show archived
+        <span className="text-xs">({bookings.filter(b => b.archived_at).length})</span>
+      </label>
+      <p className="text-xs text-mid">Archiving only hides appointments from this history. Archive and restore never send emails or change booking and payment statuses.</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-sm text-mid space-y-1">Search
           <input className={field} type="search" placeholder="Customer, reference, email or phone" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} /></label>
@@ -97,12 +116,14 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
                 const p = paymentMap.get(b.id);
                 return <tr key={b.id} className="border-t border-white/10 text-white hover:bg-white/5">
                   <td className="px-3 py-4 whitespace-nowrap">{dateLabel(b.booking_date)}<div className="text-xs text-mid mt-1">{b.booking_time}</div></td>
-                  <td className="px-3 py-4">{nameOf(b)}<div className="text-xs text-mid mt-1">{b.reference_code}</div></td>
+                  <td className="px-3 py-4">{nameOf(b)}<div className="text-xs text-mid mt-1">{b.reference_code}</div>{b.archived_at && <span className="mt-1 inline-block rounded border border-white/20 px-2 py-0.5 text-xs text-mid">Archived</span>}</td>
                   <td className="px-3 py-4">{PACKAGE_LABELS[b.package]}<div className="text-xs text-mid mt-1">{SERVICE_TYPE_LABELS[b.service_type]}</div></td>
                   <td className={`px-3 py-4 ${b.status === "completed" ? "text-green-400" : b.status === "confirmed" ? "text-yellow" : "text-mid"}`}>{labels[b.status] ?? b.status}</td>
                   <td className={`px-3 py-4 ${p?.payment_status === "paid" ? "text-green-400" : "text-yellow"}`}>{p?.payment_status === "paid" ? "Paid" : "Unpaid"}</td>
                   <td className="px-3 py-4 whitespace-nowrap">{money.format(p?.final_amount ?? b.total_estimate)}<div className="text-xs text-mid mt-1">{p?.final_amount == null ? "Estimate" : "Final amount"}</div></td>
-                  <td className="px-3 py-4"><button className="rounded-lg border border-cyan/40 px-3 py-2 text-cyan whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan" aria-label={`View appointment for ${nameOf(b)} on ${dateLabel(b.booking_date)}`} onClick={() => onOpen(b, nameOf(b))}>View details</button></td>
+                  <td className="px-3 py-4"><button className="rounded-lg border border-cyan/40 px-3 py-2 text-cyan whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan" aria-label={`View appointment for ${nameOf(b)} on ${dateLabel(b.booking_date)}`} onClick={() => onOpen(b, nameOf(b))}>View details</button>
+                    <button disabled={!!archivingId} className="mt-2 block text-xs text-mid underline hover:text-white disabled:opacity-40" onClick={() => changeArchive(b)} aria-label={`${b.archived_at ? "Restore" : "Archive"} appointment ${b.reference_code}`}>{archivingId === b.id ? "Saving…" : b.archived_at ? "Restore" : "Archive"}</button>
+                  </td>
                 </tr>;
               })}</tbody>
             </table>
@@ -116,3 +137,4 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
     </section>
   );
 }
+
