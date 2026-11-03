@@ -176,7 +176,7 @@ function PriceTable({
                 >
                   {row.service}
                   {!EXTERIOR_BOOKINGS_ENABLED && row.service !== "Interior Only" && (
-                    <span className="block text-xs font-normal text-mid mt-1">Spring / summer only</span>
+                    <span className="block text-xs font-normal text-mid mt-1">spring / summer only</span>
                   )}
                 </td>
                 {[row.small, row.medium, row.large].map((val, j) => (
@@ -291,7 +291,7 @@ function Services({
               ))}
             </ul>
             <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid">(spring / summer)</span>}
+              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid normal-case">(spring / summer)</span>}
             </div>
             <ul className="space-y-1">
               {[
@@ -375,7 +375,7 @@ function Services({
               ))}
             </ul>
             <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid">(spring / summer)</span>}
+              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid normal-case">(spring / summer)</span>}
             </div>
             <ul className="space-y-1">
               {[
