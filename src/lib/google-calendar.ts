@@ -17,13 +17,13 @@ let cachedToken: { value: string; expires: number } | undefined;
 function configured() {
   return process.env.VERCEL_ENV === "production" && !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !!process.env.GOOGLE_CALENDAR_ID;
 }
-async function token() {
+export async function googleCalendarAccessToken() {
   if (cachedToken && cachedToken.expires > Date.now() + 60000) return cachedToken.value;
   const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
   if (credentials.type !== "service_account" || typeof credentials.client_email !== "string" || typeof credentials.private_key !== "string") throw new Error("Invalid calendar credentials");
   const now = Math.floor(Date.now() / 1000);
   const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-  const claims = Buffer.from(JSON.stringify({ iss: credentials.client_email, scope: "https://www.googleapis.com/auth/calendar.events", aud: TOKEN_URL, iat: now, exp: now + 3600 })).toString("base64url");
+  const claims = Buffer.from(JSON.stringify({ iss: credentials.client_email, scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy", aud: TOKEN_URL, iat: now, exp: now + 3600 })).toString("base64url");
   const unsigned = header + "." + claims;
   const signature = createSign("RSA-SHA256").update(unsigned).sign(credentials.private_key, "base64url");
   const response = await fetch(TOKEN_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: unsigned + "." + signature }), signal: AbortSignal.timeout(10000), cache: "no-store" });
@@ -74,7 +74,7 @@ export function bookingCalendarEvent(booking: CalendarBooking) {
 }
 async function request(path: string, method: string, body?: unknown) {
   return fetch("https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(process.env.GOOGLE_CALENDAR_ID!) + "/events" + path + "?sendUpdates=none", {
-    method, headers: { Authorization: "Bearer " + await token(), "Content-Type": "application/json" },
+    method, headers: { Authorization: "Bearer " + await googleCalendarAccessToken(), "Content-Type": "application/json" },
     ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(10000),
   });
 }
@@ -111,7 +111,7 @@ export async function checkCalendarConnection() {
   if (!configured()) return { success: false, error: "Calendar configuration is incomplete." };
   try {
     const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(process.env.GOOGLE_CALENDAR_ID!) + "/events?maxResults=1&fields=kind", {
-      headers: { Authorization: "Bearer " + await token() }, cache: "no-store", signal: AbortSignal.timeout(10000),
+      headers: { Authorization: "Bearer " + await googleCalendarAccessToken() }, cache: "no-store", signal: AbortSignal.timeout(10000),
     });
     return response.ok ? { success: true } : { success: false, error: "Calendar access failed (" + response.status + ")." };
   } catch { return { success: false, error: "Calendar authorization failed." }; }

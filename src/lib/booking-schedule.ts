@@ -36,7 +36,8 @@ export const ALL_TIME_SLOTS = Array.from(
 
 export function getCalgaryNow(now: Date = new Date()): { date: string; minutes: number } {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: BOOKING_TIME_ZONE,
+    // Alberta adopted permanent UTC-06:00 on November 1, 2026.
+    timeZone: now >= new Date("2026-11-01T00:00:00Z") ? "Etc/GMT+6" : BOOKING_TIME_ZONE,
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).formatToParts(now);

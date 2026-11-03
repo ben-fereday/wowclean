@@ -1,3 +1,5 @@
+import { getExternalUnavailableTimes, availabilityCalendarIds } from "@/lib/google-availability";
+import { getCalgaryNow } from "@/lib/booking-schedule";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { checkCalendarConnection, syncBookingCalendar, type CalendarBooking } from "@/lib/google-calendar";
 export const runtime = "nodejs";
@@ -12,7 +14,13 @@ function authorized(request: Request) {
 export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const result = await checkCalendarConnection();
-  return Response.json(result, { status: result.success ? 200 : 503, headers: { "Cache-Control": "no-store" } });
+  try {
+    const date = new URL(request.url).searchParams.get("date") || getCalgaryNow().date;
+    const blocked = await getExternalUnavailableTimes(date, 120);
+    return Response.json({ ...result, availability: { success: true, calendarCount: availabilityCalendarIds().length, blockedStarts: blocked } }, { status: result.success ? 200 : 503, headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return Response.json({ success: false, error: "Could not access all six availability calendars." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
 }
 // Protected integration check uses synthetic details, never customer data or invitations.
 export async function POST(request: Request) {
