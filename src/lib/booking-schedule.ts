@@ -4,15 +4,15 @@ export const BOOKING_TIME_ZONE = "America/Edmonton";
 export const BOOKING_WINDOW_MINUTES = 120;
 export const SLOT_INTERVAL_MINUTES = 30;
 
-type BusinessHours = { open: number; close: number; lastStart?: number };
+type BusinessHours = { open: number; lastStart: number };
 const WEEKLY_HOURS: Record<number, BusinessHours | null> = {
-  0: { open: 8 * 60, close: 12 * 60, lastStart: 10 * 60 },
+  0: { open: 8 * 60, lastStart: 10 * 60 },
   1: null,
-  2: { open: 17 * 60, close: 21 * 60 },
-  3: { open: 14 * 60 + 30, close: 21 * 60 },
-  4: { open: 17 * 60, close: 21 * 60 },
-  5: { open: 14 * 60 + 30, close: 21 * 60 },
-  6: { open: 8 * 60, close: 21 * 60 },
+  2: { open: 17 * 60, lastStart: 20 * 60 },
+  3: { open: 14 * 60 + 30, lastStart: 20 * 60 },
+  4: { open: 17 * 60, lastStart: 20 * 60 },
+  5: { open: 14 * 60 + 30, lastStart: 20 * 60 },
+  6: { open: 8 * 60, lastStart: 20 * 60 },
 };
 
 export function parseBookingTime(time: string): number | null {
@@ -54,7 +54,9 @@ export function getOperatingTimeSlots(date: string, durationMinutes = BOOKING_WI
   if (!Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== date) return [];
   const hours = WEEKLY_HOURS[day.getUTCDay()];
   if (!hours) return [];
-  const latest = Math.min(hours.close - durationMinutes, hours.lastStart ?? Infinity);
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return [];
+  // The cutoff limits the start time; the full appointment may finish later.
+  const latest = hours.lastStart;
   const slots: string[] = [];
   for (let minute = hours.open; minute <= latest; minute += SLOT_INTERVAL_MINUTES) {
     slots.push(formatBookingTime(minute));
