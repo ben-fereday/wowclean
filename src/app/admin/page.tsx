@@ -14,6 +14,7 @@ import {
   type PromoCodeRow,
 } from "./actions";
 import { PROMO_LIMIT_LABELS, PROMO_LIMITS, type PromoUsageLimit } from "@/lib/promo-policy";
+import { buildAdminCustomers, type AdminCustomer } from "@/lib/admin-customers";
 import BookingAdminTools from "./booking-admin-tools";
 import AppointmentHistory from "./appointment-history";
 import type { Booking, BookingAddon } from "@/lib/admin-history";
@@ -212,7 +213,11 @@ export default function AdminPage() {
 
   // Customer search + detail modal
   const [customerSearch, setCustomerSearch] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<Profile | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [includeArchivedCustomers, setIncludeArchivedCustomers] = useState(false);
+  const customerRows = useMemo(() => buildAdminCustomers(profiles, bookings, includeArchivedCustomers), [profiles, bookings, includeArchivedCustomers]);
+  const selectedCustomer = customerRows.find(customer => customer.id === selectedCustomerId) ?? null;
+  function setSelectedCustomer(customer: AdminCustomer | null) { setSelectedCustomerId(customer?.id ?? null); }
 
   // DB subscription pricing
   const [dbSubPricing, setDbSubPricing] = useState<SubPricingGrid>(
@@ -252,26 +257,23 @@ export default function AdminPage() {
   /* ---- Data fetching ---- */
 
   const fetchBookings = useCallback(async () => {
-    const todayStr = new Date().toLocaleDateString("en-CA");
-
-    const [{ data: allData }, { data: upcomingData }] = await Promise.all([
-      supabase
-        .from("bookings")
-        .select("*")
-        .order("booking_date", { ascending: true })
-        .order("booking_time", { ascending: true }),
-      supabase
-        .from("bookings")
-        .select("*")
-        .gte("booking_date", todayStr)
-        .in("status", ["confirmed"])
-        .order("booking_date", { ascending: true })
-        .order("booking_time", { ascending: true }),
-    ]);
-
-    setBookings((allData as Booking[]) ?? []);
+    const allData: Booking[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from("bookings").select("*")
+        .order("booking_date", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 499);
+      if (error) { toast.error("Could not load bookings. Please refresh the dashboard."); return; }
+      const batch = (data ?? []) as Booking[];
+      if (!batch.length) break;
+      const { data: archives, error: archiveError } = await supabase.from("booking_admin_archives").select("booking_id,archived_at").in("booking_id", batch.map(b => b.id));
+      if (archiveError) { toast.error("Could not load archived booking details. Please refresh the dashboard."); return; }
+      const archiveMap = new Map<string, string>((archives ?? []).map(a => [a.booking_id, a.archived_at]));
+      allData.push(...batch.map(b => ({ ...b, archived_at: archiveMap.get(b.id) ?? null })));
+      if (batch.length < 500) break;
+    }
+    const todayStr = getCalgaryNow().date;
+    setBookings(allData);
     setHistoryRevision(v => v + 1);
-    setAllBookings((upcomingData as Booking[]) ?? []);
+    setAllBookings(allData.filter(b => b.booking_date >= todayStr && b.status === "confirmed" && !b.archived_at));
   }, [supabase]);
 
   const fetchCurrentUser = useCallback(async () => {
@@ -408,7 +410,7 @@ export default function AdminPage() {
 
     // Bookings
     for (const b of bookings) {
-      if (b.status === "cancelled") continue;
+      if (b.status === "cancelled" || b.archived_at) continue;
       const time24 = parseTimeTo24(b.booking_time);
       const name = getBookingName(b);
       events.push({
@@ -1143,23 +1145,21 @@ export default function AdminPage() {
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                   <Input
-                    placeholder="Search by name, email, or phone..."
+                    placeholder="Search by name, email, phone, or booking reference..."
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
                     className="pl-10 border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
                   />
                 </div>
 
+                <label className="mb-4 flex items-center gap-2 text-sm text-mid">
+                  <input type="checkbox" className="size-4 accent-cyan" checked={includeArchivedCustomers} onChange={event => setIncludeArchivedCustomers(event.target.checked)} />
+                  Include archived appointments
+                </label>
+                <p className="mb-4 text-xs text-mid">Guest bookings and existing accounts are grouped by email for your customer records.</p>
                 {(() => {
                   const q = customerSearch.toLowerCase().trim();
-                  const filtered = q
-                    ? profiles.filter((p) =>
-                        `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
-                        (p.email ?? "").toLowerCase().includes(q) ||
-                        (p.phone ?? "").toLowerCase().includes(q) ||
-                        (p.referral_code ?? "").toLowerCase().includes(q)
-                      )
-                    : profiles;
+                  const filtered = q ? customerRows.filter(customer => customer.search_text.includes(q)) : customerRows;
 
                   if (filtered.length === 0) {
                     return (
@@ -1177,32 +1177,23 @@ export default function AdminPage() {
                           <TableHead className="text-[hsl(var(--muted-foreground))]">Name</TableHead>
                           <TableHead className="text-[hsl(var(--muted-foreground))]">Email</TableHead>
                           <TableHead className="text-[hsl(var(--muted-foreground))]">Phone</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Credits</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Subscriptions</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Bookings</TableHead>
+                          <TableHead className="text-[hsl(var(--muted-foreground))]">Latest appointment</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filtered.map((p) => {
-                          const userSubs = getSubscriptionsForUser(p.id);
                           return (
                             <TableRow
                               key={p.id}
                               className="border-[hsl(var(--muted))] cursor-pointer hover:bg-[hsl(var(--muted))]/30 transition-colors"
                               onClick={() => setSelectedCustomer(p)}
                             >
-                              <TableCell className="font-medium text-white">{p.first_name} {p.last_name}</TableCell>
+                              <TableCell className="font-medium text-white">{p.first_name} {p.last_name}<span className="mt-1 block text-xs font-normal text-mid">{p.is_guest ? "Guest customer" : "Existing account"}</span></TableCell>
                               <TableCell className="text-[hsl(var(--muted-foreground))] text-sm">{p.email || "—"}</TableCell>
                               <TableCell className="text-[hsl(var(--muted-foreground))]">{p.phone || "N/A"}</TableCell>
-                              <TableCell className="text-[hsl(var(--accent))] font-semibold">{p.referral_credits ?? 0}</TableCell>
-                              <TableCell>
-                                {userSubs.length > 0 ? (
-                                  <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">
-                                    {userSubs.length} Active
-                                  </Badge>
-                                ) : (
-                                  <span className="text-[hsl(var(--muted-foreground))]">None</span>
-                                )}
-                              </TableCell>
+                              <TableCell className="text-[hsl(var(--accent))] font-semibold">{p.booking_ids.length}</TableCell>
+                              <TableCell className="text-mid">{p.last_booking_date ? new Date(p.last_booking_date + "T12:00:00Z").toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—"}</TableCell>
                             </TableRow>
                           );
                         })}
@@ -1240,6 +1231,7 @@ export default function AdminPage() {
                       )}
                     </div>
 
+                    {!selectedCustomer.is_guest && <>
                     {/* Referral Info */}
                     <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4 space-y-3">
                       <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold flex items-center gap-1.5">
@@ -1360,18 +1352,20 @@ export default function AdminPage() {
                       );
                     })()}
 
+                    </>}
+
                     {/* Booking History */}
                     {(() => {
                       const userBookings = bookings
-                        .filter((b) => b.user_id === selectedCustomer.id)
+                        .filter((b) => selectedCustomer.booking_ids.includes(b.id))
                         .sort((a, b) => b.booking_date.localeCompare(a.booking_date));
                       return (
                         <div className="space-y-3">
                           <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold">
-                            Booking History ({userBookings.length})
+                            Appointments ({userBookings.length})
                           </p>
                           {userBookings.length === 0 ? (
-                            <p className="text-sm text-[hsl(var(--muted-foreground))]">No bookings yet.</p>
+                            <p className="text-sm text-[hsl(var(--muted-foreground))]">No appointments yet.</p>
                           ) : (
                             <div className="space-y-2 max-h-[300px] overflow-y-auto">
                               {userBookings.map((b) => (
@@ -1394,8 +1388,12 @@ export default function AdminPage() {
                                     )}
                                   </div>
                                   <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                                    Ref: {b.reference_code}
+                                    Ref: {b.reference_code}{b.archived_at ? " · Archived" : ""}
                                   </div>
+                                  <Button variant="outline" size="sm" className="mt-3 text-cyan border-cyan/30" onClick={() => {
+                                    setSelectedEntry({ type: "booking", time: b.booking_time, name: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`.trim(), booking: b });
+                                    setSelectedCustomer(null);
+                                  }}>View booking details</Button>
                                 </div>
                               ))}
                             </div>
@@ -1849,5 +1847,6 @@ export default function AdminPage() {
     </div>
   );
 }
+
 
 
