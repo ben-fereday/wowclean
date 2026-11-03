@@ -196,10 +196,12 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   // Calendar state
+  const [calendarView, setCalendarView] = useState("dayGridMonth");
   const [calendarRange, setCalendarRange] = useState<{ start: string; end: string } | null>(null);
   const [calendarSyncing, setCalendarSyncing] = useState(false);
   const [calendarSyncMessage, setCalendarSyncMessage] = useState("");
-  const handleCalendarRange = useCallback((range: { startStr: string; endStr: string }) => {
+  const handleCalendarRange = useCallback((range: { startStr: string; endStr: string; view: { type: string } }) => {
+    setCalendarView(range.view.type);
     const start = range.startStr.slice(0, 10);
     const end = range.endStr.slice(0, 10);
     setCalendarRange((previous) => previous?.start === start && previous.end === end ? previous : { start, end });
@@ -773,7 +775,15 @@ export default function AdminPage() {
                     }}
                     events={calendarEvents}
                     eventClick={handleEventClick}
-                    height="auto"
+                    height={calendarView === "dayGridMonth" ? "auto" : 680}
+                    slotMinTime="08:00:00"
+                    slotMaxTime="24:00:00"
+                    scrollTime="08:00:00"
+                    slotDuration="00:30:00"
+                    slotLabelInterval="01:00:00"
+                    expandRows={false}
+                    stickyHeaderDates={true}
+                    allDayText="All day"
                     eventDisplay="block"
                     dayMaxEvents={3}
                     nowIndicator={true}
