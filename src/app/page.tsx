@@ -159,7 +159,7 @@ function PriceTable({
             {["Service", "Small", "Medium", "Large"].map((h, i) => (
               <th
                 key={h}
-                className={`bg-white/[0.06] font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[2px] uppercase text-mid py-3 px-3 sm:px-[18px] ${i === 0 ? "text-left" : "text-center"}`}
+                className={`bg-white/[0.06] font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[2px] uppercase text-white py-3 px-3 sm:px-[18px] ${i === 0 ? "text-left" : "text-center"}`}
               >
                 {h}
               </th>
@@ -172,11 +172,11 @@ function PriceTable({
             return (
               <tr key={i}>
                 <td
-                  className={`py-3 px-3 sm:px-[18px] border-t border-white/[0.06] text-[0.9rem] ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-silver"}`}
+                  className={`py-3 px-3 sm:px-[18px] border-t border-white/[0.06] text-[0.9rem] ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-white"}`}
                 >
                   {row.service}
                   {!EXTERIOR_BOOKINGS_ENABLED && row.service !== "Interior Only" && (
-                    <span className="block text-xs font-normal text-mid mt-1">spring / summer only</span>
+                    <span className="block text-xs font-normal text-yellow mt-1">SPRING / SUMMER ONLY</span>
                   )}
                 </td>
                 {[row.small, row.medium, row.large].map((val, j) => (
