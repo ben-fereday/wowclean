@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
+import { bookingManageUrl } from "@/lib/booking-access";
 import { getExternalUnavailableTimes } from "@/lib/google-availability";
 import { syncBookingCalendar } from "@/lib/google-calendar";
 import { getBookingDurationMinutes, formatBookingTime, getBookableTimeSlots, isScheduledBookingTime, parseBookingTime } from "@/lib/booking-schedule";
@@ -107,11 +108,12 @@ export async function rescheduleBooking(bookingId: string, date: string, time: s
       .format(new Date(date + "T12:00:00Z"));
     const oldDateText = new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeZone: "America/Edmonton" })
       .format(new Date(expectedDate + "T12:00:00Z"));
+    const manageUrl = bookingManageUrl(bookingId, date);
     const result = await new Resend(process.env.RESEND_API_KEY).emails.send({
       from: "WowClean <info@wowcleancalgary.com>", to: email, replyTo: "teamwowclean@gmail.com",
       subject: `Booking Rescheduled — ${booking.reference_code}`,
-      text: `Hi ${booking.guest_first_name || "there"}, your WOW CLEAN appointment has been rescheduled.\n\nNew appointment: ${dateText} at ${normalized} (Calgary time).\nPrevious appointment: ${oldDateText} at ${expectedTime}.\nPackage: ${PACKAGE_LABELS[booking.package as PackageId] || booking.package}.\nService: ${SERVICE_TYPE_LABELS[booking.service_type as ServiceType] || booking.service_type}.\nAddress: ${booking.service_address || booking.guest_address || "Please contact us"}.\nReference: ${booking.reference_code}.\n\nCustomer-provided power is required. Winter appointments require a suitable heated workspace. Payment is due upon completion.\nQuestions? Reply to this email or call (587) 436-9605.`,
-      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:28px;color:#17213d"><h1>WOW CLEAN</h1><h2>Your appointment has been rescheduled</h2><p>Hi ${escapeHtml(booking.guest_first_name || "there")}, here are your updated booking details.</p><p><strong>New date:</strong> ${escapeHtml(dateText)}<br><strong>Start time:</strong> ${escapeHtml(normalized)} (Calgary time)</p><p><strong>Previously:</strong> ${escapeHtml(oldDateText)} at ${escapeHtml(expectedTime)}</p><p><strong>Package:</strong> ${escapeHtml(PACKAGE_LABELS[booking.package as PackageId] || booking.package)}<br><strong>Service:</strong> ${escapeHtml(SERVICE_TYPE_LABELS[booking.service_type as ServiceType] || booking.service_type)}<br><strong>Address:</strong> ${escapeHtml(booking.service_address || booking.guest_address || "Please contact us")}<br><strong>Reference:</strong> ${escapeHtml(booking.reference_code)}</p><p>Customer-provided power is required. Winter appointments require a suitable heated workspace. Payment is due upon completion.</p><p>Questions? Reply to this email or call <a href="tel:+15874369605">(587) 436-9605</a>.</p></div>`,
+      text: `Hi ${booking.guest_first_name || "there"}, your WOW CLEAN appointment has been rescheduled.\n\nNew appointment: ${dateText} at ${normalized} (Calgary time).\nPrevious appointment: ${oldDateText} at ${expectedTime}.\nPackage: ${PACKAGE_LABELS[booking.package as PackageId] || booking.package}.\nService: ${SERVICE_TYPE_LABELS[booking.service_type as ServiceType] || booking.service_type}.\nAddress: ${booking.service_address || booking.guest_address || "Please contact us"}.\nReference: ${booking.reference_code}.\n\nManage your booking: ${manageUrl}\nNo account needed. Keep this link private.\n\nCustomer-provided power is required. Winter appointments require a suitable heated workspace. Payment is due upon completion.\nQuestions? Reply to this email or call (587) 436-9605.`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:28px;color:#17213d"><h1>WOW CLEAN</h1><h2>Your appointment has been rescheduled</h2><p>Hi ${escapeHtml(booking.guest_first_name || "there")}, here are your updated booking details.</p><p><strong>New date:</strong> ${escapeHtml(dateText)}<br><strong>Start time:</strong> ${escapeHtml(normalized)} (Calgary time)</p><p><strong>Previously:</strong> ${escapeHtml(oldDateText)} at ${escapeHtml(expectedTime)}</p><p><strong>Package:</strong> ${escapeHtml(PACKAGE_LABELS[booking.package as PackageId] || booking.package)}<br><strong>Service:</strong> ${escapeHtml(SERVICE_TYPE_LABELS[booking.service_type as ServiceType] || booking.service_type)}<br><strong>Address:</strong> ${escapeHtml(booking.service_address || booking.guest_address || "Please contact us")}<br><strong>Reference:</strong> ${escapeHtml(booking.reference_code)}</p><p><a href="${manageUrl}">Manage my booking</a> — view details or request a change without an account. Keep this link private.</p><p>Customer-provided power is required. Winter appointments require a suitable heated workspace. Payment is due upon completion.</p><p>Questions? Reply to this email or call <a href="tel:+15874369605">(587) 436-9605</a>.</p></div>`,
     });
     if (result.error) return { success: true, emailSent: false, warning };
     return { success: true, emailSent: true, warning: calendarWarning };
@@ -147,4 +149,5 @@ export async function syncCalendarRange(start: string, end: string, cursor?: str
     nextCursor: (data?.length ?? 0) > 3 ? batch[batch.length - 1].id as string : null,
   };
 }
+
 

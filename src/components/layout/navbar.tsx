@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, LogIn, LogOut, Sparkles, User } from "lucide-react";
+import { Menu, CalendarDays, LogOut, Sparkles, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const navLinks = [
@@ -123,14 +123,14 @@ export function Navbar() {
               </Button>
             </>
           ) : (
-            <Link href="/login">
+            <Link href="/manage-booking">
               <Button
                 variant="ghost"
                 size="sm"
                 className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-silver/80 hover:text-white gap-1.5"
               >
-                <LogIn className="size-4" />
-                Login
+                <CalendarDays className="size-4" />
+                Manage Booking
               </Button>
             </Link>
           )}
@@ -209,13 +209,13 @@ export function Navbar() {
                     </Button>
                   </>
                 ) : (
-                  <Link href="/login" onClick={() => setOpen(false)}>
+                  <Link href="/manage-booking" onClick={() => setOpen(false)}>
                     <Button
                       variant="outline"
                       className="w-full font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-silver border-blue2/60 hover:text-cyan gap-2"
                     >
-                      <LogIn className="size-4" />
-                      Login
+                      <CalendarDays className="size-4" />
+                      Manage Booking
                     </Button>
                   </Link>
                 )}
@@ -233,3 +233,4 @@ export function Navbar() {
     </header>
   );
 }
+

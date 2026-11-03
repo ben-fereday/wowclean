@@ -8,9 +8,14 @@ import { validateReferralCode, recordReferral } from "@/lib/referrals";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
 import { randomUUID } from "node:crypto";
+import { bookingManageUrl } from "@/lib/booking-access";
 import { syncBookingCalendar } from "@/lib/google-calendar";
 import { getBookingDurationMinutes } from "@/lib/booking-schedule";
 import { isServiceBookable, isAddonBookable } from "@/lib/service-availability";
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!));
+}
 
 export type BookingPayload = {
   requirementsConfirmed: boolean;
@@ -42,6 +47,7 @@ export type BookingPayload = {
 export type BookingResult = {
   success: boolean;
   refCode?: string;
+  manageUrl?: string;
   error?: string;
 };
 
@@ -141,6 +147,7 @@ export async function createBooking(
     // Generate the ID locally: INSERT ... RETURNING requires a SELECT policy,
     // which guests intentionally do not have for private booking records.
     const inserted = { id: randomUUID() };
+    const manageUrl = bookingManageUrl(inserted.id, data.date);
     const { error } = await supabase
       .from("bookings")
       .insert({
@@ -225,7 +232,7 @@ export async function createBooking(
       const resend = new Resend(process.env.RESEND_API_KEY);
 
       const addonsHtml = data.addons.length > 0
-        ? data.addons.map((a) => `<span style="display:inline-block;background:rgba(91,243,255,0.1);border:1px solid rgba(91,243,255,0.2);color:#5bf3ff;padding:4px 10px;border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">${a.name} +$${a.price}</span>`).join("")
+        ? data.addons.map((a) => `<span style="display:inline-block;background:rgba(91,243,255,0.1);border:1px solid rgba(91,243,255,0.2);color:#5bf3ff;padding:4px 10px;border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">${escapeHtml(a.name)} +$${Number(a.price)}</span>`).join("")
         : "";
 
       const dateDisplay = new Date(data.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
@@ -243,21 +250,25 @@ export async function createBooking(
                 <span style="color:#5bf3ff;font-size:20px;font-weight:bold;letter-spacing:2px;">${refCode}</span>
               </div>
             </div>
-            <p style="color:#fff;font-size:16px;margin-bottom:24px;">Hi ${data.firstName}, your detail is booked! Here are the details:</p>
+            <p style="color:#fff;font-size:16px;margin-bottom:24px;">Hi ${escapeHtml(data.firstName)}, your detail is booked! Here are the details:</p>
             <div style="background:#0b1740;border-radius:12px;padding:20px;margin-bottom:16px;">
               <table style="width:100%;border-collapse:collapse;">
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Date</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${dateDisplay}</td></tr>
-                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Time</td><td style="padding:10px 0;color:#5bf3ff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${data.time}</td></tr>
-                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Package</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${data.packageName}</td></tr>
-                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Service</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${data.serviceType}</td></tr>
-                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Vehicle</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${data.vehicleMake ? `${data.vehicleMake} ${data.vehicleModel}` : data.vehicleSize}</td></tr>
-                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;">${data.location === "mobile" ? "Address" : "Location"}</td><td style="padding:10px 0;color:#fff;text-align:right;">${data.address || "Mobile"}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Time</td><td style="padding:10px 0;color:#5bf3ff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.time)}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Package</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.packageName)}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Service</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.serviceType)}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Vehicle</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.vehicleMake ? `${data.vehicleMake} ${data.vehicleModel}` : data.vehicleSize)}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;">${data.location === "mobile" ? "Address" : "Location"}</td><td style="padding:10px 0;color:#fff;text-align:right;">${escapeHtml(data.address || "Mobile")}</td></tr>
               </table>
             </div>
             ${addonsHtml ? `<div style="margin-bottom:16px;"><p style="color:#7a8baa;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Add-Ons</p>${addonsHtml}</div>` : ""}
             <div style="background:linear-gradient(135deg,rgba(91,243,255,0.1),rgba(26,74,255,0.1));border:1px solid rgba(91,243,255,0.15);border-radius:12px;padding:20px;text-align:center;">
               <p style="color:#7a8baa;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">Estimated Total</p>
               <p style="color:#5bf3ff;font-size:36px;font-weight:800;margin:0;letter-spacing:1px;">$${data.estimatedTotal}</p>
+            </div>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${manageUrl}" style="display:inline-block;background:#5bf3ff;color:#0b1740;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Manage my booking</a>
+              <p style="color:#7a8baa;font-size:12px;line-height:1.6;">View your appointment or request a change. No account needed. Keep this link private.</p>
             </div>
             <div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
               <p style="color:#7a8baa;font-size:13px;line-height:1.6;margin:0;">Questions? Call <a href="tel:+15874369605" style="color:#5bf3ff;text-decoration:none;">(587) 436-9605</a> or email <a href="mailto:teamwowclean@gmail.com" style="color:#5bf3ff;text-decoration:none;">teamwowclean@gmail.com</a></p>
@@ -288,9 +299,10 @@ export async function createBooking(
       // Don't fail the booking if email fails
     }
 
-    return { success: true, refCode };
+    return { success: true, refCode, manageUrl };
   } catch (err) {
     console.error("Booking error:", err);
     return { success: false, error: "An unexpected error occurred." };
   }
 }
+

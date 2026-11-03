@@ -16,6 +16,7 @@ const serviceLinks = [
 const companyLinks = [
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Book Now", href: "/book" },
+  { label: "Manage Booking", href: "/manage-booking" },
 ];
 
 
@@ -136,6 +137,7 @@ export function Footer() {
               >
                 Terms of Service
               </Link>
+              <Link href="/login?redirect=/admin" className="text-xs text-mid/60 hover:text-cyan transition-colors font-[family-name:var(--font-barlow-condensed)]">Staff login</Link>
               <Link
                 href="/privacy"
                 className="text-xs text-mid/60 hover:text-cyan transition-colors font-[family-name:var(--font-barlow-condensed)]"
@@ -150,3 +152,4 @@ export function Footer() {
     </footer>
   );
 }
+

@@ -133,6 +133,7 @@ function BookPageContent() {
   const [vehicleColour, setVehicleColour] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [manageUrl, setManageUrl] = useState<string | null>(null);
   const [refCode, setRefCode] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
 
@@ -412,6 +413,7 @@ function BookPageContent() {
       const result = await createBooking(payload);
       if (result.success && result.refCode) {
         setRefCode(result.refCode);
+        setManageUrl(result.manageUrl ?? null);
         setStep(6);
         window.scrollTo(0, 0);
       } else {
@@ -1408,9 +1410,8 @@ function BookPageContent() {
                 You&apos;re All <span className="text-cyan">Booked!</span>
               </h1>
               <p className="text-[1rem] text-mid leading-relaxed max-w-[480px] mx-auto mb-10">
-                Your detail is confirmed. We&apos;ll send a confirmation to your
-                email and follow up with a reminder 24 hours before your
-                appointment.
+                Your detail is confirmed. Use the link below or in your confirmation email
+                to view your appointment and request changes. No account needed.
               </p>
 
               {/* Summary card */}
@@ -1470,6 +1471,10 @@ function BookPageContent() {
                 </div>
               </div>
 
+              {manageUrl && <div className="mb-7">
+                <a href={manageUrl} className="inline-block rounded-lg bg-cyan px-7 py-3 font-semibold text-navy hover:bg-cyan/85">Manage my booking</a>
+                <p className="mt-3 text-xs text-mid">Save this private link for your appointment.</p>
+              </div>}
               {/* Action buttons */}
               <div className="flex gap-3.5 justify-center flex-wrap">
                 <a
@@ -1627,3 +1632,4 @@ function BookPageContent() {
     </div>
   );
 }
+
