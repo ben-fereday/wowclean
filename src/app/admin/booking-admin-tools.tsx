@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import SquareInvoiceTools from "./square-invoice-tools";
 import { toast } from "sonner";
-import { syncAdminBookingCalendar, getBookingAdminDetails, saveBookingAdminDetails, getAdminRescheduleTimes, rescheduleBooking } from "./booking-tools-actions";
+import { getBookingManageLink, syncAdminBookingCalendar, getBookingAdminDetails, saveBookingAdminDetails, getAdminRescheduleTimes, rescheduleBooking } from "./booking-tools-actions";
 import { getCalgaryNow } from "@/lib/booking-schedule";
 import type { PaymentMethod, PaymentStatus } from "@/lib/admin-booking";
 
@@ -15,6 +15,8 @@ const fieldClass = "w-full rounded-lg border border-white/20 bg-[#0b1740] p-2.5 
 const buttonClass = "rounded-lg bg-blue px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed";
 
 export default function BookingAdminTools({ booking, onRescheduled }: Props) {
+  const [customerLink, setCustomerLink] = useState("");
+  const [loadingLink, setLoadingLink] = useState(false);
   const [syncingCalendar, setSyncingCalendar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -79,6 +81,23 @@ export default function BookingAdminTools({ booking, onRescheduled }: Props) {
 
   return (
     <div className="space-y-5 border-t border-white/10 pt-5">
+      <section className="space-y-2" aria-label="Customer booking link">
+        <h3 className="text-base font-semibold text-white">Customer booking link</h3>
+        <p className="text-xs text-mid">Share privately with the customer to view this appointment and request changes without an account. Anyone with the link can view the booking.</p>
+        <button className={buttonClass} disabled={loadingLink} onClick={async () => {
+          setLoadingLink(true);
+          try { setCustomerLink(await getBookingManageLink(booking.id)); }
+          catch { toast.error("Could not create a customer link. Please retry."); }
+          finally { setLoadingLink(false); }
+        }}>{loadingLink ? "Creating link…" : "Get customer booking link"}</button>
+        {customerLink && <div className="space-y-2">
+          <input className={fieldClass} aria-label="Private customer booking link" readOnly value={customerLink} onFocus={event => event.target.select()} />
+          <button className={buttonClass} onClick={async () => {
+            try { await navigator.clipboard.writeText(customerLink); toast.success("Private booking link copied."); }
+            catch { toast.error("Select the link above and copy it manually."); }
+          }}>Copy link</button>
+        </div>}
+      </section>
       <section className="space-y-2" aria-label="Google Calendar">
         <h3 className="text-base font-semibold text-white">Google Calendar</h3>
         <p className="text-xs text-mid">Bookings sync to WOW Clean Bookings. Make appointment changes here on the website. Use this button to add an older booking or retry a calendar update.</p>
@@ -147,4 +166,5 @@ export default function BookingAdminTools({ booking, onRescheduled }: Props) {
     </div>
   );
 }
+
 

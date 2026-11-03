@@ -86,11 +86,22 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
  assert.equal(access.verifyBookingAccessToken(generated),inserted.id,"confirmation link opens exactly the newly inserted booking");
  assert.ok(bookingEmails[0].html.includes(result.manageUrl),"email contains the same management link as the success screen");
  assert.ok(!bookingEmails[0].html.includes('<a href="https://evil.example">'),"customer input cannot inject links into the email");
+ let role="customer", signedIn=true;
+ const adminActions=compile("src/app/admin/booking-tools-actions.ts",{
+  "@/lib/supabase/server":{createClient:async()=>({auth:{getUser:async()=>({data:{user:signedIn?{id:"staff"}:null}})},from:table=>({select:()=>({eq:()=>({single:async()=>({data:table==="profiles"?{role}:{id,booking_date:"2099-11-05"},error:null})})})})})},
+  "next/cache":{},resend:{},"@/lib/booking-access":access,"@/lib/google-availability":{},"@/lib/google-calendar":{},"@/lib/booking-schedule":{},"@/lib/admin-booking":{},"@/lib/constants":{},
+ });
+ await assert.rejects(()=>adminActions.getBookingManageLink(id),/Admin access/);
+ signedIn=false;
+ await assert.rejects(()=>adminActions.getBookingManageLink(id),/Sign in/);
+ signedIn=true;role="owner";
+ const adminLink=await adminActions.getBookingManageLink(id);
+ assert.equal(access.verifyBookingAccessToken(new URL(adminLink).hash.slice(7)),id,"only staff can generate replacement links");
  global.fetch=originalFetch;
  if(originalSecret===undefined)delete process.env.SUPABASE_SECRET_KEY;else process.env.SUPABASE_SECRET_KEY=originalSecret;
  if(originalUrl===undefined)delete process.env.NEXT_PUBLIC_SUPABASE_URL;else process.env.NEXT_PUBLIC_SUPABASE_URL=originalUrl;
  console.log("Booking link verification, tampering, expiry, scoped reads, private-field exclusion and request-flow checks passed.");
- for(const file of ["src/lib/booking-access.ts","src/app/manage-booking/actions.ts","src/app/manage-booking/page.tsx","src/app/manage-booking/manage-booking.tsx","src/app/book/actions.ts","src/app/book/page.tsx","src/app/admin/booking-tools-actions.ts","src/components/layout/navbar.tsx","src/components/layout/footer.tsx"]){
+ for(const file of ["src/lib/booking-access.ts","src/app/manage-booking/actions.ts","src/app/manage-booking/page.tsx","src/app/manage-booking/manage-booking.tsx","src/app/book/actions.ts","src/app/book/page.tsx","src/app/admin/booking-tools-actions.ts","src/app/admin/booking-admin-tools.tsx","src/components/layout/navbar.tsx","src/components/layout/footer.tsx"]){
   const result=ts.transpileModule(fs.readFileSync(path.join(root,file),"utf8"),{fileName:file,compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext},reportDiagnostics:true});
   assert.deepEqual((result.diagnostics||[]).filter(d=>d.category===ts.DiagnosticCategory.Error),[],file);
  }

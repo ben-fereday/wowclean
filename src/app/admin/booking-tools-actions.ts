@@ -19,6 +19,13 @@ async function adminClient() {
   return { client, user };
 }
 
+export async function getBookingManageLink(bookingId: string) {
+  const { client } = await adminClient();
+  const { data: booking, error } = await client.from("bookings").select("id,booking_date").eq("id", bookingId).single();
+  if (error || !booking) throw new Error("Could not load this booking.");
+  return bookingManageUrl(booking.id, booking.booking_date);
+}
+
 export async function getBookingAdminDetails(bookingId: string): Promise<BookingAdminDetails | null> {
   const { client } = await adminClient();
   const { data, error } = await client.from("booking_admin_details").select("*").eq("booking_id", bookingId).maybeSingle();
