@@ -31,9 +31,8 @@ function Hero() {
           We Come to You — You Stay Amazed
         </p>
         <p className="text-[1.05rem] text-mid leading-[1.75] max-w-[460px] mb-11 mx-auto lg:mx-0">
-          Premium mobile auto detailing delivered to your driveway, office, or
-          anywhere you choose. No drop-offs. No waiting. Just a showroom-worthy
-          shine.
+          Mobile auto detailing in Calgary, at a suitable location where
+          detailing is permitted.
         </p>
         <div className="flex gap-4 flex-wrap justify-center lg:justify-start">
           <Link
@@ -407,101 +406,6 @@ function Services({
 
       <hr className="border-t border-white/[0.07] max-w-[1200px] mx-auto mb-[72px]" />
 
-      {/* ── EXCLUSIVE DETAIL ── */}
-      <div className="max-w-[1200px] mx-auto mb-[72px]">
-        <div className="flex items-start justify-between gap-8 mb-8 flex-wrap">
-          <div>
-            <div className="font-[family-name:var(--font-heading)] text-[clamp(2rem,4vw,3rem)] tracking-wide text-white mb-1.5">
-              <span className="text-cyan">Exclusive</span> Detail
-            </div>
-            <p className="text-[0.95rem] text-mid leading-[1.7] max-w-[560px]">
-              Our top-tier detailing package for clients who want the closest
-              thing to a full cosmetic reset. This is the package for vehicles
-              needing a higher level of correction, restoration, and finish
-              quality.
-            </p>
-          </div>
-          <div className="shrink-0">
-            <span className="inline-flex items-center gap-2 bg-yellow/10 border border-yellow/40 text-[#ffe066] font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase px-4 py-2 rounded-md">
-              <Building2 className="size-4" />
-              In-Shop Only
-            </span>
-          </div>
-        </div>
-        {/* Shop note */}
-        <div className="bg-yellow/[0.06] border border-yellow/20 rounded-[10px] p-5 px-6 mb-7 text-[0.88rem] text-white/70 leading-[1.7]">
-          <strong className="text-[#ffe066]">Available In-Shop Only.</strong> To
-          ensure the best possible results, the Exclusive Detail is performed at
-          our facility. This package requires additional time, specialized
-          equipment, professional lighting, and controlled working conditions —
-          and cannot be offered as a mobile service.
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-8 items-start">
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-[14px] p-8">
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[3px] uppercase text-cyan mb-[18px]">
-              What&apos;s Included
-            </div>
-            <p className="text-[0.82rem] text-mid mb-3 italic">
-              Everything in Premium, plus:
-            </p>
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Interior
-            </div>
-            <ul className="space-y-1">
-              {[
-                "Carpet & floor mat shampoo or steam treatment",
-                "Deep interior restoration treatment",
-                "More intensive stain & grime removal",
-              ].map((item) => (
-                <li
-                  key={item}
-                  className="text-[0.88rem] text-silver flex items-start gap-2 leading-[1.45]"
-                >
-                  <span className="text-yellow font-bold shrink-0 mt-px">+</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior
-            </div>
-            <ul className="space-y-1">
-              {[
-                "Stage 1 machine polish",
-                "Gloss enhancement for improved depth & clarity",
-                "Premium finishing treatment for a standout look",
-              ].map((item) => (
-                <li
-                  key={item}
-                  className="text-[0.88rem] text-silver flex items-start gap-2 leading-[1.45]"
-                >
-                  <span className="text-yellow font-bold shrink-0 mt-px">+</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex flex-col gap-4">
-            <PriceTable
-              rows={[
-                { service: "Interior Only", small: fmt(bp?.exclusive?.small?.interior ?? 0), medium: fmt(bp?.exclusive?.medium?.interior ?? 0), large: fmt(bp?.exclusive?.large?.interior ?? 0) },
-                { service: "Exterior Only", small: fmt(bp?.exclusive?.small?.exterior ?? 0), medium: fmt(bp?.exclusive?.medium?.exterior ?? 0), large: fmt(bp?.exclusive?.large?.exterior ?? 0) },
-                { service: "Full Detail", small: fmt(bp?.exclusive?.small?.full ?? 0), medium: fmt(bp?.exclusive?.medium?.full ?? 0), large: fmt(bp?.exclusive?.large?.full ?? 0) },
-              ]}
-            />
-            <Link
-              href="/book"
-              className="flex items-center justify-center gap-2 bg-cyan/[0.08] border border-cyan/20 text-cyan font-[family-name:var(--font-barlow-condensed)] text-[0.95rem] font-bold tracking-[1.5px] uppercase text-center py-3.5 rounded-lg hover:bg-cyan/[0.18] hover:text-white transition-all"
-            >
-              Inquire About Exclusive
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <hr className="border-t border-white/[0.07] max-w-[1200px] mx-auto mb-[72px]" />
-
       {/* ── ADD-ONS ── */}
       <div className="max-w-[1200px] mx-auto">
         <div className="text-center mb-12">
@@ -583,16 +487,6 @@ function Services({
                 <>
                   Mobile service pricing may vary slightly based on{" "}
                   <strong className="text-silver">location</strong>.
-                </>
-              ),
-            },
-            {
-              text: (
-                <>
-                  <strong className="text-silver">
-                    Exclusive Detail is performed at our shop only
-                  </strong>{" "}
-                  and is not available as a mobile service.
                 </>
               ),
             },

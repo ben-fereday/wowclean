@@ -40,7 +40,7 @@ export default function TermsPage() {
             </h2>
             <p>
               WowClean provides mobile auto detailing services in Calgary, AB
-              and surrounding areas. Service availability, pricing, and
+              only. Service availability, pricing, and
               turnaround times are subject to change without notice. We
               reserve the right to refuse service for any reason, including
               unsafe working conditions or vehicles requiring work beyond our
@@ -56,8 +56,7 @@ export default function TermsPage() {
               Appointments can be booked online, by phone, or via email. By
               placing a booking you authorize us to hold the requested time
               slot. Payment is due upon completion of service unless otherwise
-              agreed in writing. We accept major credit cards, debit, and
-              e-transfer.
+              agreed in writing.
             </p>
           </div>
 

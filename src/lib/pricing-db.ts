@@ -78,7 +78,7 @@ export async function fetchAddonItems(): Promise<AddonItem[]> {
         active: true,
       }));
     }
-    return data as AddonItem[];
+    return (data as AddonItem[]).filter((addon) => addon.id !== "polish");
   } catch {
     return ADDONS.map((a, i) => ({
       id: a.id,

@@ -44,6 +44,14 @@ export async function createBooking(
   data: BookingPayload
 ): Promise<BookingResult> {
   try {
+    if (
+      !["standard", "premium"].includes(data.packageId) ||
+      data.location !== "mobile" ||
+      data.addons.some((addon) => addon.id === "polish")
+    ) {
+      return { success: false, error: "This service is no longer available. Please choose a current mobile detailing package." };
+    }
+
     // Rate limit by email (10 bookings per 15 min)
     const rlKey = `booking:${data.email.toLowerCase()}`;
     const rl = checkRateLimit(rlKey, { maxAttempts: 10 });
@@ -222,7 +230,7 @@ export async function createBooking(
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Package</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${data.packageName}</td></tr>
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Service</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${data.serviceType}</td></tr>
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Vehicle</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${data.vehicleMake ? `${data.vehicleMake} ${data.vehicleModel}` : data.vehicleSize}</td></tr>
-                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;">${data.location === "mobile" ? "Address" : "Location"}</td><td style="padding:10px 0;color:#fff;text-align:right;">${data.location === "mobile" ? data.address || "Mobile" : "In-Shop"}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;">${data.location === "mobile" ? "Address" : "Location"}</td><td style="padding:10px 0;color:#fff;text-align:right;">${data.address || "Mobile"}</td></tr>
               </table>
             </div>
             ${addonsHtml ? `<div style="margin-bottom:16px;"><p style="color:#7a8baa;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Add-Ons</p>${addonsHtml}</div>` : ""}

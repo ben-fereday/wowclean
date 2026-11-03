@@ -10,7 +10,6 @@ const serviceLinks = [
   { label: "Exterior Wash", href: "/#services" },
   { label: "Interior Detail", href: "/#services" },
   { label: "Full Detail", href: "/#services" },
-  { label: "Paint Correction", href: "/#services" },
   { label: "Subscriptions", href: "/subscriptions" },
 ];
 

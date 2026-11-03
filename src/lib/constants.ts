@@ -76,28 +76,6 @@ export const PACKAGES = [
     ],
     shopOnly: false,
   },
-  {
-    id: "exclusive" as PackageId,
-    name: "Exclusive Detail",
-    desc: "Our top-tier cosmetic reset. Machine polish, shampoo, and premium finishing. In-shop only.",
-    features: [
-      "Everything in Premium",
-      "Carpet shampoo",
-      "Stage 1 machine polish",
-      "Deep restoration",
-    ],
-    interiorFeatures: [
-      "Carpet & floor mat shampoo or steam treatment",
-      "Deep interior restoration treatment",
-      "More intensive stain & grime removal",
-    ],
-    exteriorFeatures: [
-      "Stage 1 machine polish",
-      "Gloss enhancement for improved depth & clarity",
-      "Premium finishing treatment",
-    ],
-    shopOnly: true,
-  },
 ] as const;
 
 export const ADDONS = [
@@ -110,7 +88,6 @@ export const ADDONS = [
   { id: "clay", name: "Clay Bar Treatment", price: 75 },
   { id: "iron", name: "Iron / Fallout Decontamination", price: 50 },
   { id: "sealant", name: "Protective Sealant", price: 40 },
-  { id: "polish", name: "Stage 1 Polish", price: 180 },
 ] as const;
 
 export const EXCLUSIVE_INCLUDED = [
@@ -119,7 +96,6 @@ export const EXCLUSIVE_INCLUDED = [
   "engine",
   "clay",
   "iron",
-  "polish",
 ];
 
 export const VEHICLE_LABELS: Record<VehicleSize, string> = {

@@ -119,7 +119,7 @@ function BookPageContent() {
   const [addons, setAddons] = useState<AddonSelection[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const location: LocationType = packageId === "exclusive" ? "shop" : "mobile";
+  const location: LocationType = "mobile";
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -691,7 +691,7 @@ function BookPageContent() {
 
               {/* Package cards */}
               <div className="flex flex-col gap-4 mb-8">
-                {PACKAGES.map((pkg) => {
+                {PACKAGES.filter((pkg) => pkg.id !== "exclusive").map((pkg) => {
                   const price =
                     vehicleSize
                       ? (dbPricing?.[pkg.id]?.[vehicleSize]?.[serviceType] ?? 0)
@@ -753,11 +753,7 @@ function BookPageContent() {
                             </span>
                           ))}
                         </div>
-                        {pkg.shopOnly && (
-                          <span className="inline-block mt-1.5 bg-yellow-500/[0.12] border border-yellow-500/30 text-[#ffe066] font-[family-name:var(--font-barlow-condensed)] text-[0.7rem] font-bold tracking-[1.5px] uppercase px-2 py-0.5 rounded">
-                            In-Shop Only
-                          </span>
-                        )}
+
                       </div>
                       {/* Price */}
                       <div className="font-[family-name:var(--font-heading)] text-[2rem] text-cyan tracking-[1px] text-right whitespace-nowrap">
@@ -1024,18 +1020,9 @@ function BookPageContent() {
               </p>
 
               {/* Location info */}
-              <div className={`rounded-lg border p-4 mb-6 ${packageId === "exclusive" ? "border-white/[0.08] bg-white/[0.04]" : "border-cyan/20 bg-cyan/[0.04]"}`}>
-                {packageId === "exclusive" ? (
-                  <>
-                    <p className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">In-Shop Service</p>
-                    <p className="text-mid text-sm">Exclusive Detail is performed in-shop only. We&apos;ll contact you with the shop location.</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-cyan font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">Mobile Service — We Come to You</p>
-                    <p className="text-mid text-sm">Standard and Premium packages are mobile services.</p>
-                  </>
-                )}
+              <div className="rounded-lg border border-cyan/20 bg-cyan/[0.04] p-4 mb-6">
+                <p className="text-cyan font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">Mobile Service</p>
+                <p className="text-mid text-sm">Provide a suitable location where detailing is permitted.</p>
               </div>
 
               {/* Form */}
@@ -1405,10 +1392,7 @@ function BookPageContent() {
                   },
                   {
                     label: "Location",
-                    value:
-                      location === "mobile"
-                        ? `Mobile — ${address}`
-                        : "In-Shop Drop-Off",
+                    value: `Mobile — ${address}`,
                   },
                   ...(addons.length > 0
                     ? [

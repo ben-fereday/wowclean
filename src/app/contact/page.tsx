@@ -96,11 +96,7 @@ export default function ContactPage() {
                     Service Area
                   </h3>
                   <p className="text-silver">
-                    Calgary &amp; surrounding areas
-                    <br />
-                    <span className="text-mid text-sm">
-                      Airdrie, Cochrane, Okotoks, Chestermere
-                    </span>
+                    Calgary
                   </p>
                 </div>
               </div>
