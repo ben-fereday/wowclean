@@ -128,7 +128,7 @@ export default function PrivacyPage() {
               >
                 teamwowclean@gmail.com
               </a>{" "}
-              or (587) 891-3265.
+              or (587) 436-9605.
             </p>
           </div>
         </div>

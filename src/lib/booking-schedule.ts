@@ -1,0 +1,81 @@
+// All business hours and booking dates use Calgary local time.
+export const BOOKING_TIME_ZONE = "America/Edmonton";
+// Preserve the existing two-hour reservation window.
+export const BOOKING_WINDOW_MINUTES = 120;
+export const SLOT_INTERVAL_MINUTES = 30;
+
+type BusinessHours = { open: number; close: number; lastStart?: number };
+const WEEKLY_HOURS: Record<number, BusinessHours | null> = {
+  0: { open: 8 * 60, close: 12 * 60, lastStart: 10 * 60 },
+  1: null,
+  2: { open: 17 * 60, close: 21 * 60 },
+  3: { open: 14 * 60 + 30, close: 21 * 60 },
+  4: { open: 17 * 60, close: 21 * 60 },
+  5: { open: 14 * 60 + 30, close: 21 * 60 },
+  6: { open: 8 * 60, close: 21 * 60 },
+};
+
+export function parseBookingTime(time: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(time);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 1 || hour > 12 || minute > 59) return null;
+  return (hour % 12 + (match[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + minute;
+}
+
+export function formatBookingTime(minutes: number): string {
+  const hour = Math.floor(minutes / 60);
+  return `${hour % 12 || 12}:${String(minutes % 60).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+export const ALL_TIME_SLOTS = Array.from(
+  { length: (21 * 60 - 8 * 60) / SLOT_INTERVAL_MINUTES + 1 },
+  (_, index) => formatBookingTime(8 * 60 + index * SLOT_INTERVAL_MINUTES)
+);
+
+export function getCalgaryNow(now: Date = new Date()): { date: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BOOKING_TIME_ZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: string) => parts.find((part) => part.type === type)!.value;
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    minutes: Number(value("hour")) * 60 + Number(value("minute")),
+  };
+}
+
+export function getOperatingTimeSlots(date: string): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+  const day = new Date(date + "T12:00:00Z");
+  if (!Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== date) return [];
+  const hours = WEEKLY_HOURS[day.getUTCDay()];
+  if (!hours) return [];
+  const latest = Math.min(hours.close - BOOKING_WINDOW_MINUTES, hours.lastStart ?? Infinity);
+  const slots: string[] = [];
+  for (let minute = hours.open; minute <= latest; minute += SLOT_INTERVAL_MINUTES) {
+    slots.push(formatBookingTime(minute));
+  }
+  return slots;
+}
+
+export function getBookableTimeSlots(date: string, now: Date = new Date()): string[] {
+  const current = getCalgaryNow(now);
+  if (date < current.date) return [];
+  return getOperatingTimeSlots(date).filter(
+    (slot) => date !== current.date || parseBookingTime(slot)! > current.minutes
+  );
+}
+
+export function isScheduledBookingTime(date: string, time: string, now: Date = new Date()): boolean {
+  const minute = parseBookingTime(time);
+  return minute !== null && getBookableTimeSlots(date, now).includes(formatBookingTime(minute));
+}
+
+export function bookingTimesConflict(first: string, second: string): boolean {
+  const a = parseBookingTime(first);
+  const b = parseBookingTime(second);
+  return a === null || b === null || Math.abs(a - b) < BOOKING_WINDOW_MINUTES;
+}

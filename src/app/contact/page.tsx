@@ -62,10 +62,10 @@ export default function ContactPage() {
                     Phone
                   </h3>
                   <a
-                    href="tel:+15878913265"
+                    href="tel:+15874369605"
                     className="font-[family-name:var(--font-heading)] text-2xl text-cyan tracking-wider hover:opacity-80 transition-opacity"
                   >
-                    (587) 891-3265
+                    (587) 436-9605
                   </a>
                 </div>
               </div>

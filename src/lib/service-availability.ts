@@ -7,7 +7,7 @@ export const EXTERIOR_BOOKINGS_ENABLED: boolean = false;
 export const SUBSCRIPTIONS_ENABLED: boolean = false;
 
 export const SEASONAL_EXTERIOR_MESSAGE =
-  "Exterior and full detailing are available in spring and summer, weather permitting. Bookings are currently closed. Customer-provided water and power are required.";
+  "Exterior and full detailing are available in spring and summer, weather permitting. Exterior and full-detail bookings are currently closed. Interior detailing remains available. Customer-provided water and power are required.";
 
 export const INTERIOR_REQUIREMENTS =
   "Customer-provided power is required. Winter appointments require a suitable heated indoor workspace where detailing is permitted.";

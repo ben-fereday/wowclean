@@ -291,7 +291,7 @@ function Services({
               ))}
             </ul>
             <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid normal-case">(spring / summer)</span>}
+              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid uppercase">(SPRING / SUMMER)</span>}
             </div>
             <ul className="space-y-1">
               {[
@@ -375,7 +375,7 @@ function Services({
               ))}
             </ul>
             <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid normal-case">(spring / summer)</span>}
+              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid uppercase">(SPRING / SUMMER)</span>}
             </div>
             <ul className="space-y-1">
               {[

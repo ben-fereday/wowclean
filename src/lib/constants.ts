@@ -1,3 +1,5 @@
+import { ALL_TIME_SLOTS } from "@/lib/booking-schedule";
+
 export const PRICING = {
   standard: {
     small: { interior: 100, exterior: 70, full: 165 },
@@ -122,14 +124,7 @@ export const PACKAGE_LABELS: Record<PackageId, string> = {
   exclusive: "Exclusive Detail",
 };
 
-export const TIME_SLOTS = [
-  "8:00 AM",
-  "10:00 AM",
-  "12:00 PM",
-  "2:00 PM",
-  "4:00 PM",
-  "6:00 PM",
-];
+export const TIME_SLOTS = ALL_TIME_SLOTS;
 
 export const BILLING_CYCLES: {
   id: BillingCycle;

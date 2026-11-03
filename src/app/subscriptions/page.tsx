@@ -823,7 +823,7 @@ function SubscriptionsContent() {
                   >
                     teamwowclean@gmail.com
                   </a>{" "}
-                  or (587) 891-3265 and we&apos;ll adjust that one
+                  or (587) 436-9605 and we&apos;ll adjust that one
                   appointment.
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">

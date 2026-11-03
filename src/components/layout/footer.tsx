@@ -4,7 +4,6 @@ import {
   Phone,
   Mail,
   MapPin,
-  ExternalLink,
 } from "lucide-react";
 
 const serviceLinks = [
@@ -20,11 +19,7 @@ const companyLinks = [
   { label: "Book Now", href: "/book" },
 ];
 
-const socialLinks = [
-  { label: "Facebook", href: "#" },
-  { label: "Instagram", href: "#" },
-  { label: "TikTok", href: "#" },
-];
+
 
 export function Footer() {
   return (
@@ -93,12 +88,12 @@ export function Footer() {
             <ul className="flex flex-col gap-3">
               <li>
                 <a
-                  href="tel:+15878913265"
+                  href="tel:+15874369605"
                   className="flex items-center gap-2.5 text-sm text-mid hover:text-cyan transition-colors group"
                 >
                   <Phone className="size-4 text-cyan/60 group-hover:text-cyan transition-colors" />
                   <span className="font-[family-name:var(--font-barlow-condensed)]">
-                    (587) 891-3265
+                    (587) 436-9605
                   </span>
                 </a>
               </li>
@@ -150,19 +145,7 @@ export function Footer() {
               </Link>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {socialLinks.map((social) => (
-              <a
-                key={social.label}
-                href={social.href}
-                aria-label={social.label}
-                className="flex items-center gap-1.5 text-xs text-mid/60 hover:text-cyan transition-colors font-[family-name:var(--font-barlow-condensed)]"
-              >
-                <ExternalLink className="size-3.5" />
-                {social.label}
-              </a>
-            ))}
-          </div>
+
         </div>
       </div>
     </footer>

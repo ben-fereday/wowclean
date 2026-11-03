@@ -1,25 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { BOOKING_WINDOW_MINUTES, bookingTimesConflict, getOperatingTimeSlots, isScheduledBookingTime } from "@/lib/booking-schedule";
 
-const BUFFER_HOURS = 2;
-
-function parseTimeToHour(time: string): number {
-  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) return -1;
-  let hour = parseInt(match[1]);
-  const ampm = match[3].toUpperCase();
-  if (ampm === "PM" && hour !== 12) hour += 12;
-  if (ampm === "AM" && hour === 12) hour = 0;
-  return hour;
-}
-
-function hoursConflict(existingTime: string, requestedTime: string): boolean {
-  const a = parseTimeToHour(existingTime);
-  const b = parseTimeToHour(requestedTime);
-  if (a === -1 || b === -1) return false;
-  return Math.abs(a - b) < BUFFER_HOURS;
-}
+const BUFFER_HOURS = BOOKING_WINDOW_MINUTES / 60;
+const hoursConflict = bookingTimesConflict;
 
 /**
  * Check if a specific date+time slot is available.
@@ -29,13 +14,20 @@ export async function checkTimeSlotAvailable(
   date: string,
   time: string
 ): Promise<{ available: boolean; reason?: string }> {
+  if (!isScheduledBookingTime(date, time)) {
+    return { available: false, reason: "Please choose an available appointment time within our Calgary business hours." };
+  }
   const supabase = await createClient();
 
   // Check blocked slots (whole day or specific time)
-  const { data: blocked } = await supabase
+  const { data: blocked, error: blockedError } = await supabase
     .from("blocked_slots")
     .select("blocked_time, reason")
     .eq("blocked_date", date);
+
+  if (blockedError) {
+    return { available: false, reason: "Availability could not be confirmed. Please try again or contact WOW CLEAN." };
+  }
 
   if (blocked) {
     for (const b of blocked) {
@@ -49,11 +41,15 @@ export async function checkTimeSlotAvailable(
   }
 
   // Check one-time bookings on this date
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsError } = await supabase
     .from("bookings")
     .select("booking_time")
     .eq("booking_date", date)
     .in("status", ["confirmed"]);
+
+  if (bookingsError) {
+    return { available: false, reason: "Availability could not be confirmed. Please try again or contact WOW CLEAN." };
+  }
 
   if (bookings) {
     for (const b of bookings) {
@@ -70,11 +66,15 @@ export async function checkTimeSlotAvailable(
   const checkDate = new Date(date + "T12:00:00");
   const dayOfWeek = checkDate.toLocaleDateString("en-US", { weekday: "long" });
 
-  const { data: subs } = await supabase
+  const { data: subs, error: subsError } = await supabase
     .from("subscriptions")
     .select("recurring_time, plan, next_service_date")
     .eq("recurring_day", dayOfWeek)
     .eq("status", "active");
+
+  if (subsError) {
+    return { available: false, reason: "Availability could not be confirmed. Please try again or contact WOW CLEAN." };
+  }
 
   if (subs) {
     for (const s of subs) {
@@ -105,27 +105,35 @@ export async function getBookedTimesForDate(
   const bookedTimes: string[] = [];
 
   // Check blocked slots
-  const { data: blocked } = await supabase
+  const { data: blocked, error: blockedError } = await supabase
     .from("blocked_slots")
     .select("blocked_time")
     .eq("blocked_date", date);
+
+  if (blockedError) {
+    throw new Error("Availability could not be confirmed.");
+  }
 
   if (blocked) {
     for (const b of blocked) {
       if (!b.blocked_time) {
         // Whole day blocked — return all possible times
-        return ["8:00 AM", "10:00 AM", "12:00 PM", "2:00 PM", "4:00 PM", "6:00 PM"];
+        return getOperatingTimeSlots(date);
       }
       bookedTimes.push(b.blocked_time);
     }
   }
 
   // Get bookings on this date
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsError } = await supabase
     .from("bookings")
     .select("booking_time")
     .eq("booking_date", date)
     .in("status", ["confirmed"]);
+
+  if (bookingsError) {
+    throw new Error("Availability could not be confirmed.");
+  }
 
   if (bookings) {
     for (const b of bookings) bookedTimes.push(b.booking_time);
@@ -134,11 +142,15 @@ export async function getBookedTimesForDate(
   // Get subscriptions recurring on this day-of-week, respecting plan frequency
   const checkDate = new Date(date + "T12:00:00");
   const dayOfWeek = checkDate.toLocaleDateString("en-US", { weekday: "long" });
-  const { data: subs } = await supabase
+  const { data: subs, error: subsError } = await supabase
     .from("subscriptions")
     .select("recurring_time, plan, next_service_date")
     .eq("recurring_day", dayOfWeek)
     .eq("status", "active");
+
+  if (subsError) {
+    throw new Error("Availability could not be confirmed.");
+  }
 
   if (subs) {
     for (const s of subs) {

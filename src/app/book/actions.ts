@@ -241,7 +241,7 @@ export async function createBooking(
               <p style="color:#5bf3ff;font-size:36px;font-weight:800;margin:0;letter-spacing:1px;">$${data.estimatedTotal}</p>
             </div>
             <div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
-              <p style="color:#7a8baa;font-size:13px;line-height:1.6;margin:0;">Questions? Call <a href="tel:+15878913265" style="color:#5bf3ff;text-decoration:none;">(587) 891-3265</a> or email <a href="mailto:teamwowclean@gmail.com" style="color:#5bf3ff;text-decoration:none;">teamwowclean@gmail.com</a></p>
+              <p style="color:#7a8baa;font-size:13px;line-height:1.6;margin:0;">Questions? Call <a href="tel:+15874369605" style="color:#5bf3ff;text-decoration:none;">(587) 436-9605</a> or email <a href="mailto:teamwowclean@gmail.com" style="color:#5bf3ff;text-decoration:none;">teamwowclean@gmail.com</a></p>
             </div>
           </div>
         </div>

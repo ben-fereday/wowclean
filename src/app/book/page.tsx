@@ -32,7 +32,6 @@ import {
   VEHICLE_EXAMPLES,
   SERVICE_TYPE_LABELS,
   PACKAGE_LABELS,
-  TIME_SLOTS,
   applyDiscount,
   type VehicleSize,
   type ServiceType,
@@ -42,6 +41,7 @@ import {
 import { createBooking, type BookingPayload } from "./actions";
 import { getBookedTimesForDate } from "@/lib/availability";
 import { isTimeBlocked } from "@/lib/time-utils";
+import { getCalgaryNow, getBookableTimeSlots } from "@/lib/booking-schedule";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchAllPricing,
@@ -163,9 +163,16 @@ function BookPageContent() {
 
   // Booked times for selected date
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  const [timesLoading, setTimesLoading] = useState(false);
+  const [timesError, setTimesError] = useState("");
+  const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
+  const selectedDateISO = selectedDate
+    ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
+    : "";
+  const scheduledTimes = selectedDateISO ? getBookableTimeSlots(selectedDateISO) : [];
 
   // Calendar state
-  const now = new Date();
+  const now = new Date(getCalgaryNow().date + "T12:00:00");
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
 
@@ -193,10 +200,16 @@ function BookPageContent() {
 
   // Fetch booked times when date changes
   useEffect(() => {
-    if (!selectedDate) { setBookedTimes([]); return; }
-    const isoDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
-    getBookedTimesForDate(isoDate).then(setBookedTimes);
-  }, [selectedDate]);
+    if (!selectedDateISO) { setBookedTimes([]); return; }
+    let cancelled = false;
+    setTimesLoading(true);
+    setTimesError("");
+    getBookedTimesForDate(selectedDateISO)
+      .then((times) => { if (!cancelled) setBookedTimes(times); })
+      .catch(() => { if (!cancelled) setTimesError("Unable to load availability. Please retry or contact WOW CLEAN."); })
+      .finally(() => { if (!cancelled) setTimesLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedDateISO, availabilityAttempt]);
 
   // ─── Derived values ───
   const basePrice = useMemo(() => {
@@ -440,7 +453,7 @@ function BookPageContent() {
       day: number;
       empty: boolean;
       past: boolean;
-      sunday: boolean;
+      closed: boolean;
       today: boolean;
       date: Date | null;
     }[] = [];
@@ -451,28 +464,25 @@ function BookPageContent() {
         day: 0,
         empty: true,
         past: false,
-        sunday: false,
+        closed: false,
         today: false,
         date: null,
       });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayISO = getCalgaryNow().date;
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const dt = new Date(calYear, calMonth, d);
-      const isPast = dt < today;
-      const isSunday = dt.getDay() === 0;
-      const isToday =
-        dt.getFullYear() === today.getFullYear() &&
-        dt.getMonth() === today.getMonth() &&
-        dt.getDate() === today.getDate();
+      const dateISO = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const isPast = dateISO < todayISO;
+      const isClosed = getBookableTimeSlots(dateISO).length === 0;
+      const isToday = dateISO === todayISO;
       days.push({
         day: d,
         empty: false,
         past: isPast,
-        sunday: isSunday,
+        closed: isClosed,
         today: isToday,
         date: dt,
       });
@@ -888,7 +898,8 @@ function BookPageContent() {
                 <span className="text-cyan">Date &amp; Time</span>
               </h1>
               <p className="text-[0.95rem] text-mid mb-10 leading-relaxed">
-                Choose an available date and arrival window for your detail.
+                Choose an available appointment start time. All times are Calgary time.
+                Each appointment reserves a two-hour window. Mondays are unavailable; Sunday starts end at 10 a.m.
               </p>
 
               {/* Calendar */}
@@ -929,7 +940,7 @@ function BookPageContent() {
                     if (cell.empty)
                       return <div key={`empty-${idx}`} className="h-9" />;
 
-                    const disabled = cell.past || cell.sunday;
+                    const disabled = cell.past || cell.closed;
                     const selected = isDateSelected(cell.date);
 
                     return (
@@ -937,9 +948,12 @@ function BookPageContent() {
                         key={`day-${cell.day}`}
                         disabled={disabled}
                         onClick={() => {
-                          if (!disabled && cell.date) {
+                          if (!disabled && cell.date && !isDateSelected(cell.date)) {
                             setSelectedDate(cell.date);
                             setSelectedTime(null);
+                            setBookedTimes([]);
+                            setTimesLoading(true);
+                            setTimesError("");
                           }
                         }}
                         className={`h-9 flex items-center justify-center rounded-md text-[0.82rem] font-medium transition-all border ${
@@ -963,10 +977,12 @@ function BookPageContent() {
               {selectedDate && (
                 <div className="mb-8">
                   <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[3px] uppercase text-cyan mb-3.5">
-                    Available Times
+                    Available Times — Calgary time
                   </p>
+                  {timesLoading && <p className="text-sm text-mid mb-3" role="status">Checking availability…</p>}
+                  {timesError && <div className="text-sm text-red-400 mb-3" role="alert">{timesError} <button type="button" className="underline" onClick={() => setAvailabilityAttempt((attempt) => attempt + 1)}>Retry</button></div>}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                    {TIME_SLOTS.map((slot) => {
+                    {!timesLoading && !timesError && scheduledTimes.map((slot) => {
                       const blocked = isTimeBlocked(slot, bookedTimes);
                       return (
                         <button
@@ -987,8 +1003,8 @@ function BookPageContent() {
                       );
                     })}
                   </div>
-                  {bookedTimes.length > 0 && TIME_SLOTS.every((s) => isTimeBlocked(s, bookedTimes)) && (
-                    <p className="mt-3 text-sm text-red-400">This day is fully booked. Please select a different date.</p>
+                  {!timesLoading && !timesError && (scheduledTimes.length === 0 || scheduledTimes.every((s) => isTimeBlocked(s, bookedTimes))) && (
+                    <p className="mt-3 text-sm text-red-400">No appointments remain on this date. Please select a different date.</p>
                   )}
                 </div>
               )}
@@ -1004,7 +1020,7 @@ function BookPageContent() {
                   onClick={() =>
                     selectedDate && selectedTime && goToStep(5)
                   }
-                  disabled={!selectedDate || !selectedTime}
+                  disabled={!selectedDate || !selectedTime || timesLoading || !!timesError || !scheduledTimes.includes(selectedTime) || isTimeBlocked(selectedTime, bookedTimes)}
                   className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-[1px] uppercase px-10 py-4 rounded-lg border-none cursor-pointer shadow-[0_0_40px_rgba(26,74,255,0.4)] transition-all hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 relative overflow-hidden group"
                 >
                   <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[200%] transition-transform duration-[2500ms]" />
@@ -1440,7 +1456,7 @@ function BookPageContent() {
               {/* Action buttons */}
               <div className="flex gap-3.5 justify-center flex-wrap">
                 <a
-                  href="tel:+15878913265"
+                  href="tel:+15874369605"
                   className="inline-flex items-center gap-2 border border-white/20 text-silver font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-semibold tracking-[1px] uppercase px-7 py-3 rounded-lg transition-all hover:border-cyan hover:text-cyan no-underline"
                 >
                   <Phone className="w-4 h-4" /> Call Us
