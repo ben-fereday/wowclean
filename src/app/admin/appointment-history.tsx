@@ -31,17 +31,7 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
 
   useEffect(() => {
     const timer = setInterval(() => setNow(getCalgaryNow()), 60000);
-    async function changeArchive(booking: Booking) {
-    setArchivingId(booking.id);
-    try {
-      const result = await setAppointmentArchived(booking.id, !booking.archived_at);
-      setBookings(previous => previous.map(b => b.id === booking.id ? { ...b, archived_at: result.archivedAt } : b));
-      toast.success(booking.archived_at ? "Appointment restored. No email sent." : "Appointment archived. No email sent.");
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not update the archive. Please retry."); }
-    finally { setArchivingId(null); }
-  }
-
-  return () => clearInterval(timer);
+      return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -70,6 +60,16 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
   }, [bookings, paymentMap, search, range, from, to, status, payment, showArchived, now, invalidRange]);
   const pages = Math.max(1, Math.ceil(filtered.length / 25));
   const currentPage = Math.min(page, pages - 1);
+
+  async function changeArchive(booking: Booking) {
+    setArchivingId(booking.id);
+    try {
+      const result = await setAppointmentArchived(booking.id, !booking.archived_at);
+      setBookings(previous => previous.map(b => b.id === booking.id ? { ...b, archived_at: result.archivedAt } : b));
+      toast.success(booking.archived_at ? "Appointment restored. No email sent." : "Appointment archived. No email sent.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not update the archive. Please retry."); }
+    finally { setArchivingId(null); }
+  }
 
   return (
     <section className="rounded-2xl border border-white/10 bg-[#070d22] p-4 sm:p-6 space-y-5" aria-label="Appointment history">
