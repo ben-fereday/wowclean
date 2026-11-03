@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 const navLinks = [
   { label: "How It Works", href: "/#how" },
   { label: "Services", href: "/#services" },
+  { label: "The Story Behind WOW CLEAN", href: "/our-story" },
   ...(SUBSCRIPTIONS_ENABLED ? [{ label: "Subscriptions", href: "/subscriptions" }] : []),
 ];
 
