@@ -4,18 +4,8 @@ import {
   CalendarCheck,
   Truck,
   Sparkles,
-  Shield,
-  Clock,
-  RefreshCw,
-  MapPin,
-  Leaf,
-  CreditCard,
-  CalendarDays,
-  Building2,
   Zap,
   Phone,
-  Trophy,
-  Star,
   ArrowRight,
   Check,
 } from "lucide-react";
@@ -31,10 +21,6 @@ function Hero() {
 
       {/* Left */}
       <div className="relative z-10 text-center lg:text-left">
-        <div className="inline-flex items-center gap-2 bg-cyan/10 border border-cyan/30 text-cyan font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3px] uppercase px-4 py-1.5 rounded-sm mb-6">
-          <Trophy className="size-4" />
-          Calgary&apos;s #1 Rated Mobile Detailing Service
-        </div>
         <h1 className="font-[family-name:var(--font-heading)] text-[clamp(3rem,5.5vw,5.5rem)] leading-[0.95] tracking-wide text-white mb-2.5">
           Your Car Deserves
           <span className="block text-[clamp(4.5rem,8.5vw,8.5rem)] leading-[0.9] bg-gradient-to-br from-white via-cyan to-blue bg-clip-text text-transparent">
@@ -81,9 +67,6 @@ function Hero() {
           <div className="font-[family-name:var(--font-heading)] text-[clamp(1.8rem,3vw,3rem)] text-white tracking-[3px] mb-1.5 leading-none">
             <span className="text-cyan">WOW</span> CLEAN
           </div>
-          <p className="text-[0.85rem] text-mid mb-9">
-            Available 7 Days a Week &nbsp;&middot;&nbsp; 8am – 8pm
-          </p>
           <Link
             href="/book"
             className="flex items-center justify-center gap-2.5 w-full bg-gradient-to-br from-cyan to-blue text-navy font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-extrabold tracking-[2px] uppercase py-4 rounded-lg hover:scale-[1.03] hover:opacity-90 transition-all shadow-[0_0_30px_rgba(91,243,255,0.35)]"
@@ -111,13 +94,13 @@ function HowItWorks() {
       num: "02",
       icon: <Truck className="size-7 text-white" />,
       title: "We Come to You",
-      desc: "Our fully-equipped mobile unit arrives at your home on your schedule.",
+      desc: "Mobile detailing at your home, by appointment.",
     },
     {
       num: "03",
       icon: <Sparkles className="size-7 text-white" />,
       title: "Drive Away Amazed",
-      desc: "Our professional detailers deliver a showroom-quality finish. You inspect it, love it, and drive off gleaming.",
+      desc: "Review your vehicle after the detail is complete.",
     },
   ];
 
@@ -356,12 +339,6 @@ function Services({
               anyone wanting a more complete detail with added protection and
               presentation.
             </p>
-          </div>
-          <div className="shrink-0">
-            <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#ff4500] to-[#ff7b00] text-white font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[2px] uppercase px-3.5 py-1.5 rounded-sm">
-              <Star className="size-3.5 fill-white" />
-              Most Popular
-            </span>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-8 items-start">
@@ -634,127 +611,6 @@ function Services({
   );
 }
 
-/* ───────────────────────── WHY US ───────────────────────── */
-function WhyUs() {
-  const cards = [
-    {
-      icon: <Shield className="size-[22px] text-white" />,
-      title: "Fully Insured & Bonded",
-      desc: "Every technician is background-checked, trained, and our work is fully insured for your peace of mind.",
-    },
-    {
-      icon: <Clock className="size-[22px] text-white" />,
-      title: "On-Time Guarantee",
-      desc: "We show up when we say we will — or your next detail gets a discount. Your time is valuable.",
-    },
-    {
-      icon: <RefreshCw className="size-[22px] text-white" />,
-      title: "100% Satisfaction Promise",
-      desc: "Not thrilled? We come back and make it right at no charge. We don't rest until you say WOW.",
-    },
-  ];
-
-  const badges = [
-    { icon: <MapPin className="size-4" />, text: "Comes to Your Location" },
-    { icon: <Leaf className="size-4" />, text: "Eco-Friendly Products" },
-    { icon: <CreditCard className="size-4" />, text: "Easy Online Payment" },
-    { icon: <CalendarDays className="size-4" />, text: "Same-Day Available" },
-    { icon: <Building2 className="size-4" />, text: "Fleet Discounts" },
-  ];
-
-  return (
-    <section id="why" className="bg-[#f4f6fb] py-[100px] px-6 md:px-[60px]">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 max-w-[1100px] mx-auto items-center">
-        {/* Left visual */}
-        <div className="hidden lg:block">
-          <div className="font-[family-name:var(--font-heading)] text-[clamp(8rem,12vw,13rem)] leading-none tracking-tighter bg-gradient-to-br from-navy to-blue bg-clip-text text-transparent opacity-15 select-none">
-            WOW
-          </div>
-          <div className="flex flex-col gap-5 -mt-[60px] relative z-10">
-            {cards.map((card, i) => (
-              <div
-                key={i}
-                className="bg-white border border-[#dde3f0] rounded-xl p-7 px-8 flex items-start gap-5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:translate-x-1.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.1)] transition-all"
-              >
-                <div className="w-12 h-12 min-w-[48px] bg-gradient-to-br from-blue2 to-blue rounded-[10px] flex items-center justify-center">
-                  {card.icon}
-                </div>
-                <div>
-                  <h4 className="font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-wide uppercase text-navy mb-1.5">
-                    {card.title}
-                  </h4>
-                  <p className="text-[0.88rem] text-[#667] leading-[1.6]">
-                    {card.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right content */}
-        <div>
-          <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-blue mb-4 text-center lg:text-left">
-            Why WOW CLEAN
-          </p>
-          <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-navy mb-5 text-center lg:text-left">
-            We Don&apos;t Just Clean.
-            <br />
-            <span className="text-blue">We Impress.</span>
-          </h2>
-          <p className="text-[1.05rem] text-[#445] leading-[1.8] mb-9">
-            We built WOW CLEAN because car owners deserve better — no waiting at
-            a shop, no mediocre results, no surprises on the bill. Our mobile
-            detailers bring professional-grade equipment and products directly to
-            you, delivering results that rival the finest detail shops anywhere.
-          </p>
-
-          {/* Mobile-only cards */}
-          <div className="flex flex-col gap-4 mb-8 lg:hidden">
-            {cards.map((card, i) => (
-              <div
-                key={i}
-                className="bg-white border border-[#dde3f0] rounded-xl p-6 flex items-start gap-4 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
-              >
-                <div className="w-12 h-12 min-w-[48px] bg-gradient-to-br from-blue2 to-blue rounded-[10px] flex items-center justify-center">
-                  {card.icon}
-                </div>
-                <div>
-                  <h4 className="font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-wide uppercase text-navy mb-1.5">
-                    {card.title}
-                  </h4>
-                  <p className="text-[0.88rem] text-[#667] leading-[1.6]">
-                    {card.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-3 mb-10">
-            {badges.map((badge, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 bg-white border border-[#dde3f0] px-[18px] py-2.5 rounded-lg font-[family-name:var(--font-barlow-condensed)] text-[0.88rem] font-semibold tracking-wide text-navy shadow-[0_2px_8px_rgba(0,0,0,0.05)]"
-              >
-                {badge.icon}
-                {badge.text}
-              </div>
-            ))}
-          </div>
-          <Link
-            href="/book"
-            className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-wide uppercase px-10 py-[17px] rounded shadow-[0_0_40px_rgba(26,74,255,0.45)] hover:translate-y-[-3px] hover:shadow-[0_0_60px_rgba(26,74,255,0.7)] transition-all"
-          >
-            Get a Free Quote
-            <ArrowRight className="size-5" />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /* ─────────────────────── CTA STRIP ─────────────────────── */
 function CtaStrip() {
   return (
@@ -768,7 +624,7 @@ function CtaStrip() {
         Ready for Your WOW Moment?
       </h2>
       <p className="text-[1.1rem] text-white/80 mb-10 max-w-[500px] mx-auto">
-        Same-day appointments available. We bring the shine to you.
+        Contact WOW CLEAN to arrange your next detail.
       </p>
       <Link
         href="/book"
@@ -789,7 +645,6 @@ export default async function Home() {
       <Hero />
       <HowItWorks />
       <Services bp={pricing.booking} addons={pricing.addons} />
-      <WhyUs />
       <CtaStrip />
     </>
   );

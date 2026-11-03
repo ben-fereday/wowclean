@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Phone, Mail, MapPin, Clock, Send, Check } from "lucide-react";
+import { Phone, Mail, MapPin, Send, Check } from "lucide-react";
 import Link from "next/link";
 import { sendContactMessage } from "./actions";
 
@@ -105,19 +105,7 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue/20 flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-5 h-5 text-cyan" />
-                </div>
-                <div>
-                  <h3 className="font-[family-name:var(--font-barlow-condensed)] text-sm font-bold tracking-wider uppercase text-silver mb-1">
-                    Hours
-                  </h3>
-                  <p className="text-silver">
-                    7 Days a Week: 8:00 AM – 8:00 PM
-                  </p>
-                </div>
-              </div>
+
             </div>
           </div>
 

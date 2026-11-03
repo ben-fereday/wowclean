@@ -26,7 +26,7 @@ const bebasNeue = Bebas_Neue({
 export const metadata: Metadata = {
   title: "WOW CLEAN | Mobile Auto & Home Detailing",
   description:
-    "Premium mobile auto detailing delivered to your driveway, office, or anywhere you choose. Calgary's #1 rated mobile detailing service.",
+    "Mobile auto detailing in Calgary. View detailing services, package pricing, and booking options.",
 };
 
 export default function RootLayout({

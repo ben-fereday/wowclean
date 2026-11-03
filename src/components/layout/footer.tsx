@@ -16,7 +16,6 @@ const serviceLinks = [
 
 const companyLinks = [
   { label: "How It Works", href: "/#how-it-works" },
-  { label: "Why Us", href: "/#why-us" },
   { label: "Gallery", href: "/gallery" },
   { label: "Book Now", href: "/book" },
 ];
@@ -43,9 +42,8 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-mid text-sm leading-relaxed max-w-xs">
-              Premium mobile auto detailing delivered to your driveway, office,
-              or anywhere you choose. Calgary&apos;s #1 rated mobile detailing
-              service.
+              Mobile auto detailing in Calgary. View services and pricing,
+              or contact WOW CLEAN to arrange an appointment.
             </p>
           </div>
 

@@ -13,7 +13,6 @@ import {
   Zap,
   Lock,
   CalendarDays,
-  RefreshCw,
   Phone,
   Printer,
   Car,
@@ -883,8 +882,7 @@ function BookPageContent() {
                 <span className="text-cyan">Date &amp; Time</span>
               </h1>
               <p className="text-[0.95rem] text-mid mb-10 leading-relaxed">
-                Choose a date and arrival window that works for you. Same-day
-                bookings available when slots are open.
+                Choose an available date and arrival window for your detail.
               </p>
 
               {/* Calendar */}
@@ -1581,10 +1579,6 @@ function BookPageContent() {
               {
                 icon: <CalendarDays className="w-4 h-4" />,
                 text: "Free rescheduling up to 24 hrs before",
-              },
-              {
-                icon: <RefreshCw className="w-4 h-4" />,
-                text: "100% satisfaction guarantee",
               },
               {
                 icon: <Phone className="w-4 h-4" />,
