@@ -1,5 +1,7 @@
 "use client";
 
+import { INTERIOR_REQUIREMENTS } from "@/lib/service-availability";
+
 import { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -432,7 +434,7 @@ function SubscriptionsContent() {
               You&apos;re <span className="text-cyan">Subscribed!</span>
             </h1>
             <p className="text-mid leading-relaxed mb-8">
-              Your {plan} {pkg && PACKAGE_LABELS[pkg]} subscription has been
+              Your {plan} {pkg && PACKAGE_LABELS[pkg]} interior detailing subscription has been
               created. Your first visit is on{" "}
               {startDate
                 ? new Date(startDate + "T12:00:00").toLocaleDateString(
@@ -459,13 +461,13 @@ function SubscriptionsContent() {
       {/* ── Hero ── */}
       <section className="bg-dark py-20 px-6 text-center">
         <p className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold tracking-[3px] uppercase text-cyan mb-4">
-          Recurring Detail Plans
+          Recurring Interior Detailing
         </p>
         <h1 className="font-[family-name:var(--font-heading)] text-5xl md:text-7xl tracking-wider text-white mb-4">
-          Subscription <span className="text-cyan">Plans</span>
+          Interior Detailing <span className="text-cyan">Plans</span>
         </h1>
         <p className="text-mid max-w-2xl mx-auto leading-relaxed">
-          Keep your vehicle looking its best with a recurring detail plan.
+          Keep your interior clean with a recurring interior detailing plan.
           Choose weekly, bi-weekly, or monthly service and save time.
         </p>
       </section>
@@ -538,10 +540,10 @@ function SubscriptionsContent() {
               <Info className="w-5 h-5 text-cyan mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">
-                  Standard Full Detail, per vehicle
+                  Interior detailing, per vehicle
                 </p>
                 <p className="text-mid text-sm">
-                  Every visit is a complete interior &amp; exterior detail.
+                  Every visit includes interior detailing only, based on your selected package.
                   Subscriptions cover one vehicle &mdash; sign up another plan
                   if you have multiple cars.
                 </p>
@@ -551,12 +553,10 @@ function SubscriptionsContent() {
               <Snowflake className="w-5 h-5 text-yellow mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-white font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">
-                  Cold Weather Restriction
+                  Power &amp; Winter Workspace
                 </p>
                 <p className="text-mid text-sm">
-                  Exterior services may be limited or rescheduled in freezing
-                  conditions for safety and quality. We&apos;ll contact you
-                  ahead of time if a visit is affected.
+                  {INTERIOR_REQUIREMENTS}
                 </p>
               </div>
             </div>
@@ -665,7 +665,7 @@ function SubscriptionsContent() {
                         {p.name}
                       </h4>
                       <p className="text-mid text-sm mt-1 line-clamp-2">
-                        {p.desc}
+                        {p.interiorFeatures.join(" · ")}
                       </p>
                     </SelectionCard>
                   ))}
@@ -681,7 +681,7 @@ function SubscriptionsContent() {
                     The Standard
                   </h4>
                   <p className="text-mid text-sm mt-1">
-                    Full interior &amp; exterior detail every visit.
+                    Interior vacuuming, accessible surface wipe-down, and interior glass every visit.
                   </p>
                 </div>
               </FormStep>

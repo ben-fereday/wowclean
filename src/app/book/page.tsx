@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
+import { EXTERIOR_BOOKINGS_ENABLED, SEASONAL_EXTERIOR_MESSAGE, INTERIOR_REQUIREMENTS, isServiceBookable, isAddonBookable } from "@/lib/service-availability";
 import {
   Check,
   ChevronLeft,
@@ -114,7 +115,7 @@ function BookPageContent() {
   // Wizard state
   const [step, setStep] = useState(1);
   const [vehicleSize, setVehicleSize] = useState<VehicleSize | null>(null);
-  const [serviceType, setServiceType] = useState<ServiceType>("full");
+  const [serviceType, setServiceType] = useState<ServiceType>(EXTERIOR_BOOKINGS_ENABLED ? "full" : "interior");
   const [packageId, setPackageId] = useState<PackageId | null>(null);
   const [addons, setAddons] = useState<AddonSelection[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -154,7 +155,7 @@ function BookPageContent() {
   useEffect(() => {
     if (isRedemption) {
       setPackageId("premium");
-      setServiceType("full");
+      setServiceType(EXTERIOR_BOOKINGS_ENABLED ? "full" : "interior");
     }
   }, [isRedemption]);
 
@@ -672,7 +673,9 @@ function BookPageContent() {
                     <button
                       key={st}
                       onClick={() => setServiceType(st)}
-                      className={`bg-white/[0.04] border-2 rounded-xl px-4 py-5 text-center cursor-pointer transition-all ${
+                      disabled={!isServiceBookable(st)}
+                      aria-describedby={!isServiceBookable(st) ? "seasonal-service-notice" : undefined}
+                      className={`bg-white/[0.04] border-2 rounded-xl px-4 py-5 text-center cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                         serviceType === st
                           ? "border-cyan bg-cyan/[0.08]"
                           : "border-white/[0.08] hover:border-cyan/30"
@@ -683,11 +686,16 @@ function BookPageContent() {
                       </div>
                       <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.95rem] font-bold tracking-[1px] uppercase text-white">
                         {SERVICE_TYPE_LABELS[st]}
+                        {!isServiceBookable(st) && <span className="block text-xs font-normal normal-case mt-1">Spring / summer only</span>}
                       </div>
                     </button>
                   )
                 )}
               </div>
+
+              {!EXTERIOR_BOOKINGS_ENABLED && (
+                <p id="seasonal-service-notice" className="text-sm text-mid mb-6 rounded-lg border border-cyan/20 p-4">{SEASONAL_EXTERIOR_MESSAGE}</p>
+              )}
 
               {/* Package cards */}
               <div className="flex flex-col gap-4 mb-8">
@@ -799,7 +807,7 @@ function BookPageContent() {
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
-                {dbAddons.map((addon) => {
+                {dbAddons.filter((addon) => isAddonBookable(addon.id)).map((addon) => {
                   const isExclusiveIncluded =
                     packageId === "exclusive" &&
                     EXCLUSIVE_INCLUDED.includes(addon.id);
@@ -1022,7 +1030,8 @@ function BookPageContent() {
               {/* Location info */}
               <div className="rounded-lg border border-cyan/20 bg-cyan/[0.04] p-4 mb-6">
                 <p className="text-cyan font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-sm font-semibold mb-1">Mobile Service</p>
-                <p className="text-mid text-sm">Provide a suitable location where detailing is permitted.</p>
+                <p className="text-mid text-sm">{INTERIOR_REQUIREMENTS}</p>
+                {serviceType !== "interior" && <p className="text-mid text-sm mt-2">Exterior detailing also requires customer-provided water and suitable above-freezing conditions.</p>}
               </div>
 
               {/* Form */}

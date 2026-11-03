@@ -1,5 +1,7 @@
 "use client";
 
+import { isAddonBookable } from "@/lib/service-availability";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -886,7 +888,7 @@ export default function AccountClient({
             {editingBookingAddons && (
               <div className="pt-2">
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                  {dbAddons.map((addon) => {
+                  {dbAddons.filter((addon) => isAddonBookable(addon.id) || editAddons.some((selected) => selected.id === addon.id)).map((addon) => {
                     const isIncluded = editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(addon.id);
                     const isSelected = editAddons.some((a) => a.id === addon.id);
                     return (

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { SubscriptionPlan } from "@/lib/constants";
+import { isAddonBookable } from "@/lib/service-availability";
 
 export async function updateSubscription(
   subscriptionId: string,
@@ -82,12 +83,19 @@ export async function updateBookingAddons(
   // Fetch the booking to get base price info
   const { data: booking } = await supabase
     .from("bookings")
-    .select("package, vehicle_size, service_type, promo_discount_pct")
+    .select("package, vehicle_size, service_type, promo_discount_pct, addons")
     .eq("id", bookingId)
     .eq("user_id", user.id)
     .single();
 
   if (!booking) throw new Error("Booking not found");
+
+  const existingAddonIds = new Set(
+    (booking.addons ?? []).map((addon: { id: string }) => addon.id)
+  );
+  if (addons.some((addon) => !isAddonBookable(addon.id) && !existingAddonIds.has(addon.id))) {
+    throw new Error("This add-on is currently unavailable for new bookings.");
+  }
 
   // Re-validate addon prices from DB
   const { data: dbAddons } = await supabase

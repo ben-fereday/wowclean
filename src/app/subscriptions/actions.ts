@@ -46,6 +46,15 @@ function daysFromToday(dateStr: string): number {
 }
 
 export async function createSubscription(data: CreateSubscriptionData) {
+  if (
+    !["weekly", "biweekly", "monthly"].includes(data.plan) ||
+    !["standard", "premium"].includes(data.package_id) ||
+    (data.plan !== "monthly" && data.package_id !== "standard") ||
+    data.location !== "mobile"
+  ) {
+    return { error: "Please choose an available mobile interior detailing plan." };
+  }
+
   const supabase = await createClient();
 
   const {
@@ -113,7 +122,7 @@ export async function createSubscription(data: CreateSubscriptionData) {
       user_id: user.id,
       plan: data.plan,
       package: data.package_id,
-      service_type: "full",
+      service_type: "interior",
       vehicle_size: data.vehicle_size,
       billing_cycle: data.billing_cycle,
       recurring_day: recurringDay,

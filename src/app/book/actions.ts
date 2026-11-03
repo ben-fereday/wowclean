@@ -7,6 +7,7 @@ import { validatePromoCode } from "@/lib/promo-codes";
 import { validateReferralCode, recordReferral } from "@/lib/referrals";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
+import { isServiceBookable, isAddonBookable } from "@/lib/service-availability";
 
 export type BookingPayload = {
   vehicleSize: string;
@@ -47,9 +48,10 @@ export async function createBooking(
     if (
       !["standard", "premium"].includes(data.packageId) ||
       data.location !== "mobile" ||
-      data.addons.some((addon) => addon.id === "polish")
+      !isServiceBookable(data.serviceType) ||
+      data.addons.some((addon) => !isAddonBookable(addon.id))
     ) {
-      return { success: false, error: "This service is no longer available. Please choose a current mobile detailing package." };
+      return { success: false, error: "This service is currently unavailable. Please choose an available mobile detailing service and add-ons." };
     }
 
     // Rate limit by email (10 bookings per 15 min)

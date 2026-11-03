@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EXTERIOR_BOOKINGS_ENABLED, SEASONAL_EXTERIOR_MESSAGE, INTERIOR_REQUIREMENTS, isAddonBookable } from "@/lib/service-availability";
 import { fetchAllPricing, type BookingPricingGrid, type AddonItem } from "@/lib/pricing-db";
 import {
   CalendarCheck,
@@ -174,6 +175,9 @@ function PriceTable({
                   className={`py-3 px-3 sm:px-[18px] border-t border-white/[0.06] text-[0.9rem] ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-silver"}`}
                 >
                   {row.service}
+                  {!EXTERIOR_BOOKINGS_ENABLED && row.service !== "Interior Only" && (
+                    <span className="block text-xs font-normal text-mid mt-1">Spring / summer only</span>
+                  )}
                 </td>
                 {[row.small, row.medium, row.large].map((val, j) => (
                   <td
@@ -216,6 +220,12 @@ function Services({
         Choose interior, exterior, or full detailing. Pricing varies by vehicle
         size and condition.
       </p>
+
+      <div className="max-w-[900px] mx-auto mb-10 rounded-xl border border-cyan/20 bg-cyan/[0.05] p-5 text-sm leading-relaxed">
+        <p className="text-white font-semibold mb-2">Interior detailing available to book</p>
+        <p className="text-mid">{INTERIOR_REQUIREMENTS}</p>
+        {!EXTERIOR_BOOKINGS_ENABLED && <p className="text-mid mt-2">{SEASONAL_EXTERIOR_MESSAGE}</p>}
+      </div>
 
       {/* Vehicle Size Guide */}
       <div className="max-w-[700px] mx-auto mb-16 text-center">
@@ -281,7 +291,7 @@ function Services({
               ))}
             </ul>
             <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior
+              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid">(spring / summer)</span>}
             </div>
             <ul className="space-y-1">
               {[
@@ -365,7 +375,7 @@ function Services({
               ))}
             </ul>
             <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior
+              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid">(spring / summer)</span>}
             </div>
             <ul className="space-y-1">
               {[
@@ -429,7 +439,7 @@ function Services({
             </thead>
             <tbody>
               {addons.filter(a => a.active).map((addon) => ({
-                name: addon.name,
+                name: isAddonBookable(addon.id) ? addon.name : `${addon.name} — seasonal, currently unavailable`,
                 price: `from $${addon.price}`,
               })).map((addon) => (
                 <tr key={addon.name} className="hover:bg-white/[0.02]">
