@@ -15,7 +15,7 @@ import {
   type PromoCodeRow,
 } from "./actions";
 import BookingAdminTools from "./booking-admin-tools";
-import { getBookingDurationMinutes, formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
+import { parseBookingTime, getBookingDurationMinutes, formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,16 @@ import {
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
+
+function normalizeBlockTime(value: string): string | null {
+  const text = value.trim();
+  let minutes = parseBookingTime(text);
+  if (minutes === null && /^([01]?\d|2[0-3]):[0-5]\d$/.test(text)) {
+    const [hours, mins] = text.split(":").map(Number);
+    minutes = hours * 60 + mins;
+  }
+  return minutes === null ? null : `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
 
 interface BookingAddon {
   id: string;
@@ -203,8 +213,8 @@ export default function AdminPage() {
   // Blocked slots
   const [blockedSlots, setBlockedSlots] = useState<{ id: string; blocked_date: string; blocked_time: string | null; start_time: string | null; end_time: string | null; reason: string | null }[]>([]);
   const [blockDate, setBlockDate] = useState("");
-  const [blockStart, setBlockStart] = useState("09:00");
-  const [blockEnd, setBlockEnd] = useState("17:00");
+  const [blockStart, setBlockStart] = useState("9:00 AM");
+  const [blockEnd, setBlockEnd] = useState("5:00 PM");
   const [blockSaving, setBlockSaving] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [blockWholeDay, setBlockWholeDay] = useState(false);
@@ -773,10 +783,10 @@ export default function AdminPage() {
                   {!blockWholeDay && (
                     <>
                       <label className="space-y-1 text-xs text-mid">Start time
-                        <input type="time" step="900" value={blockStart} onChange={(event) => setBlockStart(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
+                        <input type="text" autoComplete="off" spellCheck={false} placeholder="9:00 AM" value={blockStart} onChange={(event) => setBlockStart(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
                       </label>
                       <label className="space-y-1 text-xs text-mid">End time
-                        <input type="time" step="900" value={blockEnd} onChange={(event) => setBlockEnd(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
+                        <input type="text" autoComplete="off" spellCheck={false} placeholder="5:00 PM" value={blockEnd} onChange={(event) => setBlockEnd(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
                       </label>
                     </>
                   )}
@@ -794,12 +804,18 @@ export default function AdminPage() {
                   <Button
                     onClick={async () => {
                       if (!blockDate) return;
+                      const startTime = normalizeBlockTime(blockStart);
+                      const endTime = normalizeBlockTime(blockEnd);
+                      if (!blockWholeDay && (!startTime || !endTime || endTime <= startTime)) {
+                        toast.error("Enter times like 9:00 AM and 5:00 PM. End time must be after start time.");
+                        return;
+                      }
                       setBlockSaving(true);
                       try {
                         const result = await blockTimeSlot({
                           date: blockDate,
-                          startTime: blockWholeDay ? undefined : blockStart,
-                          endTime: blockWholeDay ? undefined : blockEnd,
+                          startTime: blockWholeDay ? undefined : startTime!,
+                          endTime: blockWholeDay ? undefined : endTime!,
                           reason: blockReason || undefined,
                         });
                         if (result.error) { toast.error(result.error); return; }
@@ -809,7 +825,7 @@ export default function AdminPage() {
                       } catch { toast.error("Could not block this time. Please try again."); }
                       finally { setBlockSaving(false); }
                     }}
-                    disabled={blockSaving || !blockDate || (!blockWholeDay && (!blockStart || !blockEnd || blockEnd <= blockStart))}
+                    disabled={blockSaving || !blockDate || (!blockWholeDay && (!blockStart.trim() || !blockEnd.trim()))}
                     className="h-9 bg-red-600 text-white hover:bg-red-700 font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-xs"
                   >
                     <Ban className="mr-1.5 h-3.5 w-3.5" />
