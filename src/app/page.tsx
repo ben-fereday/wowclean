@@ -213,10 +213,8 @@ function Services({
         Choose Your <span className="text-cyan">Package</span>
       </h2>
       <p className="text-center text-mid text-base max-w-[660px] mx-auto mb-12 leading-[1.8]">
-        Professional detailing built for clients who want convenience, quality,
-        and results that actually stand out. Whether you need a simple
-        maintenance clean or a full cosmetic reset, our packages are designed to
-        keep your vehicle looking sharp, protected, and ready for the road.
+        Choose interior, exterior, or full detailing. Pricing varies by vehicle
+        size and condition.
       </p>
 
       {/* Vehicle Size Guide */}
@@ -515,7 +513,7 @@ function CtaStrip() {
       <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.3)_0px,rgba(255,255,255,0.3)_14px,transparent_14px,transparent_28px)]" />
 
       <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.5rem,5vw,4.5rem)] tracking-wide text-white mb-3">
-        Ready for Your WOW Moment?
+        Book Your Detail
       </h2>
       <p className="text-[1.1rem] text-white/80 mb-10 max-w-[500px] mx-auto">
         Contact WOW CLEAN to arrange your next detail.
