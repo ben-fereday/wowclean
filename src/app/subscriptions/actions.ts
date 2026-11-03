@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { SUBSCRIPTIONS_ENABLED } from "@/lib/service-availability";
 import type {
   SubscriptionPlan,
   PackageId,
@@ -46,6 +47,10 @@ function daysFromToday(dateStr: string): number {
 }
 
 export async function createSubscription(data: CreateSubscriptionData) {
+  if (!SUBSCRIPTIONS_ENABLED) {
+    return { error: "Subscription signups are currently unavailable. Please book an individual detail." };
+  }
+
   if (
     !["weekly", "biweekly", "monthly"].includes(data.plan) ||
     !["standard", "premium"].includes(data.package_id) ||

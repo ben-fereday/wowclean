@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { SUBSCRIPTIONS_ENABLED } from "@/lib/service-availability";
 import { useRouter } from "next/navigation";
 import {
   Sheet,
@@ -18,7 +19,7 @@ const navLinks = [
   { label: "How It Works", href: "/#how" },
   { label: "Services", href: "/#services" },
   { label: "Gallery", href: "/gallery" },
-  { label: "Subscriptions", href: "/subscriptions" },
+  ...(SUBSCRIPTIONS_ENABLED ? [{ label: "Subscriptions", href: "/subscriptions" }] : []),
 ];
 
 export function Navbar() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { isAddonBookable } from "@/lib/service-availability";
+import { SUBSCRIPTIONS_ENABLED, isAddonBookable } from "@/lib/service-availability";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -322,7 +322,7 @@ export default function AccountClient({
           <h1 className="font-[family-name:var(--font-heading)] text-4xl uppercase tracking-wide text-white">
             Welcome back{profile ? `, ${profile.first_name}!` : "!"}
           </h1>
-          <p className="mt-1 text-[hsl(var(--muted-foreground))]">Manage your bookings and subscriptions</p>
+          <p className="mt-1 text-[hsl(var(--muted-foreground))]">Manage your bookings{SUBSCRIPTIONS_ENABLED || subscriptions.length > 0 ? " and subscriptions" : ""}</p>
         </div>
 
         {/* Account Info */}
@@ -586,6 +586,7 @@ export default function AccountClient({
         })()}
 
         {/* Subscriptions Section */}
+        {(SUBSCRIPTIONS_ENABLED || subscriptions.length > 0) && (
         <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -593,13 +594,13 @@ export default function AccountClient({
                 <Sparkles className="h-5 w-5 text-[hsl(var(--accent))]" />
                 My Subscriptions
               </CardTitle>
-              <Link
+              {SUBSCRIPTIONS_ENABLED && <Link
                 href="/subscriptions"
                 className="inline-flex items-center gap-1.5 rounded-md bg-[hsl(var(--primary))] px-3 py-1.5 text-sm font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80 transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Add Subscription
-              </Link>
+              </Link>}
             </div>
           </CardHeader>
           <CardContent>
@@ -677,6 +678,7 @@ export default function AccountClient({
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Edit Subscription Modal */}
         <Dialog open={!!editingSub} onOpenChange={(open) => !open && setEditingSub(null)}>

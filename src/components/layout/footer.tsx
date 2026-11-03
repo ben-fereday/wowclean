@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SUBSCRIPTIONS_ENABLED } from "@/lib/service-availability";
 import {
   Phone,
   Mail,
@@ -10,7 +11,7 @@ const serviceLinks = [
   { label: "Exterior Wash", href: "/#services" },
   { label: "Interior Detail", href: "/#services" },
   { label: "Full Detail", href: "/#services" },
-  { label: "Subscriptions", href: "/subscriptions" },
+  ...(SUBSCRIPTIONS_ENABLED ? [{ label: "Subscriptions", href: "/subscriptions" }] : []),
 ];
 
 const companyLinks = [

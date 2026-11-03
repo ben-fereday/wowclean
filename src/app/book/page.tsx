@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { EXTERIOR_BOOKINGS_ENABLED, SEASONAL_EXTERIOR_MESSAGE, INTERIOR_REQUIREMENTS, isServiceBookable, isAddonBookable } from "@/lib/service-availability";
+import { EXTERIOR_BOOKINGS_ENABLED, SUBSCRIPTIONS_ENABLED, SEASONAL_EXTERIOR_MESSAGE, INTERIOR_REQUIREMENTS, isServiceBookable, isAddonBookable } from "@/lib/service-availability";
 import {
   Check,
   ChevronLeft,
@@ -68,6 +68,8 @@ const SERVICE_TYPE_ICON_MAP: Record<ServiceType, React.ReactNode> = {
 const STEP_LABELS = ["Vehicle", "Package", "Add-Ons", "Schedule", "Details"];
 
 function SubscriptionCta() {
+  if (!SUBSCRIPTIONS_ENABLED) return null;
+
   return (
     <div className="mt-6 pt-5 border-t border-white/[0.06]">
       <Link

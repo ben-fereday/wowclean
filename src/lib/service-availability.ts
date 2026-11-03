@@ -3,6 +3,9 @@ import type { ServiceType } from "@/lib/constants";
 // Set to true to reopen exterior and full-detail bookings for the season.
 export const EXTERIOR_BOOKINGS_ENABLED: boolean = false;
 
+// Set to true to restore recurring plans and signup links.
+export const SUBSCRIPTIONS_ENABLED: boolean = false;
+
 export const SEASONAL_EXTERIOR_MESSAGE =
   "Exterior and full detailing are available in spring and summer, weather permitting. Bookings are currently closed. Customer-provided water and power are required.";
 

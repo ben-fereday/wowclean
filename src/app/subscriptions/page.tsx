@@ -1,9 +1,10 @@
 "use client";
 
-import { INTERIOR_REQUIREMENTS } from "@/lib/service-availability";
+import { SUBSCRIPTIONS_ENABLED, INTERIOR_REQUIREMENTS } from "@/lib/service-availability";
 
 import { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { createSubscription } from "./actions";
 import { getBookedTimesForDate } from "@/lib/availability";
@@ -47,6 +48,16 @@ import {
 } from "lucide-react";
 
 export default function SubscriptionsPage() {
+  if (!SUBSCRIPTIONS_ENABLED) {
+    return (
+      <main className="min-h-screen bg-dark px-6 pt-[140px] pb-20 text-center">
+        <h1 className="font-[family-name:var(--font-heading)] text-4xl md:text-6xl text-white mb-5">Book an Individual Detail</h1>
+        <p className="text-mid max-w-lg mx-auto mb-8">Appointments are booked individually based on current availability.</p>
+        <Link href="/book" className="inline-flex rounded-lg bg-blue px-8 py-4 text-white font-semibold">View Available Appointments</Link>
+      </main>
+    );
+  }
+
   return (
     <Suspense fallback={<div className="min-h-screen bg-dark" />}>
       <SubscriptionsContent />
