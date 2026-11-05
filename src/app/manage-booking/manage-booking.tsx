@@ -11,25 +11,47 @@ const field = "w-full rounded-lg border border-white/20 bg-navy p-3 text-white";
 const statusLabels: Record<string, string> = { confirmed: "Confirmed", completed: "Completed", cancelled: "Cancelled", no_show: "No-show" };
 const money = (value: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(value);
 
-export default function ManageBooking() {
+const requestOptions = {
+  reschedule: { label: "Request a new time", placeholder: "Tell us which dates and times work for you." },
+  cancel: { label: "Request cancellation", placeholder: "Tell us you’d like to cancel. You can include a reason if you’d like." },
+  other: { label: "Request another change", placeholder: "Tell us what you’d like to change." },
+} as const;
+
+type RequestKind = keyof typeof requestOptions;
+
+function sampleBooking(): Details {
+  const date = new Date(getCalgaryNow().date + "T12:00:00Z");
+  date.setUTCDate(date.getUTCDate() + 7);
+  return {
+    reference_code: "DEMO-CALGARY", guest_first_name: "Sample customer",
+    booking_date: date.toISOString().slice(0, 10), booking_time: "10:00 AM",
+    status: "confirmed", package: "standard", service_type: "interior",
+    vehicle_size: "small", vehicle_make: null, vehicle_model: null, vehicle_colour: null,
+    service_address: "Sample Calgary address", guest_address: null, total_estimate: 100, addons: [],
+  };
+}
+
+export default function ManageBooking({ demo = false }: { demo?: boolean }) {
   const [token, setToken] = useState("");
-  const [booking, setBooking] = useState<Details | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState<Details | null>(() => demo ? sampleBooking() : null);
+  const [loading, setLoading] = useState(!demo);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [kind, setKind] = useState("reschedule");
+  const [kind, setKind] = useState<RequestKind | null>(null);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [requestError, setRequestError] = useState("");
 
   useEffect(() => {
-    const changed = () => { setBooking(null); setSent(false); setMessage(""); setRequestError(""); setRetry(v => v + 1); };
+    if (demo) return;
+    const changed = () => { setKind(null); setBooking(null); setSent(false); setMessage(""); setRequestError(""); setRetry(v => v + 1); };
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
-  }, []);
+  }, [demo]);
 
   useEffect(() => {
+    if (demo) return;
     let cancelled = false;
     const access = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
     setToken(access); setLoading(true); setError("");
@@ -38,12 +60,15 @@ export default function ManageBooking() {
       .catch(() => { if (!cancelled) setError("We couldn’t load your booking. Please retry or contact us."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [retry]);
+  }, [demo, retry]);
 
   const now = getCalgaryNow();
   const upcoming = booking && booking.status === "confirmed" && (booking.booking_date > now.date || (booking.booking_date === now.date && (parseBookingTime(booking.booking_time) ?? 0) > now.minutes));
   async function submit(event: React.FormEvent) {
-    event.preventDefault(); setSending(true); setRequestError("");
+    event.preventDefault();
+    if (!kind || !upcoming || sending || message.trim().length < 10 || message.length > 1500) return;
+    if (demo) { setSent(true); return; }
+    setSending(true); setRequestError("");
     try {
       const result = await requestBookingChange(token, kind, message);
       if (result.error) setRequestError(result.error); else setSent(true);
@@ -55,6 +80,7 @@ export default function ManageBooking() {
       <div className="mx-auto max-w-2xl space-y-6">
         <div><h1 className="font-[family-name:var(--font-heading)] text-4xl uppercase text-white">Manage My Booking</h1>
           <p className="mt-2 text-mid">Your appointment details, without an account.</p></div>
+        {demo && <p className="rounded-xl border border-cyan/30 bg-cyan/5 p-4 text-sm text-cyan">Preview with a sample appointment. Submitting here sends no email and changes no booking.</p>}
         {loading ? <p className="text-mid" role="status">Loading your booking…</p> : error ? (
           <div className="rounded-2xl border border-white/10 p-6 space-y-3"><p className="text-silver" role="alert">{error}</p>
             <button className="text-cyan underline" onClick={() => setRetry(v => v + 1)}>Retry</button>
@@ -82,18 +108,43 @@ export default function ManageBooking() {
               ].map(([label, value]) => <div key={label} className="grid grid-cols-[110px_1fr] sm:grid-cols-[140px_1fr] gap-3 border-b border-white/10 pb-3"><dt className="text-mid">{label}</dt><dd className="text-white break-words">{value}</dd></div>)}
             </dl>
             <div className="flex justify-between gap-3 text-white"><span>Estimated total (CAD)</span><strong className="text-cyan">{money(booking.total_estimate)}</strong></div>
-            <p className="text-xs text-mid">Your final amount is confirmed after the service. Keep this link private; anyone with it can view this appointment. It expires 30 days after the appointment date when issued.</p>
+            <p className="text-xs text-mid">Your final amount is confirmed after the service. Keep this link private. Anyone with it can view this appointment and send a change request. It expires 30 days after the appointment date when issued.</p>
           </section>
           {upcoming && <section className="rounded-2xl border border-white/10 p-6 space-y-4" aria-label="Request a booking change">
             <h2 className="text-xl font-semibold text-white">Need to change something?</h2>
-            <p className="text-sm text-mid">Send Ben a request. Your appointment stays as booked until WOW CLEAN confirms the change. For an urgent change, please call.</p>
-            {sent ? <p className="rounded-lg border border-cyan/30 bg-cyan/5 p-4 text-cyan" role="status">Your request has been sent. We’ll contact you to confirm. Your appointment has not changed yet.</p> :
-              <form onSubmit={submit} className="space-y-4">
-                <label className="block space-y-2 text-sm text-mid">Request type<select className={field} value={kind} onChange={e => setKind(e.target.value)}><option value="reschedule">Reschedule appointment</option><option value="cancel">Request cancellation</option><option value="other">Other change</option></select></label>
-                <label className="block space-y-2 text-sm text-mid">Details<textarea className={field} required minLength={10} maxLength={1500} rows={4} placeholder="Tell us what you’d like to change. For rescheduling, include your preferred dates and times." value={message} onChange={e => setMessage(e.target.value)} /></label>
-                {requestError && <p className="text-sm text-red-400" role="alert">{requestError}</p>}
-                <button className="rounded-lg bg-cyan px-5 py-3 font-semibold text-navy disabled:opacity-40" disabled={sending || message.trim().length < 10}>{sending ? "Sending…" : "Send request"}</button>
-              </form>}
+            <p className="text-sm text-mid">Your appointment stays as booked until WOW CLEAN confirms your request. For urgent changes, please call.</p>
+            {sent ? (
+              <div className="space-y-3">
+                <p className="rounded-lg border border-cyan/30 bg-cyan/5 p-4 text-cyan" role="status">
+                  {demo ? "Preview complete. A real request would go to WOW CLEAN for confirmation." : "Your request has been sent. We’ll contact you to confirm. Your appointment has not changed yet."}
+                </p>
+                {demo && <button type="button" className="text-cyan underline" onClick={() => { setSent(false); setKind(null); setMessage(""); }}>Try another request</button>}
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Request type">
+                  {(Object.keys(requestOptions) as RequestKind[]).map(option => (
+                    <button key={option} type="button" aria-pressed={kind === option} disabled={sending}
+                      onClick={() => { setKind(option); setRequestError(""); }}
+                      className="rounded-lg border border-white/20 px-4 py-3 text-sm font-semibold text-white hover:border-cyan focus-visible:outline-2 focus-visible:outline-cyan aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-navy">
+                      {requestOptions[option].label}
+                    </button>
+                  ))}
+                </div>
+                {kind && <form onSubmit={submit} className="space-y-4">
+                  <label className="block space-y-2 text-sm text-mid">
+                    Details
+                    <textarea className={field} required minLength={10} maxLength={1500} rows={4}
+                      placeholder={requestOptions[kind].placeholder} value={message} disabled={sending}
+                      onChange={event => setMessage(event.target.value)} />
+                  </label>
+                  {requestError && <p className="text-sm text-red-400" role="alert">{requestError}</p>}
+                  <button className="rounded-lg bg-cyan px-5 py-3 font-semibold text-navy disabled:opacity-40" disabled={sending || message.trim().length < 10}>
+                    {sending ? "Sending…" : kind === "cancel" ? "Send cancellation request" : "Send request"}
+                  </button>
+                </form>}
+              </>
+            )}
           </section>}
           {!upcoming && <p className="text-sm text-mid">For questions about this appointment, contact WOW CLEAN below.</p>}
         </>}

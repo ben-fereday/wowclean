@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default function ManageBookingPage() {
-  return <ManageBooking />;
+export default async function ManageBookingPage({ searchParams }: {
+  searchParams: Promise<{ demo?: string | string[] }>;
+}) {
+  const demo = process.env.VERCEL_ENV === "preview" && (await searchParams).demo === "1";
+  return <ManageBooking demo={demo} />;
 }
