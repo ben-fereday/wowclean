@@ -16,6 +16,7 @@ import {
   VEHICLE_LABELS,
   VEHICLE_EXAMPLES,
   PACKAGE_LABELS,
+  isPackageId,
   BILLING_CYCLES,
   SUBSCRIPTION_PRICING,
   applyDiscount,
@@ -125,9 +126,6 @@ function SubscriptionsContent() {
   useEffect(() => {
     if (plan === "weekly" || plan === "biweekly") {
       setPkg("standard");
-    } else if (plan === "monthly") {
-      // Don't auto-pick — let the user choose
-      if (pkg === "exclusive") setPkg(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
@@ -145,7 +143,7 @@ function SubscriptionsContent() {
   useEffect(() => {
     const p = searchParams.get("plan") as SubscriptionPlan | null;
     const bc = searchParams.get("billing") as BillingCycle | null;
-    const pk = searchParams.get("pkg") as PackageId | null;
+    const pk = searchParams.get("pkg");
     const v = searchParams.get("vehicle") as VehicleSize | null;
     const sd = searchParams.get("startDate");
     const t = searchParams.get("time");
@@ -157,7 +155,7 @@ function SubscriptionsContent() {
 
     if (p) setPlan(p);
     if (bc) setBillingCycle(bc);
-    if (pk) setPkg(pk);
+    if (isPackageId(pk)) setPkg(pk);
     if (v) setVehicleSize(v);
     if (sd) setStartDate(sd);
     if (t) setTimeSlot(t);
@@ -305,7 +303,7 @@ function SubscriptionsContent() {
     if (autoSubmitAttempted.current) return;
     const p = searchParams.get("plan") as SubscriptionPlan | null;
     const bc = searchParams.get("billing") as BillingCycle | null;
-    const pk = searchParams.get("pkg") as PackageId | null;
+    const pk = searchParams.get("pkg");
     const v = searchParams.get("vehicle") as VehicleSize | null;
     const sd = searchParams.get("startDate");
     const t = searchParams.get("time");
@@ -315,7 +313,7 @@ function SubscriptionsContent() {
     const vc = searchParams.get("colour") || "";
     const n = searchParams.get("notes") || "";
 
-    if (p && bc && pk && v && sd && t && addr) {
+    if (p && bc && isPackageId(pk) && v && sd && t && addr) {
       autoSubmitAttempted.current = true;
       setTimeout(() => {
         submitSubscription(p, bc, pk, v, sd, t, addr, vm, vmo, vc, n);

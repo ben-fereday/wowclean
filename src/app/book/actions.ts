@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { applyDiscount, generateRefCode } from "@/lib/constants";
+import { applyDiscount, generateRefCode, isPackageId, PACKAGE_LABELS } from "@/lib/constants";
 import { checkTimeSlotAvailable } from "@/lib/availability";
 import { normalizeBookingEmail } from "@/lib/promo-policy";
 import { validatePromoCode } from "@/lib/promo-codes";
@@ -23,7 +23,6 @@ export type BookingPayload = {
   vehicleSize: string;
   serviceType: string;
   packageId: string;
-  packageName: string;
   addons: { id: string; name: string; price: number }[];
   date: string;
   time: string;
@@ -62,8 +61,9 @@ export async function createBooking(
     if (data.requirementsConfirmed !== true) {
       return { success: false, error: "Please confirm that power and a permitted workspace are available, including a heated indoor workspace for winter appointments." };
     }
+    const packageId = data.packageId;
     if (
-      !["standard", "premium"].includes(data.packageId) ||
+      !isPackageId(packageId) ||
       data.location !== "mobile" ||
       !isServiceBookable(data.serviceType) ||
       data.addons.some((addon) => !isAddonBookable(addon.id))
@@ -245,7 +245,7 @@ export async function createBooking(
               <table style="width:100%;border-collapse:collapse;">
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Date</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${dateDisplay}</td></tr>
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Time</td><td style="padding:10px 0;color:#5bf3ff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.time)}</td></tr>
-                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Package</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.packageName)}</td></tr>
+                <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Package</td><td style="padding:10px 0;color:#fff;text-align:right;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(PACKAGE_LABELS[packageId])}</td></tr>
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Service</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.serviceType)}</td></tr>
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.06);">Vehicle</td><td style="padding:10px 0;color:#fff;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);">${escapeHtml(data.vehicleMake ? `${data.vehicleMake} ${data.vehicleModel}` : data.vehicleSize)}</td></tr>
                 <tr><td style="padding:10px 0;color:#7a8baa;font-size:12px;text-transform:uppercase;letter-spacing:1px;">${data.location === "mobile" ? "Address" : "Location"}</td><td style="padding:10px 0;color:#fff;text-align:right;">${escapeHtml(data.address || "Mobile")}</td></tr>

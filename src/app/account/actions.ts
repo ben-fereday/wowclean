@@ -1,12 +1,12 @@
 "use server";
 
+import { isPackageId, type SubscriptionPlan } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import { getExternalUnavailableTimes } from "@/lib/google-availability";
 import { getBookingDurationMinutes, isScheduledBookingTime } from "@/lib/booking-schedule";
 import { syncBookingCalendar } from "@/lib/google-calendar";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { SubscriptionPlan } from "@/lib/constants";
 import { isAddonBookable } from "@/lib/service-availability";
 
 export async function updateSubscription(
@@ -92,6 +92,8 @@ export async function updateBookingAddons(
     .single();
 
   if (!booking) throw new Error("Booking not found");
+
+  if (!isPackageId(booking.package)) throw new Error("Contact WOW CLEAN to change add-ons for this booking.");
 
   const existingAddonIds = new Set(
     (booking.addons ?? []).map((addon: { id: string }) => addon.id)

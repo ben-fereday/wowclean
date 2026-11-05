@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import {
   PACKAGES,
-  EXCLUSIVE_INCLUDED,
   VEHICLE_LABELS,
   VEHICLE_EXAMPLES,
   SERVICE_TYPE_LABELS,
@@ -230,14 +229,8 @@ function BookPageContent() {
   }, [vehicleSize, serviceType, packageId, dbPricing]);
 
   const addonsTotal = useMemo(
-    () =>
-      addons
-        .filter(
-          (a) =>
-            !(packageId === "exclusive" && EXCLUSIVE_INCLUDED.includes(a.id))
-        )
-        .reduce((s, a) => s + a.price, 0),
-    [addons, packageId]
+    () => addons.reduce((sum, addon) => sum + addon.price, 0),
+    [addons]
   );
 
   const subtotal = basePrice + addonsTotal;
@@ -259,30 +252,18 @@ function BookPageContent() {
   );
 
   // ─── Handlers ───
-  const goToStep = useCallback(
-    (n: number) => {
-      // When switching away from exclusive and going back, reset addons that are exclusive-only
-      if (n < step) {
-        // Allow going back freely
-      }
-      setStep(n);
-      window.scrollTo(0, 0);
-    },
-    [step]
-  );
+  const goToStep = useCallback((n: number) => {
+    setStep(n);
+    window.scrollTo(0, 0);
+  }, []);
 
-  const toggleAddon = useCallback(
-    (addon: { id: string; name: string; price: number }) => {
-      if (packageId === "exclusive" && EXCLUSIVE_INCLUDED.includes(addon.id))
-        return;
-      setAddons((prev) => {
-        const exists = prev.find((a) => a.id === addon.id);
-        if (exists) return prev.filter((a) => a.id !== addon.id);
-        return [...prev, { id: addon.id, name: addon.name, price: addon.price }];
-      });
-    },
-    [packageId]
-  );
+  const toggleAddon = useCallback((addon: AddonSelection) => {
+    setAddons((prev) => {
+      const exists = prev.find((a) => a.id === addon.id);
+      if (exists) return prev.filter((a) => a.id !== addon.id);
+      return [...prev, { id: addon.id, name: addon.name, price: addon.price }];
+    });
+  }, []);
 
   const changeMonth = useCallback(
     (dir: number) => {
@@ -394,7 +375,6 @@ function BookPageContent() {
       vehicleSize,
       serviceType,
       packageId,
-      packageName: PACKAGE_LABELS[packageId],
       addons,
       date: isoDate,
       time: selectedTime,
@@ -726,7 +706,7 @@ function BookPageContent() {
 
               {/* Package cards */}
               <div className="flex flex-col gap-4 mb-8">
-                {PACKAGES.filter((pkg) => pkg.id !== "exclusive").map((pkg) => {
+                {PACKAGES.map((pkg) => {
                   const price =
                     vehicleSize
                       ? (dbPricing?.[pkg.id]?.[vehicleSize]?.[serviceType] ?? 0)
@@ -835,25 +815,17 @@ function BookPageContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
                 {dbAddons.filter((addon) => isAddonBookable(addon.id)).map((addon) => {
-                  const isExclusiveIncluded =
-                    packageId === "exclusive" &&
-                    EXCLUSIVE_INCLUDED.includes(addon.id);
-                  const isSelected =
-                    isExclusiveIncluded ||
-                    addons.some((a) => a.id === addon.id);
+                  const isSelected = addons.some((a) => a.id === addon.id);
 
                   return (
                     <button
                       key={addon.id}
                       onClick={() => toggleAddon(addon)}
                       aria-pressed={isSelected}
-                      disabled={isExclusiveIncluded}
                       className={`flex items-center justify-between gap-3 border rounded-xl px-4 py-3.5 cursor-pointer transition-all text-left ${
-                        isExclusiveIncluded
-                          ? "opacity-40 cursor-not-allowed border-white/[0.07]"
-                          : isSelected
-                            ? "border-cyan bg-cyan/[0.06]"
-                            : "border-white/10 bg-navy/60 hover:border-cyan/25"
+                        isSelected
+                          ? "border-cyan bg-cyan/[0.06]"
+                          : "border-white/10 bg-navy/60 hover:border-cyan/25"
                       }`}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -869,15 +841,10 @@ function BookPageContent() {
                         </div>
                         <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.9rem] font-bold tracking-[0.5px] text-white">
                           {addon.name}
-                          {isExclusiveIncluded && (
-                            <span className="text-cyan/70 ml-1.5 text-[0.8rem] font-normal">
-                              (included)
-                            </span>
-                          )}
                         </div>
                       </div>
                       <div className="font-[family-name:var(--font-heading)] text-[1.1rem] text-cyan tracking-[0.5px] whitespace-nowrap">
-                        {isExclusiveIncluded ? "—" : `+$${addon.price}`}
+                        +${addon.price}
                       </div>
                     </button>
                   );
@@ -1555,31 +1522,12 @@ function BookPageContent() {
                 Add-Ons
               </div>
               <div className="flex flex-col gap-1.5 mt-1">
-                {addons.map((a) => {
-                  const isIncluded =
-                    packageId === "exclusive" &&
-                    EXCLUSIVE_INCLUDED.includes(a.id);
-                  return (
-                    <div
-                      key={a.id}
-                      className={`flex justify-between text-[0.85rem] ${isIncluded ? "text-mid/50" : "text-silver"}`}
-                    >
-                      <span>
-                        {a.name}
-                        {isIncluded && (
-                          <span className="text-cyan/50 ml-1 text-[0.75rem]">
-                            (included)
-                          </span>
-                        )}
-                      </span>
-                      <span
-                        className={`font-[family-name:var(--font-heading)] tracking-[0.5px] ${isIncluded ? "text-mid/50 line-through" : "text-cyan"}`}
-                      >
-                        +${a.price}
-                      </span>
-                    </div>
-                  );
-                })}
+                {addons.map((addon) => (
+                  <div key={addon.id} className="flex justify-between text-[0.85rem] text-silver">
+                    <span>{addon.name}</span>
+                    <span className="font-[family-name:var(--font-heading)] tracking-[0.5px] text-cyan">+${addon.price}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

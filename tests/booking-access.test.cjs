@@ -69,7 +69,7 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
  let inserted, bookingEmails=[];
  const bookingActions=compile("src/app/book/actions.ts",{
   "@/lib/supabase/server":{createClient:async()=>({auth:{getUser:async()=>({data:{user:null}})},from:table=>({insert:async value=>{assert.equal(table,"bookings");inserted=value;return {error:null};}})})},
-  "@/lib/constants":{generateRefCode:()=>"WOW-TEST",applyDiscount:(value,pct)=>value*(1-pct/100)},
+  "@/lib/constants":{...compile("src/lib/constants.ts",{"@/lib/booking-schedule":{ALL_TIME_SLOTS:[]}}),generateRefCode:()=>"WOW-TEST",applyDiscount:(value,pct)=>value*(1-pct/100)},
   "@/lib/promo-policy":{normalizeBookingEmail:value=>value.trim().toLowerCase()},
   "@/lib/availability":{checkTimeSlotAvailable:async()=>({available:true})},
   "@/lib/promo-codes":{},"@/lib/referrals":{},
@@ -80,11 +80,13 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
   "@/lib/booking-access":access,
   resend:{Resend:class{emails={send:async email=>{bookingEmails.push(email);return {error:null};}}}},
  });
- const result=await bookingActions.createBooking({requirementsConfirmed:true,packageId:"standard",location:"mobile",serviceType:"interior",addons:[],email:"test@example.com",date:"2099-11-05",time:"9:00 AM",firstName:'<a href="https://evil.example">Test</a>',lastName:"Test",phone:"5870000000",address:"Test address",vehicleSize:"small",vehicleMake:"VW",vehicleModel:"GTI",vehicleColour:"Black",notes:"",basePrice:100,addonsTotal:0,estimatedTotal:100});
+ const result=await bookingActions.createBooking({requirementsConfirmed:true,packageId:"standard",packageName:"Untrusted name",location:"mobile",serviceType:"interior",addons:[],email:"test@example.com",date:"2099-11-05",time:"9:00 AM",firstName:'<a href="https://evil.example">Test</a>',lastName:"Test",phone:"5870000000",address:"Test address",vehicleSize:"small",vehicleMake:"VW",vehicleModel:"GTI",vehicleColour:"Black",notes:"",basePrice:100,addonsTotal:0,estimatedTotal:100});
  assert.equal(result.success,true);
  assert.ok(result.manageUrl.startsWith("https://wowcleancalgary.com/manage-booking#token="));
  const generated=new URL(result.manageUrl).hash.slice(7);
  assert.equal(access.verifyBookingAccessToken(generated),inserted.id,"confirmation link opens exactly the newly inserted booking");
+ assert.match(bookingEmails[0].html,/The Standard/);
+ assert.doesNotMatch(bookingEmails[0].html,/Untrusted name/);
  assert.ok(bookingEmails[0].html.includes(result.manageUrl),"email contains the same management link as the success screen");
  assert.ok(!bookingEmails[0].html.includes('<a href="https://evil.example">'),"customer input cannot inject links into the email");
  let role="customer", signedIn=true;

@@ -97,3 +97,24 @@ test('admin grid excludes Exclusive without removing shared data or altering loa
   for(const label of ['One-time booking prices','Add-ons','Subscription prices','Revert unsaved edits','Save Calgary pricing'])assert.ok(source.includes(label));
   assert.equal(source.includes('localStorage'),false);
 });
+
+test('pricing actions only read supported packages and reject retired package writes', async () => {
+  const reads=[];
+  const db=compile('src/lib/pricing-db.ts',{
+    '@/lib/constants':constants,
+    '@/lib/supabase/server':{createClient:async()=>({
+      from(table){return {select:()=>({in:async(column,packages)=>{
+        reads.push([table,column,packages]);
+        return {data:[]};
+      }})};},
+    })},
+  });
+  assert.deepEqual(await db.fetchBookingPrices(),constants.PRICING);
+  assert.deepEqual(await db.fetchSubscriptionPrices(),constants.SUBSCRIPTION_PRICING);
+  assert.deepEqual(reads,[
+    ['booking_prices','package',['standard','premium']],
+    ['subscription_prices','package',['standard','premium']],
+  ]);
+  assert.deepEqual(await db.updateBookingPrice('exclusive','small','full',1),{error:'Invalid package.'});
+  assert.deepEqual(await db.updateSubscriptionPrice('monthly','exclusive','small',1),{error:'Invalid package.'});
+});

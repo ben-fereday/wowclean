@@ -133,7 +133,7 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
                     </div>
                     <div>
                       <p className="text-xs text-mid">Service</p>
-                      <p className="mt-1">{PACKAGE_LABELS[booking.package]}</p>
+                      <p className="mt-1">{PACKAGE_LABELS[booking.package] ?? booking.package}</p>
                       <p className="text-xs text-mid">{SERVICE_TYPE_LABELS[booking.service_type]}</p>
                     </div>
                     <div>
