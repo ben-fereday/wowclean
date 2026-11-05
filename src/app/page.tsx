@@ -20,11 +20,8 @@ function Hero() {
 
       {/* Left */}
       <div className="relative z-10 text-center lg:text-left">
-        <h1 className="font-[family-name:var(--font-heading)] text-[clamp(3rem,5.5vw,5.5rem)] leading-[0.95] tracking-wide text-white mb-2.5">
-          Mobile Auto Detailing in Calgary
-          <span className="block text-[clamp(4.5rem,8.5vw,8.5rem)] leading-[0.9] bg-gradient-to-br from-white via-cyan to-blue bg-clip-text text-transparent">
-            WOW CLEAN
-          </span>
+        <h1 className="mb-4 bg-gradient-to-br from-white via-cyan to-blue bg-clip-text font-[family-name:var(--font-heading)] text-[clamp(3.75rem,8.5vw,8.5rem)] leading-[0.95] tracking-wide text-transparent">
+          WOW CLEAN
         </h1>
         <p className="font-[family-name:var(--font-barlow-condensed)] text-[1.15rem] font-semibold tracking-[4px] uppercase text-silver mb-7">
           We Come to You — You Stay Amazed
