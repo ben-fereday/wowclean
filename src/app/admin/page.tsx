@@ -23,6 +23,7 @@ import { parseBookingTime, getBookingDurationMinutes, formatBookingTime, getCalg
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -240,6 +241,7 @@ export default function AdminPage({ searchParams }: {
 
   // Blocked slots
   const [blockedSlots, setBlockedSlots] = useState<{ id: string; blocked_date: string; blocked_time: string | null; start_time: string | null; end_time: string | null; reason: string | null }[]>([]);
+  const blockDatePickerRef = useRef<HTMLDetailsElement>(null);
   const blockButtonRef = useRef<HTMLButtonElement>(null);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockDate, setBlockDate] = useState("");
@@ -938,18 +940,33 @@ export default function AdminPage({ searchParams }: {
                 >
                   <fieldset disabled={blockSaving} className="space-y-4">
                     <div className="space-y-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="block-date" className="text-mid">Date</Label>
-                        <Input
-                          id="block-date"
-                          type="date"
+                      <details ref={blockDatePickerRef} className="rounded-lg border border-white/20 bg-navy">
+                        <summary className="cursor-pointer rounded-lg px-3 py-2 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan">
+                          <span className="mr-2 text-mid">Date</span>
+                          {blockDate ? format(new Date(blockDate + "T00:00:00"), "EEE, MMM d, yyyy") : "Choose a date"}
+                        </summary>
+                        <DatePicker
+                          key={blockDate}
+                          mode="single"
                           required
-                          min={getCalgaryNow().date}
-                          value={blockDate}
-                          onChange={(event) => setBlockDate(event.target.value)}
-                          className="w-full rounded-lg border-white/20 bg-navy text-white [color-scheme:dark]"
+                          showOutsideDays={false}
+                          startMonth={new Date(getCalgaryNow().date + "T00:00:00")}
+                          today={new Date(getCalgaryNow().date + "T00:00:00")}
+                          disabled={{ before: new Date(getCalgaryNow().date + "T00:00:00") }}
+                          selected={blockDate ? new Date(blockDate + "T00:00:00") : undefined}
+                          defaultMonth={new Date((blockDate || getCalgaryNow().date) + "T00:00:00")}
+                          onSelect={(day) => {
+                            setBlockDate(format(day, "yyyy-MM-dd"));
+                            setBlockError(null);
+                            const picker = blockDatePickerRef.current;
+                            if (picker) {
+                              picker.open = false;
+                              picker.querySelector("summary")?.focus();
+                            }
+                          }}
+                          className="mx-auto bg-transparent [--cell-size:clamp(1.75rem,9vw,2.75rem)]"
                         />
-                      </div>
+                      </details>
                       <label className="flex min-h-9 items-center gap-2 text-sm text-white">
                         <input type="checkbox" className="size-4 accent-cyan" checked={blockWholeDay} onChange={(event) => setBlockWholeDay(event.target.checked)} />
                         All day
