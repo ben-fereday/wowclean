@@ -33,14 +33,6 @@ import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import { addMinutes, addWeeks, differenceInCalendarWeeks, addDays, startOfDay, format } from "date-fns";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -246,6 +238,8 @@ export default function AdminPage({ searchParams }: {
 
   // Team management state
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
+  const [addingAdmin, setAddingAdmin] = useState(false);
+  const [teamFormError, setTeamFormError] = useState("");
 
   // Blocked slots
   const [blockedSlots, setBlockedSlots] = useState<{ id: string; blocked_date: string; blocked_time: string | null; start_time: string | null; end_time: string | null; reason: string | null }[]>([]);
@@ -1612,120 +1606,103 @@ export default function AdminPage({ searchParams }: {
           {/* ============ TEAM TAB (owner only) ============ */}
           {isOwner && (
             <TabsContent value="team" className="space-y-6">
-              <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+              <Card className="rounded-2xl border-white/15 bg-navy/25">
                 <CardHeader>
-                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    Add Admin
-                  </CardTitle>
+                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Add admin</CardTitle>
+                  <p className="text-sm text-mid">Enter the email address the person used to sign up for their Calgary account.</p>
                 </CardHeader>
                 <CardContent>
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.target as HTMLFormElement;
-                      const emailInput = form.elements.namedItem("admin_email") as HTMLInputElement;
-                      const email = emailInput.value.trim();
-                      if (!email) return;
+                  <form aria-label="Add admin" onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (addingAdmin) return;
+                    const input = event.currentTarget.elements.namedItem("admin_email") as HTMLInputElement;
+                    const email = input.value.trim();
+                    if (!email) return;
+                    setTeamFormError("");
+                    setAddingAdmin(true);
+                    try {
                       const { updateUserRole } = await import("./actions");
                       const result = await updateUserRole(email, "admin");
                       if (result.error) {
-                        toast.error(result.error);
-                      } else {
-                        emailInput.value = "";
-                        toast.success("Admin access granted.");
-                        fetchProfiles();
+                        setTeamFormError(result.error);
+                        return;
                       }
-                    }}
-                    className="flex items-end gap-3"
-                  >
-                    <div className="flex-1 space-y-2">
-                      <Label className="text-white">Email Address</Label>
-                      <Input
-                        name="admin_email"
-                        type="email"
-                        placeholder="user@example.com"
-                        className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white"
-                      />
-                    </div>
-                    <Button type="submit" className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80">
-                      <Shield className="mr-2 h-4 w-4" />
-                      Make Admin
-                    </Button>
+                      input.value = "";
+                      toast.success("Admin access granted.");
+                      await fetchProfiles();
+                    } catch {
+                      setTeamFormError("Could not grant admin access. Please try again.");
+                    } finally {
+                      setAddingAdmin(false);
+                    }
+                  }}>
+                    <fieldset disabled={addingAdmin} className="flex flex-wrap items-end gap-3">
+                      <label className="min-w-0 basis-full space-y-1 text-sm text-mid sm:max-w-md sm:flex-1">
+                        Signup email
+                        <Input name="admin_email" type="email" required placeholder="user@example.com"
+                          className="rounded-lg border-white/20 bg-navy text-white" />
+                      </label>
+                      <Button type="submit" className="rounded-lg bg-cyan text-navy hover:bg-cyan/90">
+                        <Shield className="size-4" />
+                        {addingAdmin ? "Granting access…" : "Grant admin access"}
+                      </Button>
+                    </fieldset>
+                    {teamFormError && <p role="alert" className="mt-3 text-sm text-red-300">{teamFormError}</p>}
                   </form>
-                  <p className="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
-                    The user must have an existing account. Enter their signup email to grant admin access.
-                  </p>
                 </CardContent>
               </Card>
 
-              <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+              <Card className="rounded-2xl border-white/15 bg-navy/25">
                 <CardHeader>
-                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    Team Members
-                  </CardTitle>
+                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Team members</CardTitle>
+                  <p className="text-sm text-mid">Owners manage team access. Admins can work in the Calgary dashboard.</p>
                 </CardHeader>
                 <CardContent>
                   {teamMembers.length === 0 ? (
-                    <p className="py-4 text-[hsl(var(--muted-foreground))]">No team members found.</p>
+                    <p className="py-4 text-mid">No team members found.</p>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-[hsl(var(--muted))]">
-                            <TableHead className="text-[hsl(var(--muted-foreground))]">Name</TableHead>
-                            <TableHead className="text-[hsl(var(--muted-foreground))]">Role</TableHead>
-                            <TableHead className="text-[hsl(var(--muted-foreground))] text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {teamMembers.map((member) => (
-                            <TableRow key={member.id} className="border-[hsl(var(--muted))]">
-                              <TableCell className="font-medium text-white">{member.first_name} {member.last_name}</TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={member.role === "owner" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}
-                                >
-                                  <span className="flex items-center gap-1.5">
-                                    {member.role === "owner" ? <ShieldCheck className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
-                                    {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                                  </span>
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {member.role === "admin" && (
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => {
-                                      showConfirm({
-                                        title: "Revoke Admin",
-                                        description: `Remove admin access from ${member.first_name} ${member.last_name}?`,
-                                        confirmLabel: "Revoke",
-                                        variant: "destructive",
-                                        onConfirm: async () => {
-                                          const { revokeAdmin } = await import("./actions");
-                                          const result = await revokeAdmin(member.id);
-                                          setConfirmModal((m) => ({ ...m, open: false }));
-                                          if (result.error) toast.error(result.error);
-                                          else { toast.success("Admin access revoked."); fetchProfiles(); }
-                                        },
-                                      });
-                                    }}
-                                    className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider"
-                                  >
-                                    Revoke Admin
-                                  </Button>
-                                )}
-                                {member.role === "owner" && (
-                                  <span className="text-xs text-[hsl(var(--muted-foreground))]">Owner</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <ul className="space-y-3">
+                      {teamMembers.map(member => (
+                        <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark/60 p-4">
+                          <div className="min-w-0 space-y-2">
+                            <p className="break-words font-semibold text-white">{member.first_name} {member.last_name}</p>
+                            <Badge variant="outline" className={member.role === "owner" ? "border-yellow/30 text-yellow" : "border-cyan/30 text-cyan"}>
+                              {member.role === "owner" ? <ShieldCheck className="size-3" /> : <Shield className="size-3" />}
+                              <span className="capitalize">{member.role}</span>
+                            </Badge>
+                          </div>
+                          {member.role === "admin" && (
+                            <Button variant="outline" size="sm" className="rounded-lg border-red-400/30 text-red-300 hover:bg-red-400/10"
+                              aria-label={`Revoke admin access for ${member.first_name} ${member.last_name}`}
+                              onClick={() => showConfirm({
+                                title: "Revoke admin access",
+                                description: `Remove admin access from ${member.first_name} ${member.last_name}?`,
+                                confirmLabel: "Revoke",
+                                variant: "destructive",
+                                onConfirm: async () => {
+                                  setConfirmBusy(true);
+                                  try {
+                                    const { revokeAdmin } = await import("./actions");
+                                    const result = await revokeAdmin(member.id);
+                                    if (result.error) toast.error(result.error);
+                                    else {
+                                      toast.success("Admin access revoked.");
+                                      await fetchProfiles();
+                                    }
+                                  } catch {
+                                    toast.error("Could not revoke admin access. Please try again.");
+                                  } finally {
+                                    setConfirmModal(modal => ({ ...modal, open: false }));
+                                    setConfirmBusy(false);
+                                  }
+                                },
+                              })}>
+                              Revoke access
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </CardContent>
               </Card>
