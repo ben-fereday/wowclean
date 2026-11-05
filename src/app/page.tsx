@@ -9,6 +9,7 @@ import {
   Phone,
   ArrowRight,
   Check,
+  Plus,
 } from "lucide-react";
 /* ───────────────────────── HERO ───────────────────────── */
 function Hero() {
@@ -186,6 +187,8 @@ function fmt(n: number) {
   return `$${n}`;
 }
 
+const standardInclusions = "Everything in The Standard";
+
 function Services({
   bp,
   addons,
@@ -251,8 +254,8 @@ function Services({
             name: "Premium Detail",
             tagline: "A deeper refresh",
             description: "Everything in The Standard, plus extra attention inside and out.",
-            interior: ["Everything in The Standard", "Thorough interior surface cleaning, including crevices, cupholders and vents", "Leather cleaning & conditioning where applicable"],
-            exterior: ["Everything in The Standard", "Chemical & physical decontamination treatment", "Engine bay clean and dressing", "Enhanced finish and protection"],
+            interior: [standardInclusions, "Thorough interior surface cleaning, including crevices, cupholders and vents", "Leather cleaning & conditioning where applicable"],
+            exterior: [standardInclusions, "Chemical & physical decontamination treatment", "Engine bay clean and dressing", "Enhanced finish and protection"],
           },
         ] as const).map(pkg => (
           <article key={pkg.id} className="grid min-w-0 gap-5 rounded-2xl border border-white/15 bg-dark/75 p-5 sm:p-7 lg:row-span-5 lg:grid-rows-subgrid">
@@ -269,7 +272,11 @@ function Services({
                 <ul className="space-y-2 text-sm text-silver">
                   {pkg[service].map(item => (
                     <li key={item} className="flex items-start gap-2">
-                      <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-cyan" />
+                      {pkg.id === "premium" && item !== standardInclusions ? (
+                        <Plus aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-yellow" />
+                      ) : (
+                        <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-cyan" />
+                      )}
                       {item}
                     </li>
                   ))}
