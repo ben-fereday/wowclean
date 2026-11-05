@@ -13,14 +13,14 @@ import {
 /* ───────────────────────── HERO ───────────────────────── */
 function Hero() {
   return (
-    <section className="bg-dark grid grid-cols-1 gap-10 lg:grid-cols-2 items-center px-6 md:px-[60px] pt-[140px] pb-20 lg:py-36 relative overflow-hidden">
+    <section className="bg-dark grid grid-cols-1 gap-10 lg:grid-cols-2 items-center px-6 md:px-[60px] pt-[140px] pb-20 lg:min-h-screen lg:py-36 relative overflow-hidden">
       {/* Glow effects */}
       <div className="absolute -top-[150px] -right-[150px] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(26,74,255,0.22)_0%,transparent_70%)] pointer-events-none" />
       <div className="absolute -bottom-[100px] left-[20%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(91,243,255,0.1)_0%,transparent_70%)] pointer-events-none" />
 
       {/* Left */}
       <div className="relative z-10 text-center lg:text-left">
-        <h1 className="mb-4 bg-gradient-to-br from-white via-cyan to-blue bg-clip-text font-[family-name:var(--font-heading)] text-[clamp(3.75rem,8.5vw,8.5rem)] leading-[0.95] tracking-wide text-transparent">
+        <h1 className="mb-4 bg-gradient-to-br from-white via-cyan to-blue bg-clip-text font-[family-name:var(--font-heading)] text-[clamp(3.75rem,10vw,11rem)] lg:whitespace-nowrap leading-[0.95] tracking-wide text-transparent">
           WOW CLEAN
         </h1>
         <p className="font-[family-name:var(--font-barlow-condensed)] text-[1.15rem] font-semibold tracking-[4px] uppercase text-silver mb-7">
