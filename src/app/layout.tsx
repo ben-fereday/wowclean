@@ -28,6 +28,7 @@ const description = "Mobile auto detailing in Calgary. Compare Standard and Prem
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://wowcleancalgary.com"),
+  verification: { google: "gk-8RUyVEBuFh0E-Fv0LBop-lfLUOMlKplibK8B74IQ" },
   title,
   description,
   openGraph: {
