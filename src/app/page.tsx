@@ -13,20 +13,15 @@ import {
 /* ───────────────────────── HERO ───────────────────────── */
 function Hero() {
   return (
-    <section className="min-h-screen bg-dark grid grid-cols-1 lg:grid-cols-2 items-center px-6 md:px-[60px] pt-[120px] pb-20 relative overflow-hidden">
+    <section className="bg-dark grid grid-cols-1 gap-10 lg:grid-cols-2 items-center px-6 md:px-[60px] pt-[140px] pb-20 lg:min-h-screen lg:py-36 relative overflow-hidden">
       {/* Glow effects */}
       <div className="absolute -top-[150px] -right-[150px] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(26,74,255,0.22)_0%,transparent_70%)] pointer-events-none" />
       <div className="absolute -bottom-[100px] left-[20%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(91,243,255,0.1)_0%,transparent_70%)] pointer-events-none" />
-      {/* Bottom stripe */}
-      <div className="absolute bottom-0 left-0 right-0 h-2 bg-[repeating-linear-gradient(90deg,#fff_0px,#fff_16px,#111_16px,#111_32px)] opacity-50" />
 
       {/* Left */}
       <div className="relative z-10 text-center lg:text-left">
-        <h1 className="font-[family-name:var(--font-heading)] text-[clamp(3rem,5.5vw,5.5rem)] leading-[0.95] tracking-wide text-white mb-2.5">
-          Your Car Deserves
-          <span className="block text-[clamp(4.5rem,8.5vw,8.5rem)] leading-[0.9] bg-gradient-to-br from-white via-cyan to-blue bg-clip-text text-transparent">
-            WOW
-          </span>
+        <h1 className="mb-4 bg-gradient-to-br from-white via-cyan to-blue bg-clip-text font-[family-name:var(--font-heading)] text-[clamp(3.75rem,10vw,11rem)] lg:whitespace-nowrap leading-[0.95] tracking-wide text-transparent">
+          WOW CLEAN
         </h1>
         <p className="font-[family-name:var(--font-barlow-condensed)] text-[1.15rem] font-semibold tracking-[4px] uppercase text-silver mb-7">
           We Come to You — You Stay Amazed
@@ -47,14 +42,14 @@ function Hero() {
             href="#services"
             className="inline-flex items-center gap-2.5 border-[1.5px] border-white/[0.18] text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-semibold tracking-wide uppercase px-9 py-[17px] rounded hover:border-cyan hover:text-cyan transition-all"
           >
-            View Services
+            See Packages
             <ArrowRight className="size-4" />
           </Link>
         </div>
       </div>
 
       {/* Right - Phone card */}
-      <div className="flex justify-center items-center relative z-10 mt-12 lg:mt-0">
+      <div className="flex justify-center items-center relative z-10">
         <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-[20px] p-[52px_56px] max-md:p-[36px_24px] text-center relative overflow-hidden backdrop-blur-[12px] shadow-[0_30px_80px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]">
           {/* Top gradient line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan to-transparent" />
@@ -72,7 +67,7 @@ function Hero() {
             className="flex items-center justify-center gap-2.5 w-full bg-gradient-to-br from-cyan to-blue text-navy font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-extrabold tracking-[2px] uppercase py-4 rounded-lg hover:scale-[1.03] hover:opacity-90 transition-all shadow-[0_0_30px_rgba(91,243,255,0.35)]"
           >
             <Zap className="size-5" />
-            Get a Free Quote
+            Book Now
           </Link>
 
         </div>
@@ -106,8 +101,6 @@ function HowItWorks() {
 
   return (
     <section id="how" className="bg-[#f4f6fb] py-[100px] px-6 md:px-[60px] text-center relative overflow-hidden">
-      {/* Top stripe */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-[repeating-linear-gradient(90deg,#0b1740_0px,#0b1740_16px,#1a4aff_16px,#1a4aff_32px)]" />
       <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-blue mb-4">
         Simple as 1 – 2 – 3
       </p>
@@ -153,13 +146,13 @@ function PriceTable({
 }) {
   return (
     <div className="bg-white/[0.04] border border-white/[0.08] rounded-[14px] overflow-x-auto">
-      <table className="w-full border-collapse min-w-[340px]">
+      <table className="w-full border-collapse">
         <thead>
           <tr>
             {["Service", "Small", "Medium", "Large"].map((h, i) => (
               <th
                 key={h}
-                className={`bg-white/[0.06] font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[2px] uppercase text-white py-3 px-3 sm:px-[18px] ${i === 0 ? "text-left" : "text-center"}`}
+                className={`bg-white/[0.06] font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-wide uppercase text-white px-1.5 py-3 sm:px-3 ${i === 0 ? "text-left" : "text-center"}`}
               >
                 {h}
               </th>
@@ -172,7 +165,7 @@ function PriceTable({
             return (
               <tr key={i}>
                 <td
-                  className={`py-3 px-3 sm:px-[18px] border-t border-white/[0.06] text-[0.9rem] ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-white"}`}
+                  className={`px-1.5 py-3 sm:px-3 border-t border-white/[0.06] text-sm ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-white"}`}
                 >
                   {row.service}
                   {!EXTERIOR_BOOKINGS_ENABLED && row.service !== "Interior Only" && (
@@ -182,7 +175,7 @@ function PriceTable({
                 {[row.small, row.medium, row.large].map((val, j) => (
                   <td
                     key={j}
-                    className={`py-3 px-3 sm:px-[18px] border-t border-white/[0.06] text-center font-[family-name:var(--font-heading)] text-[1.15rem] tracking-wide ${isLast ? "bg-blue/[0.08] text-cyan" : "text-cyan"}`}
+                    className={`px-1.5 py-3 sm:px-3 border-t border-white/[0.06] text-center font-[family-name:var(--font-heading)] text-[1.15rem] tracking-wide ${isLast ? "bg-blue/[0.08] text-cyan" : "text-cyan"}`}
                   >
                     {val}
                   </td>
@@ -209,18 +202,7 @@ function Services({
   addons: AddonItem[];
 }) {
   return (
-    <section id="services" className="bg-navy py-[100px] px-6 md:px-[60px]">
-      <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-cyan mb-4 text-center">
-        Automotive Detailing Packages
-      </p>
-      <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-white mb-5 text-center">
-        Choose Your <span className="text-cyan">Package</span>
-      </h2>
-      <p className="text-center text-mid text-base max-w-[660px] mx-auto mb-12 leading-[1.8]">
-        Choose interior, exterior, or full detailing. Pricing varies by vehicle
-        size and condition.
-      </p>
-
+    <section id="services" className="scroll-mt-24 bg-navy py-[100px] px-6 md:px-[60px]">
       <div className="max-w-[900px] mx-auto mb-10 rounded-xl border border-cyan/20 bg-cyan/[0.05] p-5 text-sm leading-relaxed">
         <p className="text-white font-semibold mb-2">Interior detailing available to book</p>
         <p className="text-mid">{INTERIOR_REQUIREMENTS}</p>
@@ -251,167 +233,75 @@ function Services({
         </div>
       </div>
 
-      {/* ── THE STANDARD ── */}
-      <div className="max-w-[1200px] mx-auto mb-[72px]">
-        <div className="flex items-start justify-between gap-8 mb-8 flex-wrap">
-          <div>
-            <div className="font-[family-name:var(--font-heading)] text-[clamp(2rem,4vw,3rem)] tracking-wide text-white mb-1.5">
-              The <span className="text-cyan">Standard</span>
-            </div>
-            <p className="text-[0.95rem] text-mid leading-[1.7] max-w-[560px]">
-              A strong maintenance package for vehicles that need a proper
-              refresh. Perfect for regular upkeep — keeping your car clean,
-              glossy, and presentable.
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-8 items-start">
-          {/* Includes */}
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-[14px] p-8">
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[3px] uppercase text-cyan mb-[18px]">
-              What&apos;s Included
-            </div>
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Interior
-            </div>
-            <ul className="space-y-1">
-              {[
-                "Full interior vacuum",
-                "Cleaning of dash, console, door panels and accessible surfaces",
-                "Interior glass cleaned",
-                "Light dust & debris removal",
-              ].map((item) => (
-                <li
-                  key={item}
-                  className="text-[0.88rem] text-silver flex items-start gap-2 leading-[1.45]"
-                >
-                  <Check className="size-4 text-cyan shrink-0 mt-0.5" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid uppercase">(SPRING / SUMMER)</span>}
-            </div>
-            <ul className="space-y-1">
-              {[
-                "Hand wash and dry",
-                "Wheels cleaned",
-                "Tire dressing",
-                "Exterior glass cleaned",
-                "Paint sealant applied for added shine & short-term protection",
-              ].map((item) => (
-                <li
-                  key={item}
-                  className="text-[0.88rem] text-silver flex items-start gap-2 leading-[1.45]"
-                >
-                  <Check className="size-4 text-cyan shrink-0 mt-0.5" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          {/* Pricing */}
-          <div className="flex flex-col gap-4">
-            <PriceTable
-              rows={[
-                { service: "Interior Only", small: fmt(bp?.standard?.small?.interior ?? 0), medium: fmt(bp?.standard?.medium?.interior ?? 0), large: fmt(bp?.standard?.large?.interior ?? 0) },
-                { service: "Exterior Only", small: fmt(bp?.standard?.small?.exterior ?? 0), medium: fmt(bp?.standard?.medium?.exterior ?? 0), large: fmt(bp?.standard?.large?.exterior ?? 0) },
-                { service: "Full Detail", small: fmt(bp?.standard?.small?.full ?? 0), medium: fmt(bp?.standard?.medium?.full ?? 0), large: fmt(bp?.standard?.large?.full ?? 0) },
-              ]}
-            />
-            <Link
-              href="/book"
-              className="flex items-center justify-center gap-2 bg-cyan/[0.08] border border-cyan/20 text-cyan font-[family-name:var(--font-barlow-condensed)] text-[0.95rem] font-bold tracking-[1.5px] uppercase text-center py-3.5 rounded-lg hover:bg-cyan/[0.18] hover:text-white transition-all"
-            >
-              Book The Standard
-              <ArrowRight className="size-4" />
+      <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-cyan mb-4 text-center">
+        Automotive Detailing Packages
+      </p>
+      <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-white mb-5 text-center">
+        Choose Your <span className="text-cyan">Clean.</span>
+      </h2>
+      <p className="text-center text-mid text-base max-w-[660px] mx-auto mb-12 leading-[1.8]">
+        Choose interior, exterior, or full detailing. Pricing varies by vehicle
+        size and condition.
+      </p>
+
+      <div className="mx-auto mb-16 grid max-w-[1200px] gap-x-6 gap-y-5 lg:grid-cols-2">
+        {([
+          {
+            id: "standard",
+            name: "The Standard",
+            tagline: "Everyday upkeep",
+            description: "A maintenance detail for vehicles that need a proper refresh.",
+            interior: ["Full interior vacuum", "Cleaning of dash, console, door panels and accessible surfaces", "Interior glass cleaned", "Light dust & debris removal"],
+            exterior: ["Hand wash and dry", "Wheels cleaned", "Tire dressing", "Exterior glass cleaned", "Paint sealant applied for added shine & short-term protection"],
+          },
+          {
+            id: "premium",
+            name: "Premium Detail",
+            tagline: "A deeper refresh",
+            description: "Everything in The Standard, plus extra attention inside and out.",
+            interior: ["Thorough interior surface cleaning, including crevices, cupholders and vents", "Leather cleaning & conditioning where applicable"],
+            exterior: ["Chemical & physical decontamination treatment", "Engine bay clean and dressing", "Enhanced finish and protection"],
+          },
+        ] as const).map(pkg => (
+          <article key={pkg.id} className="grid min-w-0 gap-5 rounded-2xl border border-white/15 bg-dark/75 p-5 sm:p-7 lg:row-span-5 lg:grid-rows-subgrid">
+            <header>
+              <p className="text-xs uppercase tracking-widest text-cyan">{pkg.tagline}</p>
+              <h3 className="mt-2 font-[family-name:var(--font-heading)] text-4xl text-white">{pkg.name}</h3>
+              <p className="mt-2 text-mid">{pkg.description}</p>
+            </header>
+            {(["interior", "exterior"] as const).map(service => (
+              <section key={service} className="border-t border-white/10 pt-4">
+                <h4 className="mb-3 text-sm font-semibold capitalize tracking-wide text-cyan">
+                  {service}{service === "exterior" && !EXTERIOR_BOOKINGS_ENABLED && <span className="ml-2 text-xs text-mid">Spring / summer</span>}
+                </h4>
+                <ul className="space-y-2 text-sm text-silver">
+                  {pkg[service].map(item => (
+                    <li key={item} className="flex items-start gap-2">
+                      <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-cyan" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            <PriceTable rows={([
+              ["Interior Only", "interior"],
+              ["Exterior Only", "exterior"],
+              ["Full Detail", "full"],
+            ] as const).map(([service, key]) => ({
+              service,
+              small: fmt(bp?.[pkg.id]?.small?.[key] ?? 0),
+              medium: fmt(bp?.[pkg.id]?.medium?.[key] ?? 0),
+              large: fmt(bp?.[pkg.id]?.large?.[key] ?? 0),
+            }))} />
+            <Link href="/book"
+              className="flex items-center justify-between gap-3 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-3 font-semibold text-cyan hover:bg-cyan/10 focus-visible:outline-2 focus-visible:outline-cyan">
+              Book {pkg.name}
+              <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
             </Link>
-          </div>
-        </div>
+          </article>
+        ))}
       </div>
-
-      <hr className="border-t border-white/[0.07] max-w-[1200px] mx-auto mb-[72px]" />
-
-      {/* ── PREMIUM DETAIL ── */}
-      <div className="max-w-[1200px] mx-auto mb-[72px]">
-        <div className="flex items-start justify-between gap-8 mb-8 flex-wrap">
-          <div>
-            <div className="font-[family-name:var(--font-heading)] text-[clamp(2rem,4vw,3rem)] tracking-wide text-white mb-1.5">
-              <span className="text-cyan">Premium</span> Detail
-            </div>
-            <p className="text-[0.95rem] text-mid leading-[1.7] max-w-[560px]">
-              A more in-depth service for vehicles that need extra attention
-              inside and out. Ideal for seasonal cleanups, neglected vehicles, or
-              anyone wanting a more complete detail with added protection and
-              presentation.
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-8 items-start">
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-[14px] p-8">
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[3px] uppercase text-cyan mb-[18px]">
-              What&apos;s Included
-            </div>
-            <p className="text-[0.82rem] text-mid mb-3 italic">
-              Everything in The Standard, plus:
-            </p>
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Interior
-            </div>
-            <ul className="space-y-1">
-              {[
-                "Thorough interior surface cleaning, including detailed attention to crevices, cupholders and vents",
-                "Leather cleaning & conditioning where applicable",
-              ].map((item) => (
-                <li
-                  key={item}
-                  className="text-[0.88rem] text-silver flex items-start gap-2 leading-[1.45]"
-                >
-                  <span className="text-yellow font-bold shrink-0 mt-px">+</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <div className="font-[family-name:var(--font-barlow-condensed)] text-[0.72rem] font-bold tracking-[2.5px] uppercase text-yellow mt-4 mb-2.5">
-              Exterior {!EXTERIOR_BOOKINGS_ENABLED && <span className="text-mid uppercase">(SPRING / SUMMER)</span>}
-            </div>
-            <ul className="space-y-1">
-              {[
-                "Chemical & physical decontamination treatment",
-                "Engine bay clean and dressing",
-                "Enhanced finish and protection",
-              ].map((item) => (
-                <li
-                  key={item}
-                  className="text-[0.88rem] text-silver flex items-start gap-2 leading-[1.45]"
-                >
-                  <span className="text-yellow font-bold shrink-0 mt-px">+</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex flex-col gap-4">
-            <PriceTable
-              rows={[
-                { service: "Interior Only", small: fmt(bp?.premium?.small?.interior ?? 0), medium: fmt(bp?.premium?.medium?.interior ?? 0), large: fmt(bp?.premium?.large?.interior ?? 0) },
-                { service: "Exterior Only", small: fmt(bp?.premium?.small?.exterior ?? 0), medium: fmt(bp?.premium?.medium?.exterior ?? 0), large: fmt(bp?.premium?.large?.exterior ?? 0) },
-                { service: "Full Detail", small: fmt(bp?.premium?.small?.full ?? 0), medium: fmt(bp?.premium?.medium?.full ?? 0), large: fmt(bp?.premium?.large?.full ?? 0) },
-              ]}
-            />
-            <Link
-              href="/book"
-              className="flex items-center justify-center gap-2 bg-cyan/[0.08] border border-cyan/20 text-cyan font-[family-name:var(--font-barlow-condensed)] text-[0.95rem] font-bold tracking-[1.5px] uppercase text-center py-3.5 rounded-lg hover:bg-cyan/[0.18] hover:text-white transition-all"
-            >
-              Book Premium Detail
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <hr className="border-t border-white/[0.07] max-w-[1200px] mx-auto mb-[72px]" />
 
       {/* ── ADD-ONS ── */}
       <div className="max-w-[1200px] mx-auto">
@@ -442,7 +332,7 @@ function Services({
                 price: `from $${addon.price}`,
               })).map((addon) => (
                 <tr key={addon.name} className="hover:bg-white/[0.02]">
-                  <td className="py-[11px] px-5 border-t border-white/[0.05] text-[0.9rem] text-silver">
+                  <td className="py-[11px] px-5 border-t border-white/[0.05] text-sm text-silver">
                     {addon.name}
                   </td>
                   <td className="py-[11px] px-5 border-t border-white/[0.05] text-right whitespace-nowrap">
@@ -451,7 +341,7 @@ function Services({
                         {addon.price}
                       </span>
                     ) : (
-                      <span className="text-[#ffe066] font-[family-name:var(--font-barlow-condensed)] text-[0.9rem] tracking-wide">
+                      <span className="text-[#ffe066] font-[family-name:var(--font-barlow-condensed)] text-sm tracking-wide">
                         Custom Quote
                       </span>
                     )}
