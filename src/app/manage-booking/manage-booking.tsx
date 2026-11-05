@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
 import { changeCustomerBooking, getCustomerChangeTimes } from "./self-service";
 import { getManagedBooking, requestBookingChange } from "./actions";
 import { PACKAGE_LABELS, SERVICE_TYPE_LABELS, VEHICLE_LABELS, type PackageId, type ServiceType, type VehicleSize } from "@/lib/constants";
@@ -47,11 +49,12 @@ export default function ManageBooking({ demo = false }: { demo?: boolean }) {
   const [newTime, setNewTime] = useState("");
   const [times, setTimes] = useState<string[] | null>(null);
   const [checking, setChecking] = useState(false);
+  const availabilityRequest = useRef(0);
   const [changeNotice, setChangeNotice] = useState("");
 
   useEffect(() => {
     if (demo) return;
-    const changed = () => { setKind(null); setTimes(null); setNewDate(""); setNewTime(""); setChangeNotice(""); setBooking(null); setSent(false); setMessage(""); setRequestError(""); setRetry(v => v + 1); };
+    const changed = () => { availabilityRequest.current++; setChecking(false); setKind(null); setTimes(null); setNewDate(""); setNewTime(""); setChangeNotice(""); setBooking(null); setSent(false); setMessage(""); setRequestError(""); setRetry(v => v + 1); };
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
   }, [demo]);
@@ -73,20 +76,26 @@ export default function ManageBooking({ demo = false }: { demo?: boolean }) {
   const start = booking ? Date.parse(booking.booking_date + "T06:00:00Z") + (parseBookingTime(booking.booking_time) ?? NaN) * 60000 : NaN;
   const canChange = upcoming && start - Date.now() >= 86400000;
 
-  async function checkTimes() {
-    if (!newDate || checking) return;
+  async function checkTimes(date: string) {
+    const request = ++availabilityRequest.current;
+    setNewDate(date);
     setChecking(true); setTimes(null); setNewTime(""); setRequestError("");
     try {
-      const result = demo ? { times: ["9:00 AM", "12:00 PM", "3:00 PM"] } : await getCustomerChangeTimes(token, newDate);
+      const result = demo ? { times: ["9:00 AM", "12:00 PM", "3:00 PM"] } : await getCustomerChangeTimes(token, date);
+      if (request !== availabilityRequest.current) return;
       if ("error" in result && result.error) setRequestError(result.error);
       else setTimes(result.times ?? []);
-    } catch { setRequestError("Could not check availability. Please try again."); }
-    finally { setChecking(false); }
+    } catch {
+      if (request === availabilityRequest.current) setRequestError("Could not check availability. Please try again.");
+    } finally {
+      if (request === availabilityRequest.current) setChecking(false);
+    }
   }
 
   async function confirmChange(event: React.FormEvent) {
     event.preventDefault();
     if (!booking || !canChange || sending || (kind !== "reschedule" && kind !== "cancel")) return;
+    if (kind === "reschedule" && (checking || !newDate || !times?.includes(newTime))) return;
     setSending(true); setRequestError("");
     try {
       const result = demo ? {
@@ -197,18 +206,38 @@ export default function ManageBooking({ demo = false }: { demo?: boolean }) {
                   <form onSubmit={confirmChange} className="space-y-4">
                     {kind === "reschedule" ? (
                       <>
-                        <label className="block space-y-2 text-sm text-mid">New date
-                          <input type="date" className={field} min={now.date} value={newDate} required disabled={checking || sending}
-                            onChange={event => { setNewDate(event.target.value); setNewTime(""); setTimes(null); setRequestError(""); }} />
-                        </label>
-                        <button type="button" className="rounded-lg border border-cyan/30 px-4 py-2 text-cyan disabled:opacity-40"
-                          disabled={!newDate || checking || sending} onClick={checkTimes}>{checking ? "Checking…" : "Check available times"}</button>
-                        {times && (times.length ? <label className="block space-y-2 text-sm text-mid">New time (Calgary time)
-                          <select aria-label="New time (Calgary time)" className={field} value={newTime} required disabled={sending} onChange={event => setNewTime(event.target.value)}>
-                            <option value="">Choose a time</option>
-                            {times.map(time => <option key={time}>{time}</option>)}
-                          </select>
-                        </label> : <p className="text-sm text-mid">No times available on this date. Try another date.</p>)}
+                        <div role="group" aria-label="Choose a new date" className="space-y-2">
+                          <p className="text-sm font-semibold text-white">Choose a new date</p>
+                          <Calendar
+                            mode="single"
+                            required
+                            showOutsideDays={false}
+                            startMonth={new Date(now.date + "T00:00:00")}
+                            today={new Date(now.date + "T00:00:00")}
+                            disabled={sending || { before: new Date(now.date + "T00:00:00") }}
+                            selected={newDate ? new Date(newDate + "T00:00:00") : undefined}
+                            defaultMonth={new Date((newDate || now.date) + "T00:00:00")}
+                            onSelect={day => void checkTimes(format(day, "yyyy-MM-dd"))}
+                            className="rounded-xl border border-white/20 bg-navy [--cell-size:clamp(1.75rem,9vw,2.75rem)]"
+                          />
+                        </div>
+                        {newDate && <div className="space-y-2" role="group" aria-label="New time (Calgary time)">
+                          <p className="text-sm font-semibold text-white">
+                            Times for {format(new Date(newDate + "T00:00:00"), "EEEE, MMMM d")} (Calgary time)
+                          </p>
+                          {checking && <p className="text-sm text-mid" role="status">Checking available times…</p>}
+                          {times && (times.length ? <div className="flex flex-wrap gap-2">
+                            {times.map(time => (
+                              <button key={time} type="button" aria-pressed={newTime === time} disabled={sending}
+                                onClick={() => setNewTime(time)}
+                                className="rounded-lg border border-white/20 px-4 py-3 text-sm text-white hover:border-cyan focus-visible:outline-2 focus-visible:outline-cyan aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-navy">
+                                {time}
+                              </button>
+                            ))}
+                          </div> : <p className="text-sm text-mid" role="status">No times available on this date. Try another date.</p>)}
+                          {!checking && !times && <button type="button" className="rounded-lg border border-cyan/30 px-4 py-2 text-cyan"
+                            onClick={() => void checkTimes(newDate)}>Retry availability</button>}
+                        </div>}
                         <p className="text-sm text-mid">Confirming replaces your current appointment time.</p>
                       </>
                     ) : (
