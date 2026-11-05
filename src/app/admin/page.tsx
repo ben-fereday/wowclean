@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { use, useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   updateBookingStatus,
@@ -69,7 +69,7 @@ import {
   DollarSign,
   Search,
 } from "lucide-react";
-import Link from "next/link";
+import PricingManager from "./pricing/pricing-manager";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { fetchSubscriptionPrices, type SubPricingGrid } from "@/lib/pricing-db";
@@ -161,11 +161,16 @@ const statusLabels: Record<BookingStatus, string> = {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function AdminPage() {
+const adminTabClass = "h-auto flex-none rounded-lg border-white/15 bg-dark px-4 py-2.5 text-mid hover:text-white focus-visible:ring-cyan/50 data-active:border-cyan! data-active:bg-cyan! data-active:text-navy!";
+
+export default function AdminPage({ searchParams }: {
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
+  const initialTab = use(searchParams).tab === "pricing" ? "pricing" : "calendar";
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const supabase = useMemo(() => createClient(), []);
 
-  const [tab, setTab] = useState("calendar");
+  const [tab, setTab] = useState(initialTab);
   const [loading, setLoading] = useState(true);
 
   // Calendar state
@@ -523,9 +528,12 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[hsl(var(--background))] px-4 pt-[100px] pb-12">
       <div className="mx-auto max-w-6xl space-y-6">
-        <h1 className="font-[family-name:var(--font-heading)] text-4xl uppercase tracking-wide text-white">
-          Admin Dashboard
-        </h1>
+        <header>
+          <p className="text-xs uppercase tracking-[3px] text-cyan">Calgary</p>
+          <h1 className="mt-2 font-[family-name:var(--font-heading)] text-4xl uppercase tracking-wide text-white">
+            Admin Dashboard
+          </h1>
+        </header>
 
         {/* Upcoming Visits */}
         {(() => {
@@ -670,40 +678,42 @@ export default function AdminPage() {
         })()}
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-[hsl(var(--muted))] h-auto flex-wrap justify-start">
-            <TabsTrigger value="calendar" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Calendar className="mr-2 h-4 w-4" />
+          <TabsList aria-label="Admin sections" className="h-auto! flex-wrap justify-start gap-2 bg-transparent p-0">
+            <TabsTrigger value="calendar" className={adminTabClass}>
+              <Calendar className="size-4" />
               Calendar
             </TabsTrigger>
-            <TabsTrigger value="history" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <History className="mr-2 h-4 w-4" />
+            <TabsTrigger value="history" className={adminTabClass}>
+              <History className="size-4" />
               Appointment History
             </TabsTrigger>
-            <TabsTrigger value="customers" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Users className="mr-2 h-4 w-4" />
+            <TabsTrigger value="customers" className={adminTabClass}>
+              <Users className="size-4" />
               Customers
             </TabsTrigger>
-            <TabsTrigger value="subscriptions" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Sparkles className="mr-2 h-4 w-4" />
+            <TabsTrigger value="subscriptions" className={adminTabClass}>
+              <Sparkles className="size-4" />
               Subscriptions
             </TabsTrigger>
-            <TabsTrigger value="promos" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Tag className="mr-2 h-4 w-4" />
+            <TabsTrigger value="promos" className={adminTabClass}>
+              <Tag className="size-4" />
               Promos
             </TabsTrigger>
-            <Link href="/admin/pricing">
-              <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-white transition-colors font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider cursor-pointer">
-                <DollarSign className="h-4 w-4" />
-                Pricing
-              </div>
-            </Link>
+            <TabsTrigger value="pricing" className={adminTabClass}>
+              <DollarSign className="size-4" />
+              Pricing
+            </TabsTrigger>
             {isOwner && (
-              <TabsTrigger value="team" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-                <UserCog className="mr-2 h-4 w-4" />
+              <TabsTrigger value="team" className={adminTabClass}>
+                <UserCog className="size-4" />
                 Team
               </TabsTrigger>
             )}
           </TabsList>
+
+          <TabsContent value="pricing" keepMounted>
+            <PricingManager />
+          </TabsContent>
 
           {/* ============ CALENDAR TAB ============ */}
           <TabsContent value="calendar" className="space-y-6">

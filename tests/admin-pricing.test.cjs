@@ -91,7 +91,7 @@ test('partial saves and thrown failures retain only failed operations for retry'
 });
 
 test('admin grid excludes Exclusive without removing shared data or altering loaders/actions',()=>{
-  const source=fs.readFileSync(path.join(root,'src/app/admin/pricing/page.tsx'),'utf8');
+  const source=fs.readFileSync(path.join(root,'src/app/admin/pricing/pricing-manager.tsx'),'utf8');
   assert.deepEqual(model.PRICING_PACKAGES,['standard','premium']);
   assert.ok(!source.toLowerCase().includes('exclusive'));
   for(const label of ['One-time booking prices','Add-ons','Subscription prices','Revert unsaved edits','Save Calgary pricing'])assert.ok(source.includes(label));
