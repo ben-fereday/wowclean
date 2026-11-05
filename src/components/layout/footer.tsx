@@ -17,6 +17,7 @@ const companyLinks = [
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Book Now", href: "/book" },
   { label: "Manage Booking", href: "/manage-booking" },
+  { label: "FAQ", href: "/faq" },
 ];
 
 
