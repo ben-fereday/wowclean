@@ -271,7 +271,7 @@ export default function AdminPage({ searchParams }: {
   const customerRows = useMemo(() => buildAdminCustomers(profiles, bookings, includeArchivedCustomers), [profiles, bookings, includeArchivedCustomers]);
   const selectedCustomer = customerRows.find(customer => customer.id === selectedCustomerId) ?? null;
   const latestCustomerBooking = bookings.find(booking => booking.id === selectedCustomer?.booking_ids[0]);
-  const [redeemingCredits, setRedeemingCredits] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   // DB subscription pricing
   const [dbSubPricing, setDbSubPricing] = useState<SubPricingGrid>(
@@ -291,6 +291,7 @@ export default function AdminPage({ searchParams }: {
     usage_limit: "unlimited" as PromoUsageLimit,
     active: true,
   });
+  const [promoSaving, setPromoSaving] = useState(false);
   const [promoLimitSaving, setPromoLimitSaving] = useState<string | null>(null);
   const [promoFormError, setPromoFormError] = useState("");
 
@@ -412,6 +413,21 @@ export default function AdminPage({ searchParams }: {
       fetchSubscriptionPrices().then(setDbSubPricing),
     ]).finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function savePromoChange(id: string, patch: Parameters<typeof updatePromoCode>[1]) {
+    try {
+      const result = await updatePromoCode(id, patch);
+      if (result.error) {
+        toast.error(result.error);
+        return false;
+      }
+      await fetchPromoCodes();
+      return true;
+    } catch {
+      toast.error("Could not update this promo code. Please try again.");
+      return false;
+    }
+  }
 
   // Refetch data when switching tabs
   useEffect(() => {
@@ -1347,7 +1363,7 @@ export default function AdminPage({ searchParams }: {
                       {(selectedCustomer.referral_credits ?? 0) >= 3 && (
                         <Button
                           size="sm"
-                          disabled={redeemingCredits}
+                          disabled={confirmBusy}
                           onClick={() => {
                             const customerId = selectedCustomer.id;
                             showConfirm({
@@ -1355,7 +1371,7 @@ export default function AdminPage({ searchParams }: {
                               description: `Redeem 3 credits for ${selectedCustomer.first_name}? These credits count toward a free Premium Detail.`,
                               confirmLabel: "Redeem",
                               onConfirm: async () => {
-                                setRedeemingCredits(true);
+                                setConfirmBusy(true);
                                 try {
                                   const { error } = await supabase.rpc("redeem_referral_credits", { user_id_input: customerId });
                                   setConfirmModal((m) => ({ ...m, open: false }));
@@ -1370,7 +1386,7 @@ export default function AdminPage({ searchParams }: {
                                   toast.error("Failed to redeem credits.");
                                   console.error(e);
                                 } finally {
-                                  setRedeemingCredits(false);
+                                  setConfirmBusy(false);
                                 }
                               },
                             });
@@ -1417,226 +1433,178 @@ export default function AdminPage({ searchParams }: {
 
           {/* ============ PROMOS TAB ============ */}
           <TabsContent value="promos" className="space-y-6">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
-                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                  Add Promo Code
-                </CardTitle>
+                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Create promo code</CardTitle>
+                <p className="text-sm text-mid">Set the discount and how often customers can use the code.</p>
               </CardHeader>
               <CardContent>
                 <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
+                  aria-label="Create promo code"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (promoSaving) return;
                     setPromoFormError("");
-                    const result = await createPromoCode({
-                      code: promoForm.code,
-                      discount_pct: promoForm.discount_pct,
-                      scope: promoForm.scope,
-                      usage_limit: promoForm.usage_limit,
-                      active: promoForm.active,
-                    });
-                    if (result.error) {
-                      setPromoFormError(result.error);
-                    } else {
-                      setPromoForm({
-                        code: "",
-                        discount_pct: 10,
-                        scope: "booking",
-                        usage_limit: "unlimited" as PromoUsageLimit,
-                        active: true,
-                      });
-                      fetchPromoCodes();
+                    setPromoSaving(true);
+                    try {
+                      const result = await createPromoCode(promoForm);
+                      if (result.error) {
+                        setPromoFormError(result.error);
+                        return;
+                      }
+                      setPromoForm({ code: "", discount_pct: 10, scope: "booking", usage_limit: "unlimited", active: true });
+                      await fetchPromoCodes();
+                    } catch {
+                      setPromoFormError("Could not create the promo code. Please try again.");
+                    } finally {
+                      setPromoSaving(false);
                     }
                   }}
-                  className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end"
                 >
-                  <div className="md:col-span-2 space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">Code</Label>
-                    <Input
-                      value={promoForm.code}
-                      onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
-                      placeholder="SUMMER25"
-                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white uppercase tracking-wider"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">% Off</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={promoForm.discount_pct}
-                      onChange={(e) => setPromoForm({ ...promoForm, discount_pct: Number(e.target.value) })}
-                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">Scope</Label>
-                    <select
-                      value={promoForm.scope}
-                      onChange={(e) => setPromoForm({ ...promoForm, scope: e.target.value as "booking" | "subscription" })}
-                      className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
-                    >
-                      <option value="booking">One-Time Booking</option>
-                      <option value="subscription" disabled>Subscription (paused)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">Use Limit</Label>
-                    <select
-                      value={promoForm.usage_limit}
-                      onChange={(e) => setPromoForm({ ...promoForm, usage_limit: e.target.value as PromoUsageLimit })}
-                      className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
-                    >
-                      <option value="unlimited">Unlimited</option>
-                      <option value="once_per_email">Once per email address</option>
-                      <option value="single_use">Single use total</option>
-                    </select>
-                  </div>
-                  <Button type="submit" className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80">
-                    Add Code
-                  </Button>
+                  <fieldset disabled={promoSaving} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <label className="space-y-1 text-sm text-mid">
+                      Code
+                      <Input required value={promoForm.code} placeholder="SUMMER25"
+                        onChange={event => setPromoForm({ ...promoForm, code: event.target.value.toUpperCase() })}
+                        className="rounded-lg border-white/20 bg-navy text-white uppercase" />
+                    </label>
+                    <label className="space-y-1 text-sm text-mid">
+                      Discount (%)
+                      <Input required type="number" min={1} max={100} value={promoForm.discount_pct}
+                        onChange={event => setPromoForm({ ...promoForm, discount_pct: Number(event.target.value) })}
+                        className="rounded-lg border-white/20 bg-navy text-white" />
+                    </label>
+                    <div className="space-y-1 text-sm text-mid">
+                      <Label htmlFor="promo-scope">Scope</Label>
+                      <select id="promo-scope" value={promoForm.scope}
+                        onChange={event => setPromoForm({ ...promoForm, scope: event.target.value as "booking" | "subscription" })}
+                        className="block h-9 w-full rounded-lg border border-white/20 bg-navy px-3 text-white">
+                        <option value="booking">One-time booking</option>
+                        <option value="subscription" disabled>Subscription (paused)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1 text-sm text-mid">
+                      <Label htmlFor="promo-use-limit">Use limit</Label>
+                      <select id="promo-use-limit" value={promoForm.usage_limit}
+                        onChange={event => setPromoForm({ ...promoForm, usage_limit: event.target.value as PromoUsageLimit })}
+                        className="block h-9 w-full rounded-lg border border-white/20 bg-navy px-3 text-white">
+                        {PROMO_LIMITS.map(limit => <option key={limit} value={limit}>{PROMO_LIMIT_LABELS[limit]}</option>)}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-4">
+                      <Button type="submit" className="rounded-lg bg-cyan text-navy hover:bg-cyan/90">
+                        {promoSaving ? "Creating…" : "Create code"}
+                      </Button>
+                    </div>
+                  </fieldset>
+                  {promoFormError && <p role="alert" className="mt-3 text-sm text-red-300">{promoFormError}</p>}
                 </form>
-                <p className="mt-3 text-xs text-mid">Booking limits work without an account. Email addresses are matched without case or surrounding spaces. Applying a code does not use it; saved bookings count, including cancelled and archived appointments. Changing a limit does not reset previous uses.</p>
-                {promoFormError && (
-                  <p className="mt-3 text-sm text-red-400">{promoFormError}</p>
-                )}
+                <p className="mt-4 text-xs text-mid">Booking limits work without an account. Email matching ignores case and surrounding spaces. A use counts when a booking is saved, including bookings later cancelled or archived. Changing a limit preserves earlier uses.</p>
               </CardContent>
             </Card>
 
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
-                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                  All Promo Codes
-                </CardTitle>
+                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Existing promo codes</CardTitle>
+                <p className="text-sm text-mid">Discount edits apply to future bookings and subscriptions. Discount fields save when you leave them.</p>
               </CardHeader>
               <CardContent>
                 {promoCodes.length === 0 ? (
-                  <p className="py-4 text-[hsl(var(--muted-foreground))]">No promo codes yet.</p>
+                  <p className="py-4 text-mid">No promo codes yet.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-[hsl(var(--muted))]">
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Code</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Scope</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">% Off</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Use Limit</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Active</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))] text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {promoCodes.map((promo) => (
-                          <TableRow key={promo.id} className="border-[hsl(var(--muted))]">
-                            <TableCell className="font-mono font-bold text-white tracking-wider">
-                              {promo.code}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  promo.scope === "booking"
-                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                                    : "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                  <ul className="space-y-3">
+                    {promoCodes.map(promo => (
+                      <li key={promo.id} className="space-y-4 rounded-xl border border-white/10 bg-dark/60 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="break-words font-mono font-semibold tracking-wider text-white">{promo.code}</p>
+                            <p className="mt-1 text-sm text-mid">{promo.scope === "booking" ? "One-time booking" : "Subscription"}</p>
+                          </div>
+                          <Badge variant="outline" className={promo.active ? "border-green-400/30 text-green-400" : "border-white/20 text-mid"}>
+                            {promo.active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[8rem_minmax(0,16rem)]">
+                          <label className="space-y-1 text-sm text-mid">
+                            Discount (%)
+                            <Input key={promo.discount_pct} aria-label={`Discount for ${promo.code}`} type="number" min={1} max={100}
+                              defaultValue={promo.discount_pct} className="rounded-lg border-white/20 bg-navy text-white"
+                              onBlur={async (event) => {
+                                const input = event.currentTarget;
+                                const discount = Number(input.value);
+                                if (discount === promo.discount_pct) return;
+                                if (!Number.isInteger(discount) || discount < 1 || discount > 100) {
+                                  toast.error("Enter a whole discount from 1 to 100.");
+                                  input.value = String(promo.discount_pct);
+                                  return;
                                 }
-                              >
-                                {promo.scope === "booking" ? "Booking" : "Subscription"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                defaultValue={promo.discount_pct}
-                                onBlur={async (e) => {
-                                  const newPct = Number(e.target.value);
-                                  if (newPct === promo.discount_pct) return;
-                                  const result = await updatePromoCode(promo.id, { discount_pct: newPct });
-                                  if (result.error) {
-                                    toast.error(result.error);
-                                    e.target.value = String(promo.discount_pct);
-                                  } else {
-                                    fetchPromoCodes();
-                                  }
-                                }}
-                                className="w-20 h-8 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-2"
-                              />
-                              <span className="ml-1 text-[hsl(var(--muted-foreground))]">%</span>
-                            </TableCell>
-                            <TableCell className="text-[hsl(var(--muted-foreground))]">
-                              {promo.scope === "booking" ? <select
-                                aria-label={`Use limit for ${promo.code}`}
-                                value={promo.usage_limit}
+                                if (!await savePromoChange(promo.id, { discount_pct: discount })) {
+                                  input.value = String(promo.discount_pct);
+                                }
+                              }} />
+                          </label>
+                          {promo.scope === "booking" ? (
+                            <label className="space-y-1 text-sm text-mid">
+                              Use limit
+                              <select aria-label={`Use limit for ${promo.code}`} value={promo.usage_limit}
+                                className="block h-9 w-full rounded-lg border border-white/20 bg-navy px-3 text-white disabled:opacity-50"
                                 disabled={!!promoLimitSaving}
-                                className="min-w-[185px] rounded-md border border-white/20 bg-[#070d22] px-2 py-2 text-sm text-white disabled:opacity-50"
                                 onChange={async (event) => {
                                   const limit = event.target.value as PromoUsageLimit;
                                   setPromoLimitSaving(promo.id);
                                   try {
-                                    const result = await updatePromoCode(promo.id, { usage_limit: limit });
-                                    if (result.error) toast.error(result.error);
-                                    else { await fetchPromoCodes(); toast.success("Promo use limit updated."); }
-                                  } catch { toast.error("Could not update this use limit. Please retry."); }
-                                  finally { setPromoLimitSaving(null); }
+                                    if (await savePromoChange(promo.id, { usage_limit: limit })) toast.success("Promo use limit updated.");
+                                  } finally {
+                                    setPromoLimitSaving(null);
+                                  }
                                 }}>
                                 {PROMO_LIMITS.map(limit => <option key={limit} value={limit}>{PROMO_LIMIT_LABELS[limit]}</option>)}
-                              </select> : promo.max_uses_per_user === null ? "Unlimited" : "Legacy account limit"}
-                            </TableCell>
-                            <TableCell>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const result = await updatePromoCode(promo.id, { active: !promo.active });
+                              </select>
+                            </label>
+                          ) : (
+                            <div className="text-sm text-mid">
+                              <p>Use limit</p>
+                              <p className="mt-2 text-white">{promo.max_uses_per_user === null ? "Unlimited" : "Legacy account limit"}</p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                          <Button type="button" variant="outline" size="sm"
+                            className="rounded-lg border-cyan/30 text-cyan"
+                            onClick={() => savePromoChange(promo.id, { active: !promo.active })}>
+                            {promo.active ? "Deactivate" : "Activate"}
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="rounded-lg border-red-400/30 text-red-300 hover:bg-red-400/10"
+                            aria-label={`Delete promo code ${promo.code}`}
+                            onClick={() => showConfirm({
+                              title: "Delete Promo Code",
+                              description: `Delete promo code ${promo.code}? This cannot be undone.`,
+                              confirmLabel: "Delete",
+                              variant: "destructive",
+                              onConfirm: async () => {
+                                setConfirmBusy(true);
+                                try {
+                                  const result = await deletePromoCode(promo.id);
                                   if (result.error) toast.error(result.error);
-                                  else fetchPromoCodes();
-                                }}
-                              >
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    promo.active
-                                      ? "bg-green-500/20 text-green-400 border-green-500/30 cursor-pointer hover:bg-green-500/30"
-                                      : "bg-red-500/20 text-red-400 border-red-500/30 cursor-pointer hover:bg-red-500/30"
+                                  else {
+                                    toast.success("Promo code deleted.");
+                                    await fetchPromoCodes();
                                   }
-                                >
-                                  {promo.active ? "Active" : "Inactive"}
-                                </Badge>
-                              </button>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  showConfirm({
-                                    title: "Delete Promo Code",
-                                    description: `Delete promo code ${promo.code}? This cannot be undone.`,
-                                    confirmLabel: "Delete",
-                                    variant: "destructive",
-                                    onConfirm: async () => {
-                                      const result = await deletePromoCode(promo.id);
-                                      setConfirmModal((m) => ({ ...m, open: false }));
-                                      if (result.error) toast.error(result.error);
-                                      else { toast.success("Promo code deleted."); fetchPromoCodes(); }
-                                    },
-                                  });
-                                }}
-                                className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                                } catch {
+                                  toast.error("Could not delete this promo code. Please try again.");
+                                } finally {
+                                  setConfirmModal(modal => ({ ...modal, open: false }));
+                                  setConfirmBusy(false);
+                                }
+                              },
+                            })}>
+                            <Trash2 className="size-4" /> Delete
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-                <p className="mt-4 text-xs text-[hsl(var(--muted-foreground))]">
-                  Discount % changes only affect <span className="text-white font-semibold">future</span> redemptions. Existing bookings and subscriptions keep the discount they were created with.
-                </p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1767,9 +1735,9 @@ export default function AdminPage({ searchParams }: {
       </div>
 
       <ConfirmModal
-        loading={redeemingCredits}
+        loading={confirmBusy}
         open={confirmModal.open}
-        onOpenChange={(open) => { if (!redeemingCredits) setConfirmModal((m) => ({ ...m, open })); }}
+        onOpenChange={(open) => { if (!confirmBusy) setConfirmModal((m) => ({ ...m, open })); }}
         title={confirmModal.title}
         description={confirmModal.description}
         confirmLabel={confirmModal.confirmLabel}
