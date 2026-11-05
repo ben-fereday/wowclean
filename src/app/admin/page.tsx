@@ -52,7 +52,6 @@ import {
   History,
   Users,
   Clock,
-  Car,
   Shield,
   ShieldCheck,
   UserCog,
@@ -161,6 +160,53 @@ const statusLabels: Record<BookingStatus, string> = {
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
+
+function SubscriptionCard({ subscription, price, customerName }: {
+  subscription: Subscription;
+  price: number;
+  customerName?: string;
+}) {
+  const plan = SUBSCRIPTION_PLANS.find(item => item.id === subscription.plan)?.name ?? subscription.plan;
+  const nextVisit = subscription.next_service_date
+    ? format(new Date(subscription.next_service_date + "T12:00:00"), "MMM d, yyyy")
+    : "To be scheduled";
+  return (
+    <li className="space-y-4 rounded-xl border border-white/10 bg-dark/60 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-semibold text-white">{customerName ?? PACKAGE_LABELS[subscription.package]}</p>
+          <p className="mt-1 text-sm text-mid">{plan}{customerName && ` · ${PACKAGE_LABELS[subscription.package]}`}</p>
+        </div>
+        <Badge variant="outline" className={subscription.status === "active" ? "border-green-400/30 text-green-400" : "border-white/20 text-mid"}>
+          <span className="capitalize">{subscription.status}</span>
+        </Badge>
+      </div>
+      <dl className="grid grid-cols-2 gap-4 border-t border-white/10 pt-3 text-sm sm:grid-cols-4">
+        <div>
+          <dt className="text-xs text-mid">Price per visit</dt>
+          <dd className="mt-1 font-semibold text-cyan">${price}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-mid">Next visit</dt>
+          <dd className="mt-1 text-white">{nextVisit}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-mid">Schedule</dt>
+          <dd className="mt-1 text-white">{subscription.recurring_day} at {subscription.recurring_time}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-mid">Service &amp; vehicle</dt>
+          <dd className="mt-1 text-white">{SERVICE_TYPE_LABELS[subscription.service_type]} · {VEHICLE_LABELS[subscription.vehicle_size]}</dd>
+        </div>
+      </dl>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-mid">
+        <span>{subscription.location === "mobile" ? "Mobile" : "In-shop"}</span>
+        {subscription.service_address && <span className="break-words">{subscription.service_address}</span>}
+        {customerName && subscription.profiles?.phone && <span>{subscription.profiles.phone}</span>}
+      </div>
+    </li>
+  );
+}
 
 const adminTabClass = "h-auto flex-none rounded-lg border-white/15 bg-dark px-4 py-2.5 text-mid hover:text-white focus-visible:ring-cyan/50 data-active:border-cyan! data-active:bg-cyan! data-active:text-navy!";
 
@@ -521,6 +567,9 @@ export default function AdminPage({ searchParams }: {
       });
     }
   }
+
+  const activeSubscriptions = subscriptions.filter(subscription => subscription.status === "active");
+  const customerSubscriptions = selectedCustomer ? getSubscriptionsForUser(selectedCustomer.id) : [];
 
   const detailBooking = selectedEntry?.booking;
   const detailSubscription = selectedEntry?.subscription;
@@ -1263,71 +1312,19 @@ export default function AdminPage({ searchParams }: {
                     })()}
 
                     {!selectedCustomer.is_guest && (<>
-                    {/* Subscriptions */}
-                    {(() => {
-                      const userSubs = getSubscriptionsForUser(selectedCustomer.id);
-                      return (
-                        <div className="space-y-3">
-                          <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold">
-                            Subscriptions ({userSubs.length})
-                          </p>
-                          {userSubs.length === 0 ? (
-                            <p className="text-sm text-[hsl(var(--muted-foreground))]">No active subscriptions.</p>
-                          ) : (
-                            userSubs.map((sub) => {
-                              const planLabel = SUBSCRIPTION_PLANS.find((pl) => pl.id === sub.plan)?.name ?? sub.plan;
-                              return (
-                                <div key={sub.id} className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-white font-medium">{PACKAGE_LABELS[sub.package]}</span>
-                                      <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                                        {planLabel}
-                                      </Badge>
-                                    </div>
-                                    <span className="font-[family-name:var(--font-barlow-condensed)] text-lg font-bold text-[hsl(var(--accent))]">
-                                      ${dbGetSubPrice(sub.plan, sub.vehicle_size, sub.package)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Service</p>
-                                      <p className="text-white">{SERVICE_TYPE_LABELS[sub.service_type]}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Vehicle</p>
-                                      <p className="text-white">{VEHICLE_LABELS[sub.vehicle_size]}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Schedule</p>
-                                      <p className="text-white">{sub.recurring_day} at {sub.recurring_time}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Next Visit</p>
-                                      <p className="text-[hsl(var(--accent))]">
-                                        {sub.next_service_date
-                                          ? new Date(sub.next_service_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                                          : "TBD"}
-                                      </p>
-                                    </div>
-                                    {sub.service_address && (
-                                      <div className="col-span-2">
-                                        <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Address</p>
-                                        <p className="text-white">{sub.service_address}</p>
-                                      </div>
-                                    )}
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Location</p>
-                                      <p className="text-white">{sub.location === "mobile" ? "Mobile" : "In-Shop"}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <section className="space-y-3" aria-label="Customer subscriptions">
+                      <h3 className="font-semibold text-white">Subscriptions</h3>
+                      {customerSubscriptions.length === 0 ? (
+                        <p className="text-sm text-mid">No active or paused subscriptions.</p>
+                      ) : (
+                        <ul className="space-y-3">
+                          {customerSubscriptions.map(subscription => (
+                            <SubscriptionCard key={subscription.id} subscription={subscription}
+                              price={dbGetSubPrice(subscription.plan, subscription.vehicle_size, subscription.package)} />
+                          ))}
+                        </ul>
+                      )}
+                    </section>
 
                     {/* Referral Info */}
                     <div className="space-y-3 rounded-xl border border-white/10 bg-navy/25 p-4">
@@ -1395,76 +1392,24 @@ export default function AdminPage({ searchParams }: {
 
           {/* ============ SUBSCRIPTIONS TAB ============ */}
           <TabsContent value="subscriptions">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
                 <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
                   Active Subscriptions
                 </CardTitle>
+                <p className="text-sm text-mid">Compare recurring plans, per-visit prices and upcoming visits. Schedules use Calgary time.</p>
               </CardHeader>
               <CardContent>
-                {subscriptions.filter((s) => s.status === "active").length === 0 ? (
-                  <p className="py-4 text-[hsl(var(--muted-foreground))]">No active subscriptions.</p>
+                {activeSubscriptions.length === 0 ? (
+                  <p className="py-4 text-mid">No active subscriptions.</p>
                 ) : (
-                  <div className="space-y-4">
-                    {subscriptions
-                      .filter((s) => s.status === "active")
-                      .map((sub) => {
-                        const name = sub.profiles
-                          ? `${sub.profiles.first_name} ${sub.profiles.last_name}`
-                          : "Unknown";
-                        const planLabel = SUBSCRIPTION_PLANS.find((p) => p.id === sub.plan)?.name ?? sub.plan;
-
-                        return (
-                          <div key={sub.id} className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-3">
-                                  <span className="font-[family-name:var(--font-barlow-condensed)] text-lg font-semibold text-white">{name}</span>
-                                  <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">Active</Badge>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
-                                  <span>{planLabel}</span>
-                                  <span>{PACKAGE_LABELS[sub.package]}</span>
-                                  <span>{SERVICE_TYPE_LABELS[sub.service_type]}</span>
-                                  <span className="flex items-center gap-1">
-                                    <Car className="h-3.5 w-3.5" />
-                                    {VEHICLE_LABELS[sub.vehicle_size]}
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="h-3.5 w-3.5" />
-                                    {sub.recurring_day} at {sub.recurring_time}
-                                  </span>
-                                  {sub.service_address && (
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="h-3.5 w-3.5" />
-                                      {sub.service_address}
-                                    </span>
-                                  )}
-                                  {sub.profiles?.phone && (
-                                    <span className="flex items-center gap-1">
-                                      <Phone className="h-3.5 w-3.5" />
-                                      {sub.profiles.phone}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-[family-name:var(--font-barlow-condensed)] text-xl font-bold text-[hsl(var(--accent))]">
-                                  ${dbGetSubPrice(sub.plan, sub.vehicle_size, sub.package)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
-                                </p>
-                                {sub.next_service_date && (
-                                  <p className="text-sm text-[hsl(var(--accent))] mt-1">
-                                    Next: {new Date(sub.next_service_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
+                  <ul className="space-y-3">
+                    {activeSubscriptions.map(subscription => (
+                      <SubscriptionCard key={subscription.id} subscription={subscription}
+                        customerName={subscription.profiles ? `${subscription.profiles.first_name} ${subscription.profiles.last_name}` : "Unknown customer"}
+                        price={dbGetSubPrice(subscription.plan, subscription.vehicle_size, subscription.package)} />
+                    ))}
+                  </ul>
                 )}
               </CardContent>
             </Card>
