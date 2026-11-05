@@ -23,10 +23,26 @@ const bebasNeue = Bebas_Neue({
   weight: "400",
 });
 
+const title = "WOW CLEAN | Mobile Auto Detailing in Calgary";
+const description = "Mobile auto detailing in Calgary. Compare Standard and Premium packages, see pricing, and book your detail online.";
+
 export const metadata: Metadata = {
-  title: "WOW CLEAN | Mobile Auto Detailing",
-  description:
-    "Mobile auto detailing in Calgary. View detailing services, package pricing, and booking options.",
+  metadataBase: new URL("https://wowcleancalgary.com"),
+  title,
+  description,
+  openGraph: {
+    type: "website",
+    siteName: "WOW CLEAN Calgary",
+    locale: "en_CA",
+    title,
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [{ url: "/opengraph-image", alt: "WOW CLEAN — Mobile auto detailing in Calgary" }],
+  },
 };
 
 export default function RootLayout({
