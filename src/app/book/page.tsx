@@ -53,6 +53,8 @@ import { PRICING, ADDONS } from "@/lib/constants";
 // ─── Types ───
 type AddonSelection = { id: string; name: string; price: number };
 
+const VEHICLE_SIZES = ["small", "medium", "large"] as const;
+
 const VEHICLE_ICONS: Record<VehicleSize, React.ReactNode> = {
   small: <Car className="size-10 text-cyan" />,
   medium: <CarFront className="size-10 text-cyan" />,
@@ -609,20 +611,20 @@ function BookPageContent() {
                 Step 1 of 5
               </p>
               <h1 className="font-[family-name:var(--font-heading)] text-[clamp(2rem,4vw,3rem)] tracking-[2px] text-white mb-2">
-                What&apos;s Your <span className="text-cyan">Vehicle?</span>
+                What Size Is <span className="text-cyan">Your Vehicle?</span>
               </h1>
-              <p className="text-[0.95rem] text-mid mb-10 leading-relaxed">
+              <p className="text-[0.95rem] text-mid mb-5 sm:mb-10 leading-relaxed">
                 Select your vehicle size so we can show you accurate pricing for
                 your detail.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                {(["small", "medium", "large"] as VehicleSize[]).map((size) => (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-4">
+                {VEHICLE_SIZES.map((size) => (
                   <button
                     key={size}
                     onClick={() => setVehicleSize(size)}
                     aria-pressed={vehicleSize === size}
-                    className={`relative border rounded-2xl px-4 py-5 text-center sm:py-7 cursor-pointer transition-all overflow-hidden ${
+                    className={`relative flex items-center gap-3 rounded-2xl border py-3 pl-3 pr-10 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan sm:flex-col sm:px-4 sm:py-7 sm:text-center ${
                       vehicleSize === size
                         ? "border-cyan bg-cyan/[0.08]"
                         : "border-white/10 bg-navy/60 hover:border-cyan/30 hover:bg-cyan/[0.04]"
@@ -633,18 +635,34 @@ function BookPageContent() {
                         <Check className="w-3.5 h-3.5" />
                       </div>
                     )}
-                    <div className="flex justify-center mb-3">
+                    <div className="shrink-0 [&>svg]:size-7 sm:[&>svg]:size-10" aria-hidden="true">
                       {VEHICLE_ICONS[size]}
                     </div>
-                    <div className="font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-extrabold tracking-[1px] uppercase text-white mb-1">
-                      {VEHICLE_LABELS[size].replace(" Vehicle", "")}
-                    </div>
-                    <div className="text-[0.78rem] text-mid leading-relaxed">
-                      {VEHICLE_EXAMPLES[size].replace(/, /g, " \u00B7 ")}
+                    <div>
+                      <div className="font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-extrabold tracking-[1px] uppercase text-white mb-1">
+                        {VEHICLE_LABELS[size].replace(" Vehicle", "")}
+                      </div>
+                      <div className="text-[0.78rem] text-mid leading-relaxed">
+                        {VEHICLE_EXAMPLES[size].replace(/, /g, " · ")}
+                      </div>
                     </div>
                   </button>
                 ))}
               </div>
+
+              <details className="mt-4 rounded-xl border border-white/10 bg-navy/40 text-sm">
+                <summary className="cursor-pointer rounded-xl px-4 py-3 font-semibold text-cyan focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan">
+                  Not sure? View the vehicle size guide
+                </summary>
+                <dl className="space-y-2 border-t border-white/10 px-4 py-3">
+                  {VEHICLE_SIZES.map((size) => (
+                    <div key={size} className="grid grid-cols-[4.5rem_1fr] gap-2">
+                      <dt className="font-semibold text-white">{VEHICLE_LABELS[size].replace(" Vehicle", "")}</dt>
+                      <dd className="text-mid">{VEHICLE_EXAMPLES[size]}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
 
               <div className="flex items-center justify-between mt-8">
                 <div />
