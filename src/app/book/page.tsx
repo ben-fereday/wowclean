@@ -65,6 +65,9 @@ const SERVICE_TYPE_ICON_MAP: Record<ServiceType, React.ReactNode> = {
   full: <Gem className="size-6 text-cyan" />,
 };
 
+const primaryButton = "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan px-4 py-3 text-center text-sm font-bold text-navy transition-colors hover:bg-cyan/85 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan disabled:cursor-not-allowed disabled:opacity-45 sm:px-6";
+const backButton = "inline-flex min-h-12 items-center gap-2 rounded-xl border border-white/15 px-3 py-3 text-sm font-semibold text-silver transition-colors hover:border-cyan/50 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan sm:px-5";
+
 const STEP_LABELS = ["Vehicle", "Package", "Add-Ons", "Schedule", "Details"];
 
 function SubscriptionCta() {
@@ -91,7 +94,7 @@ function SubscriptionCta() {
 // ─── Component ───
 export default function BookPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-dark" />}>
+    <Suspense fallback={<div className="min-h-screen bg-dark bg-[radial-gradient(ellipse_at_top_right,rgba(26,74,255,0.16),transparent_50%)]" />}>
       <BookPageContent />
     </Suspense>
   );
@@ -533,9 +536,9 @@ function BookPageContent() {
   // RENDER
   // ═══════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-dark">
+    <div className="min-h-screen bg-dark bg-[radial-gradient(ellipse_at_top_right,rgba(26,74,255,0.16),transparent_50%)]">
       {/* ── NAV ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 md:px-12 h-[72px] bg-navy border-b-2 border-blue2 shadow-[0_4px_40px_rgba(0,0,0,0.5)]">
+      <nav className="fixed inset-x-0 top-0 z-50 flex h-[72px] items-center justify-between border-b border-white/10 bg-navy/95 px-4 backdrop-blur-md sm:px-8">
         <Link
           href="/"
           className="font-[family-name:var(--font-heading)] text-[1.55rem] tracking-[2px] text-white no-underline"
@@ -551,58 +554,37 @@ function BookPageContent() {
       </nav>
 
       {/* ── LAYOUT ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] min-h-screen pt-[72px]">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1440px] grid-cols-1 items-start gap-5 px-4 pb-8 pt-[92px] sm:px-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-7 lg:pb-12 lg:pt-[108px] xl:grid-cols-[minmax(0,1fr)_360px]">
         {/* ── LEFT: MAIN ── */}
-        <main className="relative px-5 md:px-16 py-10 md:py-14">
-          {/* Border line on right */}
-          <div className="hidden lg:block absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-white/[0.08] to-transparent" />
+        <main className="min-w-0 rounded-2xl border border-white/10 bg-dark/80 p-4 sm:p-7 xl:p-9">
 
           {/* ── Progress Bar ── */}
           {step <= 5 && (
-            <div className="flex items-center gap-0 mb-10 md:mb-14">
+            <ol aria-label="Booking progress" className="mb-8 grid grid-cols-5 gap-1 border-b border-white/10 pb-5 sm:mb-10 sm:gap-2">
               {STEP_LABELS.map((label, i) => {
                 const num = i + 1;
                 const isDone = step > num;
                 const isActive = step === num;
                 return (
-                  <div key={num} className="contents">
-                    <div
-                      className={`flex items-center gap-2 md:gap-3 font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase transition-colors ${
-                        isDone
-                          ? "text-cyan"
-                          : isActive
-                            ? "text-white"
-                            : "text-mid"
-                      }`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-[family-name:var(--font-heading)] text-[1rem] shrink-0 transition-all ${
-                          isDone
-                            ? "bg-cyan border-cyan text-navy"
-                            : isActive
-                              ? "bg-blue border-blue text-white"
-                              : "border-current"
-                        }`}
-                      >
-                        {isDone ? (
-                          <Check className="w-4 h-4" />
-                        ) : (
-                          num
-                        )}
-                      </div>
-                      <span className="hidden md:block">{label}</span>
-                    </div>
-                    {num < 5 && (
-                      <div
-                        className={`flex-1 h-px mx-2 md:mx-3 min-w-[24px] ${
-                          isDone ? "bg-cyan" : "bg-white/10"
-                        }`}
-                      />
-                    )}
-                  </div>
+                  <li
+                    key={num}
+                    aria-current={isActive ? "step" : undefined}
+                    className={`flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-center text-[0.65rem] font-semibold sm:flex-row sm:gap-2 sm:text-xs ${
+                      isActive
+                        ? "border-cyan/40 bg-cyan/10 text-cyan"
+                        : isDone
+                          ? "border-white/10 bg-navy/70 text-silver"
+                          : "border-transparent text-mid"
+                    }`}
+                  >
+                    <span aria-hidden="true" className={`grid size-6 shrink-0 place-items-center rounded-md text-xs ${isActive ? "bg-cyan text-navy" : "bg-white/5 text-cyan"}`}>
+                      {isDone ? <Check className="size-3.5" /> : num}
+                    </span>
+                    {label}
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           )}
 
           {/* Redemption banner */}
@@ -639,10 +621,11 @@ function BookPageContent() {
                   <button
                     key={size}
                     onClick={() => setVehicleSize(size)}
-                    className={`relative bg-white/[0.04] border-2 rounded-[14px] px-4 py-7 text-center cursor-pointer transition-all overflow-hidden ${
+                    aria-pressed={vehicleSize === size}
+                    className={`relative border rounded-2xl px-4 py-5 text-center sm:py-7 cursor-pointer transition-all overflow-hidden ${
                       vehicleSize === size
                         ? "border-cyan bg-cyan/[0.08]"
-                        : "border-white/[0.08] hover:border-cyan/30 hover:bg-cyan/[0.04]"
+                        : "border-white/10 bg-navy/60 hover:border-cyan/30 hover:bg-cyan/[0.04]"
                     }`}
                   >
                     {vehicleSize === size && (
@@ -668,9 +651,8 @@ function BookPageContent() {
                 <button
                   onClick={() => vehicleSize && goToStep(2)}
                   disabled={!vehicleSize}
-                  className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-[1px] uppercase px-10 py-4 rounded-lg border-none cursor-pointer shadow-[0_0_40px_rgba(26,74,255,0.4)] transition-all hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 relative overflow-hidden group"
+                  className={primaryButton}
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[200%] transition-transform duration-[2500ms]" />
                   Next: Choose Package <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -699,12 +681,13 @@ function BookPageContent() {
                     <button
                       key={st}
                       onClick={() => setServiceType(st)}
+                      aria-pressed={serviceType === st}
                       disabled={!isServiceBookable(st)}
                       aria-describedby={!isServiceBookable(st) ? "seasonal-service-notice" : undefined}
-                      className={`bg-white/[0.04] border-2 rounded-xl px-4 py-5 text-center cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                      className={`border rounded-xl px-4 py-4 text-center cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                         serviceType === st
                           ? "border-cyan bg-cyan/[0.08]"
-                          : "border-white/[0.08] hover:border-cyan/30"
+                          : "border-white/10 bg-navy/60 hover:border-cyan/30"
                       }`}
                     >
                       <div className="flex justify-center mb-2">
@@ -743,10 +726,11 @@ function BookPageContent() {
                     <button
                       key={pkg.id}
                       onClick={() => setPackageId(pkg.id as PackageId)}
-                      className={`relative bg-white/[0.04] border-2 rounded-[14px] px-5 md:px-7 py-6 cursor-pointer transition-all flex items-start gap-5 overflow-hidden text-left ${
+                      aria-pressed={selected}
+                      className={`relative border rounded-2xl px-3 sm:px-6 py-5 cursor-pointer transition-all flex items-start gap-2 sm:gap-4 overflow-hidden text-left ${
                         selected
                           ? "border-cyan bg-cyan/[0.07]"
-                          : "border-white/[0.08] hover:border-cyan/25 hover:bg-cyan/[0.03]"
+                          : "border-white/10 bg-navy/60 hover:border-cyan/25 hover:bg-cyan/[0.03]"
                       }`}
                     >
                       {/* Left accent bar */}
@@ -790,7 +774,7 @@ function BookPageContent() {
 
                       </div>
                       {/* Price */}
-                      <div className="font-[family-name:var(--font-heading)] text-[2rem] text-cyan tracking-[1px] text-right whitespace-nowrap">
+                      <div className="font-[family-name:var(--font-heading)] text-[1.5rem] text-cyan tracking-[1px] text-right whitespace-nowrap sm:text-[2rem]">
                         ${price}
                       </div>
                     </button>
@@ -798,19 +782,18 @@ function BookPageContent() {
                 })}
               </div>
 
-              <div className="flex items-center justify-between mt-8 gap-4">
+              <div className="flex items-center justify-between mt-8 gap-2 sm:gap-4">
                 <button
                   onClick={() => goToStep(1)}
-                  className="inline-flex items-center gap-2 bg-transparent border border-white/15 text-mid font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-semibold tracking-[1px] uppercase px-6 py-3.5 rounded-lg cursor-pointer transition-all hover:border-white/30 hover:text-white"
+                  className={backButton}
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
                 <button
                   onClick={() => packageId && goToStep(3)}
                   disabled={!packageId}
-                  className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-[1px] uppercase px-10 py-4 rounded-lg border-none cursor-pointer shadow-[0_0_40px_rgba(26,74,255,0.4)] transition-all hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 relative overflow-hidden group"
+                  className={primaryButton}
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[200%] transition-transform duration-[2500ms]" />
                   Next: Add-Ons <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -845,13 +828,14 @@ function BookPageContent() {
                     <button
                       key={addon.id}
                       onClick={() => toggleAddon(addon)}
+                      aria-pressed={isSelected}
                       disabled={isExclusiveIncluded}
-                      className={`flex items-center justify-between gap-3 bg-white/[0.04] border-2 rounded-[10px] px-4 py-3.5 cursor-pointer transition-all text-left ${
+                      className={`flex items-center justify-between gap-3 border rounded-xl px-4 py-3.5 cursor-pointer transition-all text-left ${
                         isExclusiveIncluded
                           ? "opacity-40 cursor-not-allowed border-white/[0.07]"
                           : isSelected
                             ? "border-cyan bg-cyan/[0.06]"
-                            : "border-white/[0.07] hover:border-cyan/25"
+                            : "border-white/10 bg-navy/60 hover:border-cyan/25"
                       }`}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -882,18 +866,17 @@ function BookPageContent() {
                 })}
               </div>
 
-              <div className="flex items-center justify-between mt-8 gap-4">
+              <div className="flex items-center justify-between mt-8 gap-2 sm:gap-4">
                 <button
                   onClick={() => goToStep(2)}
-                  className="inline-flex items-center gap-2 bg-transparent border border-white/15 text-mid font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-semibold tracking-[1px] uppercase px-6 py-3.5 rounded-lg cursor-pointer transition-all hover:border-white/30 hover:text-white"
+                  className={backButton}
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
                 <button
                   onClick={() => goToStep(4)}
-                  className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-[1px] uppercase px-10 py-4 rounded-lg border-none cursor-pointer shadow-[0_0_40px_rgba(26,74,255,0.4)] transition-all hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] relative overflow-hidden group"
+                  className={primaryButton}
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[200%] transition-transform duration-[2500ms]" />
                   Next: Pick a Time <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -917,10 +900,11 @@ function BookPageContent() {
               </p>
 
               {/* Calendar */}
-              <div className="mb-8">
+              <div className="mb-8 rounded-2xl border border-white/10 bg-navy/55 p-2 sm:p-5">
                 <div className="flex items-center justify-between mb-5">
                   <button
                     onClick={() => changeMonth(-1)}
+                    aria-label="Previous month"
                     className="bg-transparent border border-white/15 text-silver w-9 h-9 rounded-lg cursor-pointer flex items-center justify-center transition-all hover:border-cyan hover:text-cyan"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -930,6 +914,7 @@ function BookPageContent() {
                   </div>
                   <button
                     onClick={() => changeMonth(1)}
+                    aria-label="Next month"
                     className="bg-transparent border border-white/15 text-silver w-9 h-9 rounded-lg cursor-pointer flex items-center justify-center transition-all hover:border-cyan hover:text-cyan"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -942,7 +927,7 @@ function BookPageContent() {
                     (d) => (
                       <div
                         key={d}
-                        className="font-[family-name:var(--font-barlow-condensed)] text-[0.68rem] font-bold tracking-[2px] uppercase text-mid text-center py-1.5"
+                        className="font-[family-name:var(--font-barlow-condensed)] text-[0.65rem] font-bold uppercase text-mid text-center py-1.5 sm:tracking-[2px]"
                       >
                         {d}
                       </div>
@@ -960,6 +945,7 @@ function BookPageContent() {
                     return (
                       <button
                         key={`day-${cell.day}`}
+                        aria-pressed={selected}
                         disabled={disabled}
                         onClick={() => {
                           if (!disabled && cell.date && !isDateSelected(cell.date)) {
@@ -974,7 +960,7 @@ function BookPageContent() {
                           disabled
                             ? "text-white/20 cursor-not-allowed border-white/[0.04]"
                             : selected
-                              ? "bg-blue border-blue text-white font-bold"
+                              ? "bg-cyan border-cyan text-navy font-bold"
                               : cell.today
                                 ? "border-cyan/40 text-cyan cursor-pointer hover:bg-cyan/10"
                                 : "border-white/[0.08] cursor-pointer hover:bg-cyan/10 hover:border-cyan/30 text-white"
@@ -1001,9 +987,10 @@ function BookPageContent() {
                         <button
                           key={slot}
                           onClick={() => setSelectedTime(slot)}
+                          aria-pressed={selectedTime === slot}
                           className={`bg-white/[0.04] border rounded-lg px-2 py-3 text-center font-[family-name:var(--font-barlow-condensed)] text-[0.9rem] font-bold tracking-[0.5px] transition-all ${
                             selectedTime === slot
-                              ? "bg-blue border-blue text-white cursor-pointer"
+                              ? "bg-cyan border-cyan text-navy cursor-pointer"
                               : "border-white/[0.08] text-silver hover:border-cyan/30 hover:text-white cursor-pointer"
                           }`}
                         >
@@ -1018,10 +1005,10 @@ function BookPageContent() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between mt-8 gap-4">
+              <div className="flex items-center justify-between mt-8 gap-2 sm:gap-4">
                 <button
                   onClick={() => goToStep(3)}
-                  className="inline-flex items-center gap-2 bg-transparent border border-white/15 text-mid font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-semibold tracking-[1px] uppercase px-6 py-3.5 rounded-lg cursor-pointer transition-all hover:border-white/30 hover:text-white"
+                  className={backButton}
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
@@ -1030,9 +1017,8 @@ function BookPageContent() {
                     selectedDate && selectedTime && goToStep(5)
                   }
                   disabled={!selectedDate || !selectedTime || timesLoading || !!timesError || !scheduledTimes.includes(selectedTime) || isTimeBlocked(selectedTime, bookedTimes)}
-                  className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-[1px] uppercase px-10 py-4 rounded-lg border-none cursor-pointer shadow-[0_0_40px_rgba(26,74,255,0.4)] transition-all hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 relative overflow-hidden group"
+                  className={primaryButton}
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[200%] transition-transform duration-[2500ms]" />
                   Next: Your Details <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1073,7 +1059,7 @@ function BookPageContent() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="John"
-                    className={`bg-white/5 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
+                    className={`min-w-0 bg-navy/60 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
                       formErrors.firstName
                         ? "border-red-500"
                         : "border-white/[0.12] focus:border-cyan"
@@ -1091,7 +1077,7 @@ function BookPageContent() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Smith"
-                    className={`bg-white/5 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
+                    className={`min-w-0 bg-navy/60 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
                       formErrors.lastName
                         ? "border-red-500"
                         : "border-white/[0.12] focus:border-cyan"
@@ -1109,7 +1095,7 @@ function BookPageContent() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(403) 555-0100"
-                    className={`bg-white/5 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
+                    className={`min-w-0 bg-navy/60 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
                       formErrors.phone
                         ? "border-red-500"
                         : "border-white/[0.12] focus:border-cyan"
@@ -1127,7 +1113,7 @@ function BookPageContent() {
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setPromoApplied(null); setPromoError(""); }}
                     placeholder="john@email.com"
-                    className={`bg-white/5 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
+                    className={`min-w-0 bg-navy/60 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
                       formErrors.email
                         ? "border-red-500"
                         : "border-white/[0.12] focus:border-cyan"
@@ -1146,7 +1132,7 @@ function BookPageContent() {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="123 Main St, Calgary, AB"
-                      className={`bg-white/5 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
+                      className={`min-w-0 bg-navy/60 border rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid ${
                         formErrors.address
                           ? "border-red-500"
                           : "border-white/[0.12] focus:border-cyan"
@@ -1165,7 +1151,7 @@ function BookPageContent() {
                     value={vehicleMake}
                     onChange={(e) => setVehicleMake(e.target.value)}
                     placeholder="e.g. Toyota"
-                    className="bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan"
+                    className="min-w-0 bg-navy/60 border border-white/15 rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan"
                   />
                 </div>
 
@@ -1179,7 +1165,7 @@ function BookPageContent() {
                     value={vehicleModel}
                     onChange={(e) => setVehicleModel(e.target.value)}
                     placeholder="e.g. RAV4 2021"
-                    className="bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan"
+                    className="min-w-0 bg-navy/60 border border-white/15 rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan"
                   />
                 </div>
 
@@ -1193,7 +1179,7 @@ function BookPageContent() {
                     value={vehicleColour}
                     onChange={(e) => setVehicleColour(e.target.value)}
                     placeholder="e.g. Pearl White"
-                    className="bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan"
+                    className="min-w-0 bg-navy/60 border border-white/15 rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan"
                   />
                 </div>
 
@@ -1207,7 +1193,7 @@ function BookPageContent() {
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Pet hair, heavy staining, specific areas of concern, access instructions..."
                     rows={4}
-                    className="bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan resize-y min-h-[100px]"
+                    className="min-w-0 bg-navy/60 border border-white/15 rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan resize-y min-h-[100px]"
                   />
                 </div>
               </div>
@@ -1261,7 +1247,7 @@ function BookPageContent() {
                         if (promoError) setPromoError("");
                       }}
                       placeholder="Enter code"
-                      className="flex-1 bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan uppercase tracking-wider"
+                      className="flex-1 min-w-0 bg-navy/60 border border-white/15 rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan uppercase tracking-wider"
                     />
                     <button
                       type="button"
@@ -1314,7 +1300,7 @@ function BookPageContent() {
                         if (referralError) setReferralError("");
                       }}
                       placeholder="e.g. ABCD1234"
-                      className="flex-1 bg-white/5 border border-white/[0.12] rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan uppercase tracking-wider"
+                      className="flex-1 min-w-0 bg-navy/60 border border-white/15 rounded-lg px-4 py-3 text-white text-[0.95rem] outline-none transition-colors placeholder:text-mid focus:border-cyan uppercase tracking-wider"
                     />
                     <button
                       type="button"
@@ -1372,19 +1358,18 @@ function BookPageContent() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-8 gap-4">
+              <div className="flex items-center justify-between mt-8 gap-2 sm:gap-4">
                 <button
                   onClick={() => goToStep(4)}
-                  className="inline-flex items-center gap-2 bg-transparent border border-white/15 text-mid font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-semibold tracking-[1px] uppercase px-6 py-3.5 rounded-lg cursor-pointer transition-all hover:border-white/30 hover:text-white"
+                  className={backButton}
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-[1px] uppercase px-10 py-4 rounded-lg border-none cursor-pointer shadow-[0_0_40px_rgba(26,74,255,0.4)] transition-all hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 relative overflow-hidden group"
+                  className={primaryButton}
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[200%] transition-transform duration-[2500ms]" />
                   {submitting ? (
                     <>
                       <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1414,11 +1399,11 @@ function BookPageContent() {
               </h1>
               <p className="text-[1rem] text-mid leading-relaxed max-w-[480px] mx-auto mb-10">
                 Your detail is confirmed. Use the link below or in your confirmation email
-                to view your appointment and request changes. No account needed.
+                to view or manage your appointment. No account needed.
               </p>
 
               {/* Summary card */}
-              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl px-6 md:px-8 py-7 max-w-[500px] mx-auto mb-8 text-left">
+              <div className="bg-navy/65 border border-white/10 rounded-2xl px-4 sm:px-7 py-7 max-w-[500px] mx-auto mb-8 text-left">
                 {[
                   { label: "Reference", value: refCode || "—" },
                   { label: "Name", value: `${firstName} ${lastName}` },
@@ -1494,7 +1479,7 @@ function BookPageContent() {
                 </button>
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1rem] font-bold tracking-[1px] uppercase px-7 py-3 rounded-lg no-underline shadow-[0_0_40px_rgba(26,74,255,0.4)] transition-all hover:translate-y-[-2px] hover:shadow-[0_0_60px_rgba(26,74,255,0.6)]"
+                  className={primaryButton}
                 >
                   Back to Home <ArrowRight className="w-4 h-4" />
                 </Link>
@@ -1504,7 +1489,7 @@ function BookPageContent() {
         </main>
 
         {/* ── RIGHT: SUMMARY SIDEBAR ── */}
-        <aside className="bg-white/[0.025] border-t lg:border-t-0 lg:border-l border-white/[0.07] px-5 lg:px-9 py-7 lg:py-14 lg:sticky lg:top-[72px] lg:h-[calc(100vh-72px)] lg:overflow-y-auto flex flex-col">
+        <aside className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-navy/70 p-5 sm:p-7 lg:sticky lg:top-[108px] lg:max-h-[calc(100dvh-132px)] lg:overflow-y-auto">
           <div className="font-[family-name:var(--font-heading)] text-[1.6rem] tracking-[2px] text-white mb-8 pb-5 border-b border-white/[0.08]">
             Your Booking
           </div>
@@ -1515,7 +1500,7 @@ function BookPageContent() {
               Vehicle Size
             </div>
             <div
-              className={`text-[0.92rem] leading-relaxed ${vehicleSize ? "text-white" : "text-white/20 italic"}`}
+              className={`text-[0.92rem] leading-relaxed ${vehicleSize ? "text-white" : "text-mid italic"}`}
             >
               {vehicleSize ? VEHICLE_LABELS[vehicleSize] : "Not selected"}
             </div>
@@ -1537,7 +1522,7 @@ function BookPageContent() {
               Package
             </div>
             <div
-              className={`text-[0.92rem] leading-relaxed ${packageId ? "text-white" : "text-white/20 italic"}`}
+              className={`text-[0.92rem] leading-relaxed ${packageId ? "text-white" : "text-mid italic"}`}
             >
               {packageId ? PACKAGE_LABELS[packageId] : "Not selected"}
             </div>
@@ -1585,7 +1570,7 @@ function BookPageContent() {
               Date & Time
             </div>
             <div
-              className={`text-[0.92rem] leading-relaxed ${summaryDatetime ? "text-white" : "text-white/20 italic"}`}
+              className={`text-[0.92rem] leading-relaxed ${summaryDatetime ? "text-white" : "text-mid italic"}`}
             >
               {summaryDatetime || "Not selected"}
             </div>
