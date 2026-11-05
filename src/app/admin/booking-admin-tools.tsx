@@ -17,6 +17,7 @@ const buttonClass = "rounded-lg bg-blue px-4 py-2.5 text-sm font-semibold text-w
 export default function BookingAdminTools({ booking, onRescheduled }: Props) {
   const [customerLink, setCustomerLink] = useState("");
   const [loadingLink, setLoadingLink] = useState(false);
+  const [linkError, setLinkError] = useState(false);
   const [syncingCalendar, setSyncingCalendar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -106,11 +107,17 @@ export default function BookingAdminTools({ booking, onRescheduled }: Props) {
         <h3 className="text-base font-semibold text-white">Customer booking link</h3>
         <p className="text-xs text-mid">Share privately with the customer to view this appointment and request changes without an account. Anyone with the link can view the booking.</p>
         <button className={buttonClass} disabled={loadingLink} onClick={async () => {
+          setLinkError(false);
           setLoadingLink(true);
           try { setCustomerLink(await getBookingManageLink(booking.id)); }
-          catch { toast.error("Could not create a customer link. Please retry."); }
+          catch { setLinkError(true); }
           finally { setLoadingLink(false); }
         }}>{loadingLink ? "Creating link…" : "Get customer booking link"}</button>
+        {linkError && (
+          <p role="alert" className="text-sm text-red-300">
+            Could not create a customer link. Refresh the dashboard and try again. If it still fails, ask your site administrator to check booking-link access for this deployment.
+          </p>
+        )}
         {customerLink && <div className="space-y-2">
           <input className={fieldClass} aria-label="Private customer booking link" readOnly value={customerLink} onFocus={event => event.target.select()} />
           <button className={buttonClass} onClick={async () => {

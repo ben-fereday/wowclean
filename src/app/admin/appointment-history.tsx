@@ -57,7 +57,7 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
   const invalidRange = range === "custom" && !!from && !!to && from > to;
   const filtered = useMemo(() => {
     return filterAppointmentHistory(bookings, paymentMap, { search, range, from, to, status, payment, showArchived }, now);
-  }, [bookings, paymentMap, search, range, from, to, status, payment, showArchived, now, invalidRange]);
+  }, [bookings, paymentMap, search, range, from, to, status, payment, showArchived, now]);
   const pages = Math.max(1, Math.ceil(filtered.length / 25));
   const currentPage = Math.min(page, pages - 1);
 

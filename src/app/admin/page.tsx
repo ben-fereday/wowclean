@@ -55,7 +55,6 @@ import {
   Trash2,
   XCircle,
   Tag,
-  RotateCcw,
   Gift,
   DollarSign,
   Search,
@@ -71,7 +70,6 @@ import {
   SUBSCRIPTION_PLANS,
   SUBSCRIPTION_PRICING,
   type BookingStatus,
-  type SubscriptionPlan,
   type PackageId,
   type VehicleSize,
   type ServiceType,
@@ -206,7 +204,6 @@ export default function AdminPage({ searchParams }: {
   searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const initialTab = use(searchParams).tab === "pricing" ? "pricing" : "calendar";
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const supabase = useMemo(() => createClient(), []);
 
   const [tab, setTab] = useState(initialTab);
@@ -607,14 +604,9 @@ export default function AdminPage({ searchParams }: {
 
         {/* Upcoming Visits */}
         {(() => {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const todayStr = today.toLocaleDateString("en-CA");
-
-          // Compute cutoff date
-          const cutoff = new Date(today);
-          cutoff.setDate(cutoff.getDate() + (visitFilter === "3days" ? 3 : 7));
-          const cutoffStr = cutoff.toLocaleDateString("en-CA");
+          const todayStr = getCalgaryNow().date;
+          const cutoff = addDays(new Date(todayStr + "T12:00:00"), visitFilter === "3days" ? 3 : 7);
+          const cutoffStr = format(cutoff, "yyyy-MM-dd");
 
           type Visit = {
             id: string;
@@ -622,10 +614,8 @@ export default function AdminPage({ searchParams }: {
             date: string;
             time: string;
             name: string;
-            email?: string;
             packageKey: PackageId;
             serviceTypeKey: ServiceType;
-            vehicleSizeKey: VehicleSize;
             price: number;
             phone?: string;
           };
@@ -638,8 +628,8 @@ export default function AdminPage({ searchParams }: {
               const phone = b.guest_phone || undefined;
               visits.push({
                 id: b.id, type: "booking", date: b.booking_date, time: b.booking_time,
-                name, email: b.guest_email || undefined,
-                packageKey: b.package, serviceTypeKey: b.service_type, vehicleSizeKey: b.vehicle_size,
+                name,
+                packageKey: b.package, serviceTypeKey: b.service_type,
                 price: b.total_estimate, phone,
               });
             }
@@ -650,43 +640,31 @@ export default function AdminPage({ searchParams }: {
               const name = s.profiles ? `${s.profiles.first_name} ${s.profiles.last_name}` : "Unknown";
               visits.push({
                 id: s.id, type: "subscription", date: s.next_service_date, time: s.recurring_time,
-                name, packageKey: s.package, serviceTypeKey: s.service_type, vehicleSizeKey: s.vehicle_size,
+                name, packageKey: s.package, serviceTypeKey: s.service_type,
                 price: dbGetSubPrice(s.plan, s.vehicle_size, s.package), phone: s.profiles?.phone || undefined,
               });
             }
           }
 
-          visits.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : a.time.localeCompare(b.time));
+          visits.sort((a, b) => a.date.localeCompare(b.date) ||
+            (parseBookingTime(a.time) ?? Infinity) - (parseBookingTime(b.time) ?? Infinity));
 
           return (
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2 font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    <Clock className="h-5 w-5 text-yellow" />
+                    <Clock className="size-5 text-cyan" />
                     Upcoming Visits
                   </CardTitle>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setVisitFilter("3days")}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                        visitFilter === "3days"
-                          ? "bg-yellow text-[#0b1740]"
-                          : "bg-[hsl(var(--background))] border border-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-white"
-                      }`}
-                    >
-                      3 Days
-                    </button>
-                    <button
-                      onClick={() => setVisitFilter("week")}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                        visitFilter === "week"
-                          ? "bg-yellow text-[#0b1740]"
-                          : "bg-[hsl(var(--background))] border border-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-white"
-                      }`}
-                    >
-                      Week
-                    </button>
+                  <div role="group" aria-label="Upcoming visit range" className="flex gap-2">
+                    {(["3days", "week"] as const).map(range => (
+                      <button key={range} type="button" aria-pressed={visitFilter === range}
+                        onClick={() => setVisitFilter(range)}
+                        className="rounded-lg border border-white/15 bg-dark px-3 py-2 text-sm text-mid hover:text-white focus-visible:outline-2 focus-visible:outline-cyan aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-navy">
+                        {range === "3days" ? "3 Days" : "Week"}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </CardHeader>
@@ -701,12 +679,12 @@ export default function AdminPage({ searchParams }: {
                         <div
                           key={`${visit.type}-${visit.id}`}
                           className={`rounded-lg border p-3 flex flex-wrap items-center justify-between gap-2 ${
-                            isNext ? "border-yellow/40 bg-yellow/5" : "border-[hsl(var(--muted))] bg-[hsl(var(--background))]"
+                            isNext ? "border-cyan/30 bg-cyan/5" : "border-white/10 bg-dark/60"
                           }`}
                         >
                           <div className="flex flex-wrap items-center gap-2">
                             {isNext && (
-                              <Badge variant="outline" className="bg-yellow/15 text-yellow border-yellow/30 text-xs">Next</Badge>
+                              <Badge variant="outline" className="bg-cyan/10 text-cyan border-cyan/30 text-xs">Next</Badge>
                             )}
                             <Badge variant="outline" className={
                               visit.type === "subscription"
@@ -715,12 +693,12 @@ export default function AdminPage({ searchParams }: {
                             }>
                               {visit.type === "subscription" ? "Sub" : "Booking"}
                             </Badge>
-                            <span className={`text-sm font-medium ${isNext ? "text-yellow" : "text-white"}`}>
+                            <span className={`text-sm font-medium ${isNext ? "text-cyan" : "text-white"}`}>
                               {new Date(visit.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                             </span>
-                            <span className={`text-sm ${isNext ? "text-yellow" : "text-[hsl(var(--muted-foreground))]"}`}>{visit.time}</span>
+                            <span className={`text-sm ${isNext ? "text-cyan" : "text-[hsl(var(--muted-foreground))]"}`}>{visit.time}</span>
                             <span className="text-sm text-white font-medium">{visit.name}</span>
-                            <span className="text-xs text-[hsl(var(--muted-foreground))]">{PACKAGE_LABELS[visit.packageKey]}</span>
+                            <span className="text-xs text-[hsl(var(--muted-foreground))]">{PACKAGE_LABELS[visit.packageKey]} · {SERVICE_TYPE_LABELS[visit.serviceTypeKey]}</span>
                             {visit.phone && <span className="text-xs text-[hsl(var(--muted-foreground))]">{visit.phone}</span>}
                           </div>
                           <div className="flex items-center gap-3">
@@ -730,7 +708,9 @@ export default function AdminPage({ searchParams }: {
                                 onClick={() => setCancelBooking({
                                   id: visit.id, name: visit.name, date: visit.date, time: visit.time,
                                 })}
-                                className="text-red-400 hover:text-red-300 transition-colors"
+                                className="grid size-9 place-items-center rounded-lg border border-red-400/25 text-red-300 hover:bg-red-400/10 focus-visible:outline-2 focus-visible:outline-cyan"
+                                type="button"
+                                aria-label={`Cancel booking for ${visit.name}`}
                                 title="Cancel booking"
                               >
                                 <XCircle className="h-4 w-4" />
@@ -866,6 +846,7 @@ export default function AdminPage({ searchParams }: {
                     stickyHeaderDates={true}
                     allDayText="All day"
                     eventDisplay="block"
+                    displayEventTime={false}
                     dayMaxEvents={3}
                     nowIndicator={true}
                   />
