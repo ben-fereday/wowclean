@@ -75,59 +75,96 @@ export default function AppointmentHistory({ onOpen, refreshKey }: { onOpen: (bo
     <section className="rounded-2xl border border-white/10 bg-[#070d22] p-4 sm:p-6 space-y-5" aria-label="Appointment history">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h2 className="font-[family-name:var(--font-heading)] text-2xl uppercase text-white">Appointment History</h2>
-          <p className="text-sm text-mid mt-1">Past appointments, newest first. All dates and times are Calgary time.</p>
+          <p className="text-sm text-mid mt-1">Past appointments, newest first. Dates and times are shown in Calgary time.</p>
           <p className="text-xs text-mid mt-1">Past confirmed appointments stay awaiting completion until you update their status.</p></div>
         <button className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white disabled:opacity-40" disabled={loading || !!archivingId} onClick={() => setRetry(v => v + 1)}>Refresh</button>
       </div>
-      <label className="flex items-center gap-2 text-sm text-mid">
-        <input type="checkbox" checked={showArchived} onChange={e => { setShowArchived(e.target.checked); setPage(0); }} className="size-4 accent-cyan" />
-        Show archived
-        <span className="text-xs">({bookings.filter(b => b.archived_at).length})</span>
-      </label>
-      <p className="text-xs text-mid">Archiving only hides appointments from this history. Archive and restore never send emails or change booking and payment statuses.</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-sm text-mid space-y-1">Search
-          <input className={field} type="search" placeholder="Customer, reference, email or phone" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} /></label>
-        <label className="text-sm text-mid space-y-1">Date range
-          <select className={field} value={range} onChange={e => { setRange(e.target.value); setPage(0); }}>
-            <option value="all">All past appointments</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="custom">Custom range</option>
-          </select></label>
-        <label className="text-sm text-mid space-y-1">Appointment status
-          <select className={field} value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}>
-            <option value="all">All statuses</option>{Object.entries(labels).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-          </select></label>
-        <label className="text-sm text-mid space-y-1">Payment status
-          <select className={field} value={payment} onChange={e => { setPayment(e.target.value); setPage(0); }}>
-            <option value="all">All payments</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option>
-          </select></label>
+      <div className="space-y-4 rounded-xl border border-white/10 bg-navy/25 p-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="text-sm text-mid space-y-1">Search
+            <input className={field} type="search" placeholder="Customer, reference, email or phone" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} /></label>
+          <label className="text-sm text-mid space-y-1">Date range
+            <select className={field} value={range} onChange={e => { setRange(e.target.value); setPage(0); }}>
+              <option value="all">All past appointments</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="custom">Custom range</option>
+            </select></label>
+          <label className="text-sm text-mid space-y-1">Appointment status
+            <select className={field} value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}>
+              <option value="all">All statuses</option>{Object.entries(labels).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select></label>
+          <label className="text-sm text-mid space-y-1">Payment status
+            <select className={field} value={payment} onChange={e => { setPayment(e.target.value); setPage(0); }}>
+              <option value="all">All payments</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option>
+            </select></label>
+        </div>
+        {range === "custom" && <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm text-mid space-y-1">From<input className={field} type="date" value={from} max={to || now.date} onChange={e => { setFrom(e.target.value); setPage(0); }} /></label>
+          <label className="text-sm text-mid space-y-1">To<input className={field} type="date" value={to} min={from} max={now.date} onChange={e => { setTo(e.target.value); setPage(0); }} /></label>
+        </div>}
+        <label className="flex items-center gap-2 text-sm text-mid">
+          <input type="checkbox" checked={showArchived} onChange={e => { setShowArchived(e.target.checked); setPage(0); }} className="size-4 accent-cyan" />
+          Show archived
+          <span className="text-xs">({bookings.filter(b => b.archived_at).length})</span>
+        </label>
+        <p className="text-xs text-mid">Use Archive to hide an appointment from this list. Use Show archived to find and restore it.</p>
       </div>
-      {range === "custom" && <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-sm text-mid space-y-1">From<input className={field} type="date" value={from} max={to || now.date} onChange={e => { setFrom(e.target.value); setPage(0); }} /></label>
-        <label className="text-sm text-mid space-y-1">To<input className={field} type="date" value={to} min={from} max={now.date} onChange={e => { setTo(e.target.value); setPage(0); }} /></label>
-      </div>}
       {invalidRange && <p className="text-sm text-red-400" role="alert">The end date must be on or after the start date.</p>}
       {loading ? <p className="text-sm text-mid" role="status">Loading appointment history…</p> : error ? <p className="text-sm text-red-400" role="alert">{error} <button className="underline" onClick={() => setRetry(v => v + 1)}>Retry</button></p> : <>
         <p className="text-xs text-mid" role="status">{filtered.length} appointment{filtered.length === 1 ? "" : "s"} found</p>
         {!filtered.length ? <p className="py-8 text-center text-mid">No past appointments match these filters.</p> :
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[750px] text-sm text-left">
-              <thead className="text-mid"><tr>{["Date & time", "Customer", "Service", "Status", "Payment", "Amount (CAD)", ""].map(h => <th key={h} className="px-3 py-3 font-medium" scope="col">{h || <span className="sr-only">Details</span>}</th>)}</tr></thead>
-              <tbody>{filtered.slice(currentPage * 25, currentPage * 25 + 25).map(b => {
-                const p = paymentMap.get(b.id);
-                return <tr key={b.id} className="border-t border-white/10 text-white hover:bg-white/5">
-                  <td className="px-3 py-4 whitespace-nowrap">{dateLabel(b.booking_date)}<div className="text-xs text-mid mt-1">{b.booking_time}</div></td>
-                  <td className="px-3 py-4">{nameOf(b)}<div className="text-xs text-mid mt-1">{b.reference_code}</div>{b.archived_at && <span className="mt-1 inline-block rounded border border-white/20 px-2 py-0.5 text-xs text-mid">Archived</span>}</td>
-                  <td className="px-3 py-4">{PACKAGE_LABELS[b.package]}<div className="text-xs text-mid mt-1">{SERVICE_TYPE_LABELS[b.service_type]}</div></td>
-                  <td className={`px-3 py-4 ${b.status === "completed" ? "text-green-400" : b.status === "confirmed" ? "text-yellow" : "text-mid"}`}>{labels[b.status] ?? b.status}</td>
-                  <td className={`px-3 py-4 ${p?.payment_status === "paid" ? "text-green-400" : "text-yellow"}`}>{p?.payment_status === "paid" ? "Paid" : "Unpaid"}</td>
-                  <td className="px-3 py-4 whitespace-nowrap">{money.format(p?.final_amount ?? b.total_estimate)}<div className="text-xs text-mid mt-1">{p?.final_amount == null ? "Estimate" : "Final amount"}</div></td>
-                  <td className="px-3 py-4"><button className="rounded-lg border border-cyan/40 px-3 py-2 text-cyan whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan" aria-label={`View appointment for ${nameOf(b)} on ${dateLabel(b.booking_date)}`} onClick={() => onOpen(b, nameOf(b))}>View details</button>
-                    <button disabled={!!archivingId} className="mt-2 block text-xs text-mid underline hover:text-white disabled:opacity-40" onClick={() => changeArchive(b)} aria-label={`${b.archived_at ? "Restore" : "Archive"} appointment ${b.reference_code}`}>{archivingId === b.id ? "Saving…" : b.archived_at ? "Restore" : "Archive"}</button>
-                  </td>
-                </tr>;
-              })}</tbody>
-            </table>
-          </div>}
+          <ul className="space-y-3">
+            {filtered.slice(currentPage * 25, currentPage * 25 + 25).map(booking => {
+              const paymentDetails = paymentMap.get(booking.id);
+              const paid = paymentDetails?.payment_status === "paid";
+              const name = nameOf(booking);
+              const date = dateLabel(booking.booking_date);
+              const archiveAction = booking.archived_at ? "Restore" : "Archive";
+              return (
+                <li key={booking.id} className="rounded-xl border border-white/10 bg-navy/25 p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-white md:grid-cols-5">
+                    <div>
+                      <p className="text-xs text-mid">Date &amp; time</p>
+                      <p className="mt-1 font-medium">{date}</p>
+                      <p className="text-xs text-mid">{booking.booking_time}</p>
+                    </div>
+                    <div className="min-w-0 break-words">
+                      <p className="text-xs text-mid">Customer</p>
+                      <p className="mt-1 font-medium">{name}</p>
+                      <p className="text-xs text-mid">{booking.reference_code}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-mid">Service</p>
+                      <p className="mt-1">{PACKAGE_LABELS[booking.package]}</p>
+                      <p className="text-xs text-mid">{SERVICE_TYPE_LABELS[booking.service_type]}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-mid">Appointment status</p>
+                      <p className={`mt-1 ${booking.status === "completed" ? "text-green-400" : booking.status === "confirmed" ? "text-yellow" : "text-mid"}`}>
+                        {labels[booking.status] ?? booking.status}
+                      </p>
+                      {booking.archived_at && <p className="text-xs text-mid">Archived</p>}
+                    </div>
+                    <div>
+                      <p className="text-xs text-mid">Payment</p>
+                      <p className={`mt-1 ${paid ? "text-green-400" : "text-yellow"}`}>{paid ? "Paid" : "Unpaid"}</p>
+                      <p className="text-xs text-mid">
+                        {paymentDetails?.final_amount == null ? "Estimate" : "Final amount"} · {money.format(paymentDetails?.final_amount ?? booking.total_estimate)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                    <button type="button" className="rounded-lg border border-cyan/40 px-3 py-2 text-sm text-cyan focus-visible:outline-2 focus-visible:outline-cyan"
+                      aria-label={`View appointment for ${name} on ${date}`} onClick={() => onOpen(booking, name)}>
+                      View details
+                    </button>
+                    <button type="button" disabled={!!archivingId} className="rounded-lg border border-white/15 px-3 py-2 text-sm text-mid hover:text-white focus-visible:outline-2 focus-visible:outline-cyan disabled:opacity-40"
+                      onClick={() => changeArchive(booking)} aria-label={`${archiveAction} appointment ${booking.reference_code}`}>
+                      {archivingId === booking.id ? "Saving…" : archiveAction}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>}
         {pages > 1 && <div className="flex items-center justify-between gap-3 text-sm text-mid">
           <button className="rounded-lg border border-white/20 px-3 py-2 disabled:opacity-40" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button>
           <span>Page {currentPage + 1} of {pages}</span>
