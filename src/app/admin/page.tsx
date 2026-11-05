@@ -206,6 +206,7 @@ export default function AdminPage({ searchParams }: {
   const [blockStart, setBlockStart] = useState("9:00 AM");
   const [blockEnd, setBlockEnd] = useState("5:00 PM");
   const [blockSaving, setBlockSaving] = useState(false);
+  const [blockError, setBlockError] = useState<{ field: "range" | "form"; message: string } | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [blockWholeDay, setBlockWholeDay] = useState(false);
 
@@ -717,14 +718,15 @@ export default function AdminPage({ searchParams }: {
 
           {/* ============ CALENDAR TAB ============ */}
           <TabsContent value="calendar" className="space-y-6">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardContent className="pt-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm text-mid">Sync bookings in this calendar view to WOW Clean Bookings.</p>
+                    <h2 className="font-[family-name:var(--font-heading)] text-3xl text-white">Calendar</h2>
+                    <p className="mt-1 text-sm text-mid">Sync bookings in this view to WOW Clean Bookings.</p>
                     <p className="text-xs text-mid mt-1" role="status" aria-live="polite">{calendarSyncMessage}</p>
                   </div>
-                  <Button disabled={calendarSyncing || !calendarRange} onClick={async () => {
+                  <Button variant="outline" className="rounded-lg border-cyan/30 bg-dark text-cyan hover:bg-cyan/10 hover:text-cyan" disabled={calendarSyncing || !calendarRange} onClick={async () => {
                     if (!calendarRange || calendarSyncing) return;
                     const range = { ...calendarRange };
                     setCalendarSyncing(true);
@@ -754,7 +756,26 @@ export default function AdminPage({ searchParams }: {
                     {calendarSyncing ? "Syncing…" : "Sync to Google Calendar"}
                   </Button>
                 </div>
-                <div className="fc-dark-theme">
+                {/* Legend */}
+                <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-mid">
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#5bf3ff" }} />
+                    Subscription
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#1a4aff" }} />
+                    Booking
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#ef4444" }} />
+                    Blocked
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#22c55e" }} />
+                    Completed
+                  </span>
+                </div>
+                <div className="fc-dark-theme calgary-admin-calendar">
                   <FullCalendar
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth"
@@ -780,30 +801,11 @@ export default function AdminPage({ searchParams }: {
                     nowIndicator={true}
                   />
                 </div>
-                {/* Legend */}
-                <div className="flex items-center gap-4 mt-4 text-xs text-[hsl(var(--muted-foreground))]">
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#5bf3ff" }} />
-                    Subscription
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#1a4aff" }} />
-                    Booking
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#ef4444" }} />
-                    Blocked
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#22c55e" }} />
-                    Completed
-                  </span>
-                </div>
               </CardContent>
             </Card>
 
             {/* Block Time */}
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-[family-name:var(--font-heading)] text-xl uppercase tracking-wide text-white">
                   <Ban className="h-5 w-5 text-red-400" />
@@ -811,92 +813,123 @@ export default function AdminPage({ searchParams }: {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-[hsl(var(--muted-foreground))]">Date</Label>
-                    <Input
-                      type="date"
-                      min={getCalgaryNow().date}
-                      value={blockDate}
-                      onChange={(e) => setBlockDate(e.target.value)}
-                      className="h-9 w-40 border-[hsl(var(--muted))] bg-[hsl(var(--background))] text-white"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 text-sm text-white h-9">
-                    <input type="checkbox" checked={blockWholeDay} onChange={(event) => setBlockWholeDay(event.target.checked)} />
-                    All day
-                  </label>
-                  {!blockWholeDay && (
-                    <>
-                      <label className="space-y-1 text-xs text-mid">Start time
-                        <input type="text" autoComplete="off" spellCheck={false} placeholder="9:00 AM" value={blockStart} onChange={(event) => setBlockStart(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
-                      </label>
-                      <label className="space-y-1 text-xs text-mid">End time
-                        <input type="text" autoComplete="off" spellCheck={false} placeholder="5:00 PM" value={blockEnd} onChange={(event) => setBlockEnd(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
-                      </label>
-                    </>
-                  )}
-                  <div className="space-y-1 flex-1 min-w-[120px]">
-                    <Label className="text-xs text-[hsl(var(--muted-foreground))]">Reason (optional)</Label>
-                    <Input
-                      type="text"
-                      maxLength={250}
-                      value={blockReason}
-                      onChange={(e) => setBlockReason(e.target.value)}
-                      placeholder="e.g. Personal day"
-                      className="h-9 border-[hsl(var(--muted))] bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
-                    />
-                  </div>
-                  <Button
-                    onClick={async () => {
-                      if (!blockDate) return;
-                      const startTime = normalizeBlockTime(blockStart);
-                      const endTime = normalizeBlockTime(blockEnd);
-                      if (!blockWholeDay && (!startTime || !endTime || endTime <= startTime)) {
-                        toast.error("Enter times like 9:00 AM and 5:00 PM. End time must be after start time.");
+                <form
+                  aria-label="Block time"
+                  aria-describedby="block-time-help"
+                  onChange={() => setBlockError(null)}
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (blockSaving || !blockDate) return;
+                    const startTime = normalizeBlockTime(blockStart);
+                    const endTime = normalizeBlockTime(blockEnd);
+                    if (!blockWholeDay && (!startTime || !endTime || endTime <= startTime)) {
+                      setBlockError({ field: "range", message: "Enter times like 9:00 AM and 5:00 PM. End time must be after start time." });
+                      return;
+                    }
+                    setBlockError(null);
+                    setBlockSaving(true);
+                    try {
+                      const result = await blockTimeSlot({
+                        date: blockDate,
+                        startTime: blockWholeDay ? undefined : startTime!,
+                        endTime: blockWholeDay ? undefined : endTime!,
+                        reason: blockReason || undefined,
+                      });
+                      if (result.error) {
+                        setBlockError({ field: "form", message: result.error });
                         return;
                       }
-                      setBlockSaving(true);
-                      try {
-                        const result = await blockTimeSlot({
-                          date: blockDate,
-                          startTime: blockWholeDay ? undefined : startTime!,
-                          endTime: blockWholeDay ? undefined : endTime!,
-                          reason: blockReason || undefined,
-                        });
-                        if (result.error) { toast.error(result.error); return; }
-                        toast.success("Time blocked.");
-                        setBlockDate(""); setBlockReason(""); setBlockWholeDay(false);
-                        await fetchBlocked();
-                      } catch { toast.error("Could not block this time. Please try again."); }
-                      finally { setBlockSaving(false); }
-                    }}
-                    disabled={blockSaving || !blockDate || (!blockWholeDay && (!blockStart.trim() || !blockEnd.trim()))}
-                    className="h-9 bg-red-600 text-white hover:bg-red-700 font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-xs"
-                  >
-                    <Ban className="mr-1.5 h-3.5 w-3.5" />
-                    {blockSaving ? "Blocking…" : "Block"}
-                  </Button>
-                </div>
-
-                <p className="mt-3 text-xs text-mid">Calgary time. Appointments that overlap a block will be unavailable. Existing appointments must be moved or cancelled before blocking over them.</p>
+                      toast.success("Time blocked.");
+                      setBlockDate("");
+                      setBlockReason("");
+                      setBlockWholeDay(false);
+                      await fetchBlocked();
+                    } catch {
+                      setBlockError({ field: "form", message: "Could not block this time. Please try again." });
+                    } finally {
+                      setBlockSaving(false);
+                    }
+                  }}
+                >
+                  <p id="block-time-help" className="mb-4 text-sm text-mid">
+                    All times are in Calgary time. Move or cancel overlapping appointments before blocking.
+                  </p>
+                  <fieldset disabled={blockSaving} className="space-y-4">
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="block-date" className="text-mid">Date</Label>
+                        <Input
+                          id="block-date"
+                          type="date"
+                          required
+                          min={getCalgaryNow().date}
+                          value={blockDate}
+                          onChange={(event) => setBlockDate(event.target.value)}
+                          className="w-44 rounded-lg border-white/20 bg-navy text-white [color-scheme:dark]"
+                        />
+                      </div>
+                      <label className="flex min-h-9 items-center gap-2 text-sm text-white">
+                        <input type="checkbox" className="size-4 accent-cyan" checked={blockWholeDay} onChange={(event) => setBlockWholeDay(event.target.checked)} />
+                        All day
+                      </label>
+                    </div>
+                    {!blockWholeDay && (
+                      <div>
+                        <div className="grid max-w-sm grid-cols-2 gap-3">
+                          <label className="space-y-1 text-sm text-mid">
+                            Start time
+                            <Input required autoComplete="off" spellCheck={false} placeholder="9:00 AM" value={blockStart}
+                              onChange={(event) => setBlockStart(event.target.value)}
+                              aria-invalid={blockError?.field === "range"}
+                              aria-describedby={blockError?.field === "range" ? "block-range-error" : undefined}
+                              className="rounded-lg border-white/20 bg-navy text-white" />
+                          </label>
+                          <label className="space-y-1 text-sm text-mid">
+                            End time
+                            <Input required autoComplete="off" spellCheck={false} placeholder="5:00 PM" value={blockEnd}
+                              onChange={(event) => setBlockEnd(event.target.value)}
+                              aria-invalid={blockError?.field === "range"}
+                              aria-describedby={blockError?.field === "range" ? "block-range-error" : undefined}
+                              className="rounded-lg border-white/20 bg-navy text-white" />
+                          </label>
+                        </div>
+                        {blockError?.field === "range" && <p id="block-range-error" role="alert" className="mt-2 text-sm text-red-300">{blockError.message}</p>}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="min-w-40 flex-1 space-y-1">
+                        <Label htmlFor="block-reason" className="text-mid">Reason (optional)</Label>
+                        <Input id="block-reason" maxLength={250} value={blockReason}
+                          onChange={(event) => setBlockReason(event.target.value)}
+                          placeholder="e.g. Personal day" className="rounded-lg border-white/20 bg-navy text-white" />
+                      </div>
+                      <Button type="submit" disabled={!blockDate} className="rounded-lg bg-red-600 text-white hover:bg-red-700">
+                        <Ban className="size-4" />
+                        {blockSaving ? "Blocking…" : "Block time"}
+                      </Button>
+                    </div>
+                  </fieldset>
+                  {blockError?.field === "form" && <p role="alert" className="mt-3 text-sm text-red-300">{blockError.message}</p>}
+                </form>
 
                 {/* Current blocked slots */}
                 {blockedSlots.length > 0 && (
-                  <div className="mt-4 space-y-1.5">
-                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Currently Blocked</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Existing blocks</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
                       {blockedSlots.map((slot) => (
-                        <div key={slot.id} className="flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-400">
+                        <div key={slot.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-sm text-white">
                           <span>
                             {new Date(slot.blocked_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             {slot.start_time ? ` ${formatRangeTime(slot.start_time)}–${formatRangeTime(slot.end_time!)}` : slot.blocked_time ? ` ${slot.blocked_time}` : " (all day)"}
                           </span>
-                          {slot.reason && <span className="text-red-400/60">— {slot.reason}</span>}
+                          {slot.reason && <span className="min-w-0 break-words text-mid">— {slot.reason}</span>}
                           <button
-                            aria-label="Remove blocked time"
+                            type="button"
+                            aria-label={`Remove blocked time on ${slot.blocked_date}`}
+                            title="Remove blocked time"
                             onClick={async () => { try { const result = await unblockSlot(slot.id); if (result.error) toast.error(result.error); else { await fetchBlocked(); toast.success("Time unblocked."); } } catch { toast.error("Could not remove this block."); } }}
-                            className="ml-1 text-red-400 hover:text-white"
+                            className="ml-auto grid size-9 place-items-center rounded-lg border border-red-400/25 text-red-300 hover:bg-red-400/10 focus-visible:outline-2 focus-visible:outline-cyan"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
