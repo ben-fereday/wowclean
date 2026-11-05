@@ -11,16 +11,15 @@ export const PRICING = {
     medium: { interior: 190, exterior: 130, full: 295 },
     large: { interior: 220, exterior: 155, full: 335 },
   },
-  exclusive: {
-    small: { interior: 300, exterior: 325, full: 525 },
-    medium: { interior: 350, exterior: 375, full: 595 },
-    large: { interior: 400, exterior: 425, full: 675 },
-  },
 } as const;
 
 export type VehicleSize = "small" | "medium" | "large";
 export type ServiceType = "interior" | "exterior" | "full";
-export type PackageId = "standard" | "premium" | "exclusive";
+export type PackageId = "standard" | "premium";
+export function isPackageId(value: unknown): value is PackageId {
+  return value === "standard" || value === "premium";
+}
+
 export type SubscriptionPlan = "weekly" | "biweekly" | "monthly";
 export type BillingCycle = "monthly" | "three_month";
 export type BookingStatus = "confirmed" | "completed" | "cancelled" | "no_show";
@@ -91,14 +90,6 @@ export const ADDONS = [
   { id: "sealant", name: "Protective Sealant", price: 40 },
 ] as const;
 
-export const EXCLUSIVE_INCLUDED = [
-  "carpet_shamp",
-  "leather",
-  "engine",
-  "clay",
-  "iron",
-];
-
 export const VEHICLE_LABELS: Record<VehicleSize, string> = {
   small: "Small Vehicle",
   medium: "Medium Vehicle",
@@ -120,7 +111,6 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
 export const PACKAGE_LABELS: Record<PackageId, string> = {
   standard: "The Standard",
   premium: "Premium Detail",
-  exclusive: "Exclusive Detail",
 };
 
 export const TIME_SLOTS = ALL_TIME_SLOTS;

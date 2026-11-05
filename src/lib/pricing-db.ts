@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   PRICING,
+  isPackageId,
   ADDONS,
   SUBSCRIPTION_PRICING,
   type PackageId,
@@ -44,7 +45,8 @@ export async function fetchBookingPrices(): Promise<BookingPricingGrid> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("booking_prices")
-      .select("package, vehicle_size, service_type, price");
+      .select("package, vehicle_size, service_type, price")
+      .in("package", ["standard", "premium"]);
 
     if (error || !data || data.length === 0) return PRICING as unknown as BookingPricingGrid;
 
@@ -95,7 +97,8 @@ export async function fetchSubscriptionPrices(): Promise<SubPricingGrid> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("subscription_prices")
-      .select("plan, package, vehicle_size, price");
+      .select("plan, package, vehicle_size, price")
+      .in("package", ["standard", "premium"]);
 
     if (error || !data || data.length === 0)
       return SUBSCRIPTION_PRICING as unknown as SubPricingGrid;
@@ -146,6 +149,7 @@ export async function updateBookingPrice(
   serviceType: ServiceType,
   price: number
 ) {
+  if (!isPackageId(pkg)) return { error: "Invalid package." };
   if (price < 0 || !Number.isFinite(price)) return { error: "Invalid price." };
   const supabase = await verifyAdmin();
   const { error } = await supabase
@@ -220,6 +224,7 @@ export async function updateSubscriptionPrice(
   vehicleSize: VehicleSize,
   price: number
 ) {
+  if (!isPackageId(pkg)) return { error: "Invalid package." };
   if (price < 0 || !Number.isFinite(price)) return { error: "Invalid price." };
   const supabase = await verifyAdmin();
   const { error } = await supabase

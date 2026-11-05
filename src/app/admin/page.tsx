@@ -165,8 +165,8 @@ function SubscriptionCard({ subscription, price, customerName }: {
     <li className="space-y-4 rounded-xl border border-white/10 bg-dark/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="font-semibold text-white">{customerName ?? PACKAGE_LABELS[subscription.package]}</p>
-          <p className="mt-1 text-sm text-mid">{plan}{customerName && ` · ${PACKAGE_LABELS[subscription.package]}`}</p>
+          <p className="font-semibold text-white">{customerName ?? PACKAGE_LABELS[subscription.package] ?? subscription.package}</p>
+          <p className="mt-1 text-sm text-mid">{plan}{customerName && ` · ${PACKAGE_LABELS[subscription.package] ?? subscription.package}`}</p>
         </div>
         <Badge variant="outline" className={subscription.status === "active" ? "border-green-400/30 text-green-400" : "border-white/20 text-mid"}>
           <span className="capitalize">{subscription.status}</span>
@@ -712,7 +712,7 @@ export default function AdminPage({ searchParams }: {
                             </span>
                             <span className={`text-sm ${isNext ? "text-cyan" : "text-[hsl(var(--muted-foreground))]"}`}>{visit.time}</span>
                             <span className="text-sm text-white font-medium">{visit.name}</span>
-                            <span className="text-xs text-[hsl(var(--muted-foreground))]">{PACKAGE_LABELS[visit.packageKey]} · {SERVICE_TYPE_LABELS[visit.serviceTypeKey]}</span>
+                            <span className="text-xs text-[hsl(var(--muted-foreground))]">{PACKAGE_LABELS[visit.packageKey] ?? visit.packageKey} · {SERVICE_TYPE_LABELS[visit.serviceTypeKey]}</span>
                             {visit.phone && <span className="text-xs text-[hsl(var(--muted-foreground))]">{visit.phone}</span>}
                           </div>
                           <div className="flex items-center gap-3">
@@ -1068,7 +1068,7 @@ export default function AdminPage({ searchParams }: {
                       {detailBooking?.booking_date || selectedEntry.occurrenceDate} · {selectedEntry.time} Calgary time
                     </DialogDescription>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="text-sm text-white">{PACKAGE_LABELS[appointment.package]} · {SERVICE_TYPE_LABELS[appointment.service_type]}</span>
+                      <span className="text-sm text-white">{PACKAGE_LABELS[appointment.package] ?? appointment.package} · {SERVICE_TYPE_LABELS[appointment.service_type]}</span>
                       <Badge variant="outline" className={detailBooking ? statusColors[detailBooking.status] : "border-cyan/30 text-cyan capitalize"}>
                         {detailBooking ? statusLabels[detailBooking.status] : detailSubscription?.status}
                       </Badge>
@@ -1331,7 +1331,7 @@ export default function AdminPage({ searchParams }: {
                                     </Badge>
                                   </div>
                                   <div className="flex flex-wrap gap-3 text-xs text-[hsl(var(--muted-foreground))]">
-                                    <span>{PACKAGE_LABELS[b.package]}</span>
+                                    <span>{PACKAGE_LABELS[b.package] ?? b.package}</span>
                                     <span>{SERVICE_TYPE_LABELS[b.service_type]}</span>
                                     <span>{VEHICLE_LABELS[b.vehicle_size]}</span>
                                     <span className="text-[hsl(var(--accent))] font-semibold">${b.total_estimate}</span>

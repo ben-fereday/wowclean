@@ -20,10 +20,11 @@ const validation=compile("src/lib/promo-codes.ts",{
  "@/lib/promo-policy":policy,
  "@/lib/rate-limit":{checkRateLimit:()=>({allowed:true})},
 });
-const payload={requirementsConfirmed:true,vehicleSize:"small",serviceType:"interior",packageId:"standard",packageName:"The Standard",addons:[],date:"2099-01-01",time:"8:00 AM",location:"mobile",firstName:"Test",lastName:"Guest",phone:"5870000000",email:"  Test@Example.invalid ",address:"Test",vehicleMake:"VW",vehicleModel:"GTI",vehicleColour:"Black",notes:"",basePrice:100,addonsTotal:0,estimatedTotal:85,promoCode:"FIRST"};
+const constants=compile("src/lib/constants.ts",{"@/lib/booking-schedule":{ALL_TIME_SLOTS:[]}});
+const payload={requirementsConfirmed:true,vehicleSize:"small",serviceType:"interior",packageId:"standard",addons:[],date:"2099-01-01",time:"8:00 AM",location:"mobile",firstName:"Test",lastName:"Guest",phone:"5870000000",email:"  Test@Example.invalid ",address:"Test",vehicleMake:"VW",vehicleModel:"GTI",vehicleColour:"Black",notes:"",basePrice:100,addonsTotal:0,estimatedTotal:85,promoCode:"FIRST"};
 const book=compile("src/app/book/actions.ts",{
  "@/lib/supabase/server":{createClient:async()=>({auth:{getUser:async()=>({data:{user:null}})},from:table=>({insert:async value=>{assert.equal(table,"bookings");inserted=value;return {error:insertError};}})})},
- "@/lib/constants":{generateRefCode:()=>"WOW-QA",applyDiscount:(v,p)=>Math.round(v*(1-(p||0)/100))},
+ "@/lib/constants":{...constants,generateRefCode:()=>"WOW-QA",applyDiscount:(v,p)=>Math.round(v*(1-(p||0)/100))},
  "@/lib/availability":{checkTimeSlotAvailable:async()=>({available:true})},
  "@/lib/promo-codes":validation,"@/lib/promo-policy":policy,"@/lib/referrals":{},
  "@/lib/rate-limit":{checkRateLimit:()=>({allowed:true})},
@@ -38,6 +39,14 @@ const originalFetch=global.fetch;
  assert.equal((await validation.validatePromoCode(" first ","booking",null,"Test@Example.invalid")).valid,true);
  assert.deepEqual(previewArgs,["FIRST","Test@Example.invalid"]);
  assert.equal((await validation.validatePromoCode("<invalid>","booking",null,"a@example.invalid")).valid,false);
+ assert.match((await book.createBooking({...payload,packageId:"exclusive"})).error,/unavailable/);
+ assert.equal(inserted,undefined);
+ const subscriptions=compile("src/app/subscriptions/actions.ts",{
+  "@/lib/service-availability":{SUBSCRIPTIONS_ENABLED:true},
+  "@/lib/supabase/server":{createClient:()=>{throw Error("Invalid package must be rejected before database access");}},
+  "@/lib/availability":{},"@/lib/promo-codes":{},"@/lib/rate-limit":{},
+ });
+ assert.match((await subscriptions.createSubscription({plan:"monthly",package_id:"exclusive",location:"mobile"})).error,/available/);
  insertError={code:"P0001",message:"PROMO: This email address has already used this code."};
  assert.equal((await book.createBooking(payload)).error,"This email address has already used this code.");
  assert.equal(calendarCalls,0);assert.equal(emailCalls,0,"failed save must not send confirmation");

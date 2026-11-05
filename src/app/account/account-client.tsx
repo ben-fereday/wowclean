@@ -41,7 +41,7 @@ import {
   DAYS_OF_WEEK,
   TIME_SLOTS,
   ADDONS,
-  EXCLUSIVE_INCLUDED,
+  isPackageId,
   type PackageId,
   type ServiceType,
   type VehicleSize,
@@ -261,7 +261,6 @@ export default function AccountClient({
 
   function toggleAddon(addon: { id: string; name: string; price: number }) {
     if (!editingBookingAddons) return;
-    if (editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(addon.id)) return;
     setEditAddons((prev) => {
       const exists = prev.find((a) => a.id === addon.id);
       if (exists) return prev.filter((a) => a.id !== addon.id);
@@ -274,7 +273,6 @@ export default function AccountClient({
     setSavingAddons(true);
     const basePrice = dbGetPrice(editingBookingAddons.package, editingBookingAddons.vehicle_size, editingBookingAddons.service_type);
     const addonsTotal = editAddons
-      .filter((a) => !(editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(a.id)))
       .reduce((sum, a) => sum + a.price, 0);
     try {
       await updateBookingAddons(editingBookingAddons.id, editAddons);
@@ -561,7 +559,7 @@ export default function AccountClient({
                                   <Clock className="h-3.5 w-3.5" />
                                   {visit.time}
                                 </span>
-                                <span>{packageLabels[visit.packageKey]}</span>
+                                <span>{packageLabels[visit.packageKey] ?? visit.packageKey}</span>
                                 <span>{serviceTypeLabels[visit.serviceTypeKey]}</span>
                                 <span className="flex items-center gap-1">
                                   <Car className="h-3.5 w-3.5" />
@@ -627,7 +625,7 @@ export default function AccountClient({
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Package</p>
-                        <p className="mt-1 font-[family-name:var(--font-barlow-condensed)] text-lg text-white">{packageLabels[sub.package]}</p>
+                        <p className="mt-1 font-[family-name:var(--font-barlow-condensed)] text-lg text-white">{packageLabels[sub.package] ?? sub.package}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Schedule</p>
@@ -689,7 +687,7 @@ export default function AccountClient({
               </DialogTitle>
               {editingSub && (
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                  {packageLabels[editingSub.package]} &mdash; {serviceTypeLabels[editingSub.service_type]} &mdash; {vehicleLabels[editingSub.vehicle_size]}
+                  {packageLabels[editingSub.package] ?? editingSub.package} &mdash; {serviceTypeLabels[editingSub.service_type]} &mdash; {vehicleLabels[editingSub.vehicle_size]}
                 </p>
               )}
             </DialogHeader>
@@ -793,7 +791,7 @@ export default function AccountClient({
               <div className="space-y-4 pt-2">
                 <p className="text-[hsl(var(--muted-foreground))]">
                   Are you sure you want to cancel your{" "}
-                  <span className="text-white font-medium">{packageLabels[confirmCancelSub.package]}</span>{" "}
+                  <span className="text-white font-medium">{packageLabels[confirmCancelSub.package] ?? confirmCancelSub.package}</span>{" "}
                   subscription ({confirmCancelSub.recurring_day} at {confirmCancelSub.recurring_time})?
                 </p>
                 <p className="text-sm text-red-400">This action cannot be undone.</p>
@@ -836,7 +834,7 @@ export default function AccountClient({
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-3">
-                          <h3 className="font-[family-name:var(--font-barlow-condensed)] text-lg font-semibold text-white">{packageLabels[booking.package]}</h3>
+                          <h3 className="font-[family-name:var(--font-barlow-condensed)] text-lg font-semibold text-white">{packageLabels[booking.package] ?? booking.package}</h3>
                           <Badge variant="outline" className={statusColors[booking.status]}>{statusLabels[booking.status]}</Badge>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
@@ -858,13 +856,16 @@ export default function AccountClient({
                       <div className="text-right shrink-0 space-y-1">
                         <p className="font-[family-name:var(--font-barlow-condensed)] text-xl font-bold text-[hsl(var(--accent))]">${booking.total_estimate}</p>
                         <p className="text-xs text-[hsl(var(--muted-foreground))]">Ref: {booking.reference_code}</p>
-                        {booking.status === "confirmed" && (
+                        {booking.status === "confirmed" && isPackageId(booking.package) && (
                           <button
                             onClick={() => openAddonEditor(booking)}
                             className="text-xs text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
                           >
                             <Pencil className="inline h-3 w-3 mr-1" />Edit Add-Ons
                           </button>
+                        )}
+                        {booking.status === "confirmed" && !isPackageId(booking.package) && (
+                          <p className="text-xs text-mid">Contact WOW CLEAN to change add-ons.</p>
                         )}
                       </div>
                     </div>
@@ -883,7 +884,7 @@ export default function AccountClient({
               </DialogTitle>
               {editingBookingAddons && (
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                  {packageLabels[editingBookingAddons.package]} — {new Date(editingBookingAddons.booking_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {editingBookingAddons.booking_time}
+                  {packageLabels[editingBookingAddons.package] ?? editingBookingAddons.package} — {new Date(editingBookingAddons.booking_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {editingBookingAddons.booking_time}
                 </p>
               )}
             </DialogHeader>
@@ -891,27 +892,22 @@ export default function AccountClient({
               <div className="pt-2">
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                   {dbAddons.filter((addon) => isAddonBookable(addon.id) || editAddons.some((selected) => selected.id === addon.id)).map((addon) => {
-                    const isIncluded = editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(addon.id);
                     const isSelected = editAddons.some((a) => a.id === addon.id);
                     return (
                       <button
                         key={addon.id}
                         type="button"
-                        disabled={isIncluded}
                         onClick={() => toggleAddon(addon)}
                         className={`w-full flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-all ${
-                          isIncluded
-                            ? "border-[hsl(var(--accent))]/20 bg-[hsl(var(--accent))]/5 text-[hsl(var(--accent))]"
-                            : isSelected
+                          isSelected
                             ? "border-[hsl(var(--accent))]/40 bg-[hsl(var(--accent))]/10 text-white"
                             : "border-white/10 bg-[#0d1f52] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--accent))]/30 hover:text-white"
                         }`}
                       >
                         <span className="font-medium">
                           {addon.name}
-                          {isIncluded && <span className="ml-2 text-xs text-[hsl(var(--accent))]/60">(Included)</span>}
                         </span>
-                        <span className={isSelected || isIncluded ? "text-[hsl(var(--accent))]" : ""}>${addon.price}</span>
+                        <span className={isSelected ? "text-[hsl(var(--accent))]" : ""}>${addon.price}</span>
                       </button>
                     );
                   })}
@@ -921,7 +917,6 @@ export default function AccountClient({
                   <span className="font-[family-name:var(--font-barlow-condensed)] text-2xl font-bold text-[hsl(var(--accent))]">
                     ${dbGetPrice(editingBookingAddons.package, editingBookingAddons.vehicle_size, editingBookingAddons.service_type) +
                       editAddons
-                        .filter((a) => !(editingBookingAddons.package === "exclusive" && EXCLUSIVE_INCLUDED.includes(a.id)))
                         .reduce((sum, a) => sum + a.price, 0)}
                   </span>
                 </div>
