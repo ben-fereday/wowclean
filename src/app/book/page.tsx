@@ -1067,6 +1067,7 @@ function BookPageContent() {
 
               {/* Form */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <h2 className="text-base font-semibold text-white md:col-span-2">Contact info</h2>
                 {/* First Name */}
                 <div className="flex flex-col gap-1.5">
                   <label className="font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase text-mid">
@@ -1159,6 +1160,7 @@ function BookPageContent() {
                   </div>
                 )}
 
+                <h2 className="text-base font-semibold text-white md:col-span-2 mt-3">Vehicle details <span className="text-sm font-normal text-mid">(optional)</span></h2>
                 {/* Vehicle Make */}
                 <div className="flex flex-col gap-1.5">
                   <label className="font-[family-name:var(--font-barlow-condensed)] text-[0.78rem] font-bold tracking-[2px] uppercase text-mid">
