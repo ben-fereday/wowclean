@@ -14,7 +14,7 @@ import {
   type PromoCodeRow,
 } from "./actions";
 import { PROMO_LIMIT_LABELS, PROMO_LIMITS, type PromoUsageLimit } from "@/lib/promo-policy";
-import { buildAdminCustomers, type AdminCustomer } from "@/lib/admin-customers";
+import { buildAdminCustomers } from "@/lib/admin-customers";
 import BookingAdminTools from "./booking-admin-tools";
 import AppointmentHistory from "./appointment-history";
 import type { Booking } from "@/lib/admin-history";
@@ -224,7 +224,8 @@ export default function AdminPage({ searchParams }: {
   const [includeArchivedCustomers, setIncludeArchivedCustomers] = useState(false);
   const customerRows = useMemo(() => buildAdminCustomers(profiles, bookings, includeArchivedCustomers), [profiles, bookings, includeArchivedCustomers]);
   const selectedCustomer = customerRows.find(customer => customer.id === selectedCustomerId) ?? null;
-  function setSelectedCustomer(customer: AdminCustomer | null) { setSelectedCustomerId(customer?.id ?? null); }
+  const latestCustomerBooking = bookings.find(booking => booking.id === selectedCustomer?.booking_ids[0]);
+  const [redeemingCredits, setRedeemingCredits] = useState(false);
 
   // DB subscription pricing
   const [dbSubPricing, setDbSubPricing] = useState<SubPricingGrid>(
@@ -1112,21 +1113,24 @@ export default function AdminPage({ searchParams }: {
 
           {/* ============ CUSTOMERS TAB ============ */}
           <TabsContent value="customers">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
                 <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
                   Customers
                 </CardTitle>
+                <p className="text-sm text-mid">Find guest and registered customers, then open their appointment history.</p>
               </CardHeader>
               <CardContent>
-                {/* Search bar */}
+                <Label htmlFor="customer-search" className="mb-2 text-mid">Search customers</Label>
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                   <Input
+                    id="customer-search"
+                    type="search"
                     placeholder="Search by name, email, phone, or booking reference..."
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-10 border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
+                    className="rounded-lg border-white/20 bg-navy pl-10 text-white placeholder:text-mid"
                   />
                 </div>
 
@@ -1148,57 +1152,56 @@ export default function AdminPage({ searchParams }: {
                   }
 
                   return (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-[hsl(var(--muted))]">
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Name</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Email</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Phone</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Bookings</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Latest appointment</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filtered.map((p) => {
-                          return (
-                            <TableRow
-                              key={p.id}
-                              className="border-[hsl(var(--muted))] cursor-pointer hover:bg-[hsl(var(--muted))]/30 transition-colors"
-                              onClick={() => setSelectedCustomer(p)}
-                            >
-                              <TableCell className="font-medium text-white">{p.first_name} {p.last_name}<span className="mt-1 block text-xs font-normal text-mid">{p.is_guest ? "Guest customer" : "Existing account"}</span></TableCell>
-                              <TableCell className="text-[hsl(var(--muted-foreground))] text-sm">{p.email || "—"}</TableCell>
-                              <TableCell className="text-[hsl(var(--muted-foreground))]">{p.phone || "N/A"}</TableCell>
-                              <TableCell className="text-[hsl(var(--accent))] font-semibold">{p.booking_ids.length}</TableCell>
-                              <TableCell className="text-mid">{p.last_booking_date ? new Date(p.last_booking_date + "T12:00:00Z").toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—"}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                    <ul className="space-y-3">
+                      {filtered.map(customer => (
+                        <li key={customer.id} className="rounded-xl border border-white/10 bg-dark/60 p-4">
+                          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
+                            <div className="min-w-0">
+                              <p className="break-words font-semibold text-white">{customer.first_name} {customer.last_name}</p>
+                              <p className="mt-1 text-xs text-cyan">{customer.is_guest ? "Guest customer" : "Registered customer"}</p>
+                            </div>
+                            <div className="min-w-0 space-y-1 text-sm text-mid">
+                              <p className="break-all">{customer.email || "No email on file"}</p>
+                              <p>{customer.phone || "No phone on file"}</p>
+                            </div>
+                            <div className="text-sm text-mid">
+                              <p>{customer.booking_ids.length} appointment{customer.booking_ids.length === 1 ? "" : "s"}</p>
+                              <p className="text-xs">{customer.last_booking_date ? `Latest: ${format(new Date(customer.last_booking_date + "T12:00:00"), "MMM d, yyyy")}` : "No appointments yet"}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="mt-3 rounded-lg border-cyan/30 text-cyan"
+                            aria-label={`View customer ${customer.first_name} ${customer.last_name}`}
+                            onClick={() => setSelectedCustomerId(customer.id)}>
+                            View customer
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
                   );
                 })()}
               </CardContent>
             </Card>
 
             {/* Customer Detail Modal */}
-            <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
-              <DialogContent className="border-[hsl(var(--accent))]/20 bg-[#0b1740] shadow-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
+            <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomerId(null)}>
+              <DialogContent className="max-h-[90dvh] overflow-y-auto border-white/15 bg-dark p-4 shadow-xl sm:max-w-2xl sm:p-6">
+                <DialogHeader className="rounded-xl border border-cyan/20 bg-cyan/5 p-4 pr-9">
                   <DialogTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
                     {selectedCustomer?.first_name} {selectedCustomer?.last_name}
                   </DialogTitle>
+                  <DialogDescription className="text-mid">
+                    {selectedCustomer?.is_guest ? "Guest customer" : "Registered customer"}
+                  </DialogDescription>
                 </DialogHeader>
                 {selectedCustomer && (
                   <div className="space-y-5 pt-2">
                     {/* Contact info */}
-                    <div className="space-y-2">
+                    <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                      <h3 className="font-semibold text-white">Contact &amp; vehicle</h3>
                       {selectedCustomer.email && (
                         <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
                           <Mail className="h-4 w-4" />
-                          <span>{selectedCustomer.email}</span>
+                          <span className="break-all">{selectedCustomer.email}</span>
                         </div>
                       )}
                       {selectedCustomer.phone && (
@@ -1207,63 +1210,59 @@ export default function AdminPage({ searchParams }: {
                           <span>{selectedCustomer.phone}</span>
                         </div>
                       )}
-                    </div>
+                      {!selectedCustomer.email && !selectedCustomer.phone && <p className="text-sm text-mid">No contact details on file.</p>}
+                      {latestCustomerBooking && <p className="text-sm text-mid">Vehicle at latest appointment: {VEHICLE_LABELS[latestCustomerBooking.vehicle_size]}</p>}
+                    </section>
 
-                    {!selectedCustomer.is_guest && <>
-                    {/* Referral Info */}
-                    <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4 space-y-3">
-                      <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold flex items-center gap-1.5">
-                        <Gift className="h-3.5 w-3.5" /> Referrals
-                      </p>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Referral Code</p>
-                          <p className="font-mono font-bold text-white tracking-[3px]">{selectedCustomer.referral_code ?? "—"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Credits</p>
-                          <p className="text-white font-bold text-lg">
-                            {selectedCustomer.referral_credits ?? 0}
-                            <span className="text-xs font-normal text-[hsl(var(--muted-foreground))]"> / 3 = free detail</span>
+                    {/* Booking History */}
+                    {(() => {
+                      const userBookings = bookings
+                        .filter((b) => selectedCustomer.booking_ids.includes(b.id))
+                        .sort((a, b) => b.booking_date.localeCompare(a.booking_date));
+                      return (
+                        <div className="space-y-3">
+                          <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold">
+                            Appointments ({userBookings.length})
                           </p>
+                          {userBookings.length === 0 ? (
+                            <p className="text-sm text-[hsl(var(--muted-foreground))]">No appointments yet.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {userBookings.map((b) => (
+                                <div key={b.id} className="rounded-xl border border-white/10 bg-navy/25 p-4">
+                                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-white font-medium text-sm">
+                                      {new Date(b.booking_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {b.booking_time}
+                                    </span>
+                                    <Badge variant="outline" className={statusColors[b.status]}>
+                                      {statusLabels[b.status]}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-wrap gap-3 text-xs text-[hsl(var(--muted-foreground))]">
+                                    <span>{PACKAGE_LABELS[b.package]}</span>
+                                    <span>{SERVICE_TYPE_LABELS[b.service_type]}</span>
+                                    <span>{VEHICLE_LABELS[b.vehicle_size]}</span>
+                                    <span className="text-[hsl(var(--accent))] font-semibold">${b.total_estimate}</span>
+                                    {b.promo_code && (
+                                      <span className="text-cyan">Promo: {b.promo_code} ({b.promo_discount_pct}% off)</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                                    Ref: {b.reference_code}{b.archived_at ? " · Archived" : ""}
+                                  </div>
+                                  <Button variant="outline" size="sm" className="mt-3 text-cyan border-cyan/30" onClick={() => {
+                                    setSelectedEntry({ type: "booking", time: b.booking_time, name: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`.trim(), booking: b });
+                                    setSelectedCustomerId(null);
+                                  }}>View booking details</Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      {(selectedCustomer.referral_credits ?? 0) >= 3 && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            showConfirm({
-                              title: "Redeem Credits",
-                              description: `Redeem 3 credits for ${selectedCustomer.first_name}? This grants a free Premium Detail.`,
-                              confirmLabel: "Redeem",
-                              onConfirm: async () => {
-                                try {
-                                  const supabase = createClient();
-                                  const { error } = await supabase.rpc("redeem_referral_credits", { user_id_input: selectedCustomer.id });
-                                  setConfirmModal((m) => ({ ...m, open: false }));
-                                  if (error) {
-                                    toast.error(error.message);
-                                  } else {
-                                    toast.success("3 credits redeemed!");
-                                    fetchProfiles();
-                                    setSelectedCustomer({ ...selectedCustomer, referral_credits: (selectedCustomer.referral_credits ?? 0) - 3 });
-                                  }
-                                } catch (e) {
-                                  setConfirmModal((m) => ({ ...m, open: false }));
-                                  toast.error("Failed to redeem credits.");
-                                  console.error(e);
-                                }
-                              },
-                            });
-                          }}
-                          className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80"
-                        >
-                          <Gift className="mr-2 h-3.5 w-3.5" />
-                          Redeem 3 Credits — Free Premium Detail
-                        </Button>
-                      )}
-                    </div>
+                      );
+                    })()}
 
+                    {!selectedCustomer.is_guest && (<>
                     {/* Subscriptions */}
                     {(() => {
                       const userSubs = getSubscriptionsForUser(selectedCustomer.id);
@@ -1330,55 +1329,64 @@ export default function AdminPage({ searchParams }: {
                       );
                     })()}
 
-                    </>}
-
-                    {/* Booking History */}
-                    {(() => {
-                      const userBookings = bookings
-                        .filter((b) => selectedCustomer.booking_ids.includes(b.id))
-                        .sort((a, b) => b.booking_date.localeCompare(a.booking_date));
-                      return (
-                        <div className="space-y-3">
-                          <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold">
-                            Appointments ({userBookings.length})
-                          </p>
-                          {userBookings.length === 0 ? (
-                            <p className="text-sm text-[hsl(var(--muted-foreground))]">No appointments yet.</p>
-                          ) : (
-                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                              {userBookings.map((b) => (
-                                <div key={b.id} className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-white font-medium text-sm">
-                                      {new Date(b.booking_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {b.booking_time}
-                                    </span>
-                                    <Badge variant="outline" className={statusColors[b.status]}>
-                                      {statusLabels[b.status]}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex flex-wrap gap-3 text-xs text-[hsl(var(--muted-foreground))]">
-                                    <span>{PACKAGE_LABELS[b.package]}</span>
-                                    <span>{SERVICE_TYPE_LABELS[b.service_type]}</span>
-                                    <span>{VEHICLE_LABELS[b.vehicle_size]}</span>
-                                    <span className="text-[hsl(var(--accent))] font-semibold">${b.total_estimate}</span>
-                                    {b.promo_code && (
-                                      <span className="text-cyan">Promo: {b.promo_code} ({b.promo_discount_pct}% off)</span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                                    Ref: {b.reference_code}{b.archived_at ? " · Archived" : ""}
-                                  </div>
-                                  <Button variant="outline" size="sm" className="mt-3 text-cyan border-cyan/30" onClick={() => {
-                                    setSelectedEntry({ type: "booking", time: b.booking_time, name: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`.trim(), booking: b });
-                                    setSelectedCustomer(null);
-                                  }}>View booking details</Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                    {/* Referral Info */}
+                    <div className="space-y-3 rounded-xl border border-white/10 bg-navy/25 p-4">
+                      <h3 className="flex items-center gap-2 font-semibold text-white">
+                        <Gift className="size-4 text-cyan" /> Referrals
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Referral Code</p>
+                          <p className="font-mono font-bold text-white tracking-[3px]">{selectedCustomer.referral_code ?? "—"}</p>
                         </div>
-                      );
-                    })()}
+                        <div>
+                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Credits</p>
+                          <p className="text-white font-bold text-lg">
+                            {selectedCustomer.referral_credits ?? 0}
+                            <span className="text-xs font-normal text-[hsl(var(--muted-foreground))]"> / 3 = free detail</span>
+                          </p>
+                        </div>
+                      </div>
+                      {(selectedCustomer.referral_credits ?? 0) >= 3 && (
+                        <Button
+                          size="sm"
+                          disabled={redeemingCredits}
+                          onClick={() => {
+                            const customerId = selectedCustomer.id;
+                            showConfirm({
+                              title: "Redeem Credits",
+                              description: `Redeem 3 credits for ${selectedCustomer.first_name}? These credits count toward a free Premium Detail.`,
+                              confirmLabel: "Redeem",
+                              onConfirm: async () => {
+                                setRedeemingCredits(true);
+                                try {
+                                  const { error } = await supabase.rpc("redeem_referral_credits", { user_id_input: customerId });
+                                  setConfirmModal((m) => ({ ...m, open: false }));
+                                  if (error) {
+                                    toast.error(error.message);
+                                  } else {
+                                    toast.success("3 credits redeemed!");
+                                    await fetchProfiles();
+                                  }
+                                } catch (e) {
+                                  setConfirmModal((m) => ({ ...m, open: false }));
+                                  toast.error("Failed to redeem credits.");
+                                  console.error(e);
+                                } finally {
+                                  setRedeemingCredits(false);
+                                }
+                              },
+                            });
+                          }}
+                          className="h-auto whitespace-normal rounded-lg bg-cyan text-navy hover:bg-cyan/90"
+                        >
+                          <Gift className="mr-2 h-3.5 w-3.5" />
+                          Redeem 3 Credits — Free Premium Detail
+                        </Button>
+                      )}
+                    </div>
+
+                    </>)}
                   </div>
                 )}
               </DialogContent>
@@ -1814,8 +1822,9 @@ export default function AdminPage({ searchParams }: {
       </div>
 
       <ConfirmModal
+        loading={redeemingCredits}
         open={confirmModal.open}
-        onOpenChange={(open) => setConfirmModal((m) => ({ ...m, open }))}
+        onOpenChange={(open) => { if (!redeemingCredits) setConfirmModal((m) => ({ ...m, open })); }}
         title={confirmModal.title}
         description={confirmModal.description}
         confirmLabel={confirmModal.confirmLabel}
