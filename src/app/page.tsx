@@ -251,8 +251,8 @@ function Services({
             name: "Premium Detail",
             tagline: "A deeper refresh",
             description: "Everything in The Standard, plus extra attention inside and out.",
-            interior: ["Thorough interior surface cleaning, including crevices, cupholders and vents", "Leather cleaning & conditioning where applicable"],
-            exterior: ["Chemical & physical decontamination treatment", "Engine bay clean and dressing", "Enhanced finish and protection"],
+            interior: ["Everything in The Standard", "Thorough interior surface cleaning, including crevices, cupholders and vents", "Leather cleaning & conditioning where applicable"],
+            exterior: ["Everything in The Standard", "Chemical & physical decontamination treatment", "Engine bay clean and dressing", "Enhanced finish and protection"],
           },
         ] as const).map(pkg => (
           <article key={pkg.id} className="grid min-w-0 gap-5 rounded-2xl border border-white/15 bg-dark/75 p-5 sm:p-7 lg:row-span-5 lg:grid-rows-subgrid">
