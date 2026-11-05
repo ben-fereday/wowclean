@@ -30,7 +30,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type { DateSelectArg, EventInput, EventClickArg } from "@fullcalendar/core";
+import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import { addMinutes, addWeeks, differenceInCalendarWeeks, addDays, startOfDay, format } from "date-fns";
 import {
   Dialog,
@@ -250,11 +250,11 @@ export default function AdminPage({ searchParams }: {
   const [blockReason, setBlockReason] = useState("");
   const [blockWholeDay, setBlockWholeDay] = useState(false);
 
-  function openBlockTime(selection?: DateSelectArg) {
-    setBlockDate(selection?.startStr.slice(0, 10) ?? getCalgaryNow().date);
-    setBlockStart(selection?.startStr.slice(11, 16) ?? "9:00 AM");
-    setBlockEnd(selection?.endStr.slice(11, 16) ?? "5:00 PM");
-    setBlockWholeDay(false);
+  function openBlockTime(date = getCalgaryNow().date, wholeDay = false, start = "9:00 AM", end = "5:00 PM") {
+    setBlockDate(date);
+    setBlockStart(start);
+    setBlockEnd(end);
+    setBlockWholeDay(wholeDay);
     setBlockReason("");
     setBlockError(null);
     setBlockOpen(true);
@@ -784,7 +784,7 @@ export default function AdminPage({ searchParams }: {
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="font-[family-name:var(--font-heading)] text-3xl text-white">Calendar</h2>
-                    <p className="mt-1 text-sm text-mid">Click a booking to open it. In week or day view, drag across times to block them off.</p>
+                    <p className="mt-1 text-sm text-mid">Click a booking to open it. Click a date or time to block it off, or drag across times in Week or Day view.</p>
                     <p className="text-xs text-mid mt-1" role="status" aria-live="polite">{calendarSyncMessage}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -854,6 +854,16 @@ export default function AdminPage({ searchParams }: {
                     }}
                     events={calendarEvents}
                     eventClick={handleEventClick}
+                    dateClick={({ date, dateStr, allDay }) => {
+                      const day = dateStr.slice(0, 10);
+                      if (day < getCalgaryNow().date) return;
+                      if (allDay) {
+                        openBlockTime(day, true);
+                        return;
+                      }
+                      const end = addMinutes(date, 30);
+                      openBlockTime(day, false, dateStr.slice(11, 16), end.getDate() === date.getDate() ? format(end, "HH:mm") : "23:59");
+                    }}
                     selectable={calendarView !== "dayGridMonth"}
                     selectMinDistance={5}
                     selectAllow={({ allDay, startStr, endStr }) =>
@@ -862,7 +872,7 @@ export default function AdminPage({ searchParams }: {
                     }
                     select={(selection) => {
                       selection.view.calendar.unselect();
-                      openBlockTime(selection);
+                      openBlockTime(selection.startStr.slice(0, 10), false, selection.startStr.slice(11, 16), selection.endStr.slice(11, 16));
                     }}
                     height={calendarView === "dayGridMonth" ? "auto" : 680}
                     slotMinTime="08:00:00"
