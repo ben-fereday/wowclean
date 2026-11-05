@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { use, useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   updateBookingStatus,
@@ -14,10 +14,10 @@ import {
   type PromoCodeRow,
 } from "./actions";
 import { PROMO_LIMIT_LABELS, PROMO_LIMITS, type PromoUsageLimit } from "@/lib/promo-policy";
-import { buildAdminCustomers, type AdminCustomer } from "@/lib/admin-customers";
+import { buildAdminCustomers } from "@/lib/admin-customers";
 import BookingAdminTools from "./booking-admin-tools";
 import AppointmentHistory from "./appointment-history";
-import type { Booking, BookingAddon } from "@/lib/admin-history";
+import type { Booking } from "@/lib/admin-history";
 import { syncCalendarRange } from "./booking-tools-actions";
 import { parseBookingTime, getBookingDurationMinutes, formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,16 +33,9 @@ import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import { addMinutes, addWeeks, differenceInCalendarWeeks, addDays, startOfDay, format } from "date-fns";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -51,7 +44,6 @@ import {
   History,
   Users,
   Clock,
-  Car,
   Shield,
   ShieldCheck,
   UserCog,
@@ -59,17 +51,15 @@ import {
   MapPin,
   Phone,
   Mail,
-  User,
   Ban,
   Trash2,
   XCircle,
   Tag,
-  RotateCcw,
   Gift,
   DollarSign,
   Search,
 } from "lucide-react";
-import Link from "next/link";
+import PricingManager from "./pricing/pricing-manager";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { fetchSubscriptionPrices, type SubPricingGrid } from "@/lib/pricing-db";
@@ -80,7 +70,6 @@ import {
   SUBSCRIPTION_PLANS,
   SUBSCRIPTION_PRICING,
   type BookingStatus,
-  type SubscriptionPlan,
   type PackageId,
   type VehicleSize,
   type ServiceType,
@@ -137,6 +126,7 @@ interface CalendarEntry {
   name: string;
   booking?: Booking;
   subscription?: Subscription;
+  occurrenceDate?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -161,11 +151,62 @@ const statusLabels: Record<BookingStatus, string> = {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function AdminPage() {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+function SubscriptionCard({ subscription, price, customerName }: {
+  subscription: Subscription;
+  price: number;
+  customerName?: string;
+}) {
+  const plan = SUBSCRIPTION_PLANS.find(item => item.id === subscription.plan)?.name ?? subscription.plan;
+  const nextVisit = subscription.next_service_date
+    ? format(new Date(subscription.next_service_date + "T12:00:00"), "MMM d, yyyy")
+    : "To be scheduled";
+  return (
+    <li className="space-y-4 rounded-xl border border-white/10 bg-dark/60 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-semibold text-white">{customerName ?? PACKAGE_LABELS[subscription.package]}</p>
+          <p className="mt-1 text-sm text-mid">{plan}{customerName && ` · ${PACKAGE_LABELS[subscription.package]}`}</p>
+        </div>
+        <Badge variant="outline" className={subscription.status === "active" ? "border-green-400/30 text-green-400" : "border-white/20 text-mid"}>
+          <span className="capitalize">{subscription.status}</span>
+        </Badge>
+      </div>
+      <dl className="grid grid-cols-2 gap-4 border-t border-white/10 pt-3 text-sm sm:grid-cols-4">
+        <div>
+          <dt className="text-xs text-mid">Price per visit</dt>
+          <dd className="mt-1 font-semibold text-cyan">${price}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-mid">Next visit</dt>
+          <dd className="mt-1 text-white">{nextVisit}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-mid">Schedule</dt>
+          <dd className="mt-1 text-white">{subscription.recurring_day} at {subscription.recurring_time}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-mid">Service &amp; vehicle</dt>
+          <dd className="mt-1 text-white">{SERVICE_TYPE_LABELS[subscription.service_type]} · {VEHICLE_LABELS[subscription.vehicle_size]}</dd>
+        </div>
+      </dl>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-mid">
+        <span>{subscription.location === "mobile" ? "Mobile" : "In-shop"}</span>
+        {subscription.service_address && <span className="break-words">{subscription.service_address}</span>}
+        {customerName && subscription.profiles?.phone && <span>{subscription.profiles.phone}</span>}
+      </div>
+    </li>
+  );
+}
+
+const adminTabClass = "h-auto flex-none rounded-lg border-white/15 bg-dark px-4 py-2.5 text-mid hover:text-white focus-visible:ring-cyan/50 data-active:border-cyan! data-active:bg-cyan! data-active:text-navy!";
+
+export default function AdminPage({ searchParams }: {
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
+  const initialTab = use(searchParams).tab === "pricing" ? "pricing" : "calendar";
   const supabase = useMemo(() => createClient(), []);
 
-  const [tab, setTab] = useState("calendar");
+  const [tab, setTab] = useState(initialTab);
   const [loading, setLoading] = useState(true);
 
   // Calendar state
@@ -194,6 +235,8 @@ export default function AdminPage() {
 
   // Team management state
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
+  const [addingAdmin, setAddingAdmin] = useState(false);
+  const [teamFormError, setTeamFormError] = useState("");
 
   // Blocked slots
   const [blockedSlots, setBlockedSlots] = useState<{ id: string; blocked_date: string; blocked_time: string | null; start_time: string | null; end_time: string | null; reason: string | null }[]>([]);
@@ -201,6 +244,7 @@ export default function AdminPage() {
   const [blockStart, setBlockStart] = useState("9:00 AM");
   const [blockEnd, setBlockEnd] = useState("5:00 PM");
   const [blockSaving, setBlockSaving] = useState(false);
+  const [blockError, setBlockError] = useState<{ field: "range" | "form"; message: string } | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [blockWholeDay, setBlockWholeDay] = useState(false);
 
@@ -217,7 +261,8 @@ export default function AdminPage() {
   const [includeArchivedCustomers, setIncludeArchivedCustomers] = useState(false);
   const customerRows = useMemo(() => buildAdminCustomers(profiles, bookings, includeArchivedCustomers), [profiles, bookings, includeArchivedCustomers]);
   const selectedCustomer = customerRows.find(customer => customer.id === selectedCustomerId) ?? null;
-  function setSelectedCustomer(customer: AdminCustomer | null) { setSelectedCustomerId(customer?.id ?? null); }
+  const latestCustomerBooking = bookings.find(booking => booking.id === selectedCustomer?.booking_ids[0]);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   // DB subscription pricing
   const [dbSubPricing, setDbSubPricing] = useState<SubPricingGrid>(
@@ -237,6 +282,7 @@ export default function AdminPage() {
     usage_limit: "unlimited" as PromoUsageLimit,
     active: true,
   });
+  const [promoSaving, setPromoSaving] = useState(false);
   const [promoLimitSaving, setPromoLimitSaving] = useState<string | null>(null);
   const [promoFormError, setPromoFormError] = useState("");
 
@@ -359,6 +405,21 @@ export default function AdminPage() {
     ]).finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function savePromoChange(id: string, patch: Parameters<typeof updatePromoCode>[1]) {
+    try {
+      const result = await updatePromoCode(id, patch);
+      if (result.error) {
+        toast.error(result.error);
+        return false;
+      }
+      await fetchPromoCodes();
+      return true;
+    } catch {
+      toast.error("Could not update this promo code. Please try again.");
+      return false;
+    }
+  }
+
   // Refetch data when switching tabs
   useEffect(() => {
     fetchBookings();
@@ -397,6 +458,7 @@ export default function AdminPage() {
     await updateBookingStatus(bookingId, status);
     await fetchBookings();
     setSelectedEntry(null);
+    setHistoryRevision(value => value + 1);
   }
 
   function getSubscriptionsForUser(userId: string): Subscription[] {
@@ -508,9 +570,19 @@ export default function AdminPage() {
         time: props.subscription.recurring_time,
         name: props.name,
         subscription: props.subscription,
+        occurrenceDate: info.event.startStr.slice(0, 10),
       });
     }
   }
+
+  const activeSubscriptions = subscriptions.filter(subscription => subscription.status === "active");
+  const customerSubscriptions = selectedCustomer ? getSubscriptionsForUser(selectedCustomer.id) : [];
+
+  const detailBooking = selectedEntry?.booking;
+  const detailSubscription = selectedEntry?.subscription;
+  const appointment = detailBooking ?? detailSubscription;
+  const appointmentPhone = appointment?.profiles?.phone || detailBooking?.guest_phone;
+  const appointmentAddress = appointment?.service_address || detailBooking?.guest_address;
 
   if (loading) {
     return (
@@ -523,20 +595,18 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[hsl(var(--background))] px-4 pt-[100px] pb-12">
       <div className="mx-auto max-w-6xl space-y-6">
-        <h1 className="font-[family-name:var(--font-heading)] text-4xl uppercase tracking-wide text-white">
-          Admin Dashboard
-        </h1>
+        <header>
+          <p className="text-xs uppercase tracking-[3px] text-cyan">Calgary</p>
+          <h1 className="mt-2 font-[family-name:var(--font-heading)] text-4xl uppercase tracking-wide text-white">
+            Admin Dashboard
+          </h1>
+        </header>
 
         {/* Upcoming Visits */}
         {(() => {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const todayStr = today.toLocaleDateString("en-CA");
-
-          // Compute cutoff date
-          const cutoff = new Date(today);
-          cutoff.setDate(cutoff.getDate() + (visitFilter === "3days" ? 3 : 7));
-          const cutoffStr = cutoff.toLocaleDateString("en-CA");
+          const todayStr = getCalgaryNow().date;
+          const cutoff = addDays(new Date(todayStr + "T12:00:00"), visitFilter === "3days" ? 3 : 7);
+          const cutoffStr = format(cutoff, "yyyy-MM-dd");
 
           type Visit = {
             id: string;
@@ -544,10 +614,8 @@ export default function AdminPage() {
             date: string;
             time: string;
             name: string;
-            email?: string;
             packageKey: PackageId;
             serviceTypeKey: ServiceType;
-            vehicleSizeKey: VehicleSize;
             price: number;
             phone?: string;
           };
@@ -560,8 +628,8 @@ export default function AdminPage() {
               const phone = b.guest_phone || undefined;
               visits.push({
                 id: b.id, type: "booking", date: b.booking_date, time: b.booking_time,
-                name, email: b.guest_email || undefined,
-                packageKey: b.package, serviceTypeKey: b.service_type, vehicleSizeKey: b.vehicle_size,
+                name,
+                packageKey: b.package, serviceTypeKey: b.service_type,
                 price: b.total_estimate, phone,
               });
             }
@@ -572,43 +640,31 @@ export default function AdminPage() {
               const name = s.profiles ? `${s.profiles.first_name} ${s.profiles.last_name}` : "Unknown";
               visits.push({
                 id: s.id, type: "subscription", date: s.next_service_date, time: s.recurring_time,
-                name, packageKey: s.package, serviceTypeKey: s.service_type, vehicleSizeKey: s.vehicle_size,
+                name, packageKey: s.package, serviceTypeKey: s.service_type,
                 price: dbGetSubPrice(s.plan, s.vehicle_size, s.package), phone: s.profiles?.phone || undefined,
               });
             }
           }
 
-          visits.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : a.time.localeCompare(b.time));
+          visits.sort((a, b) => a.date.localeCompare(b.date) ||
+            (parseBookingTime(a.time) ?? Infinity) - (parseBookingTime(b.time) ?? Infinity));
 
           return (
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2 font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    <Clock className="h-5 w-5 text-yellow" />
+                    <Clock className="size-5 text-cyan" />
                     Upcoming Visits
                   </CardTitle>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setVisitFilter("3days")}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                        visitFilter === "3days"
-                          ? "bg-yellow text-[#0b1740]"
-                          : "bg-[hsl(var(--background))] border border-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-white"
-                      }`}
-                    >
-                      3 Days
-                    </button>
-                    <button
-                      onClick={() => setVisitFilter("week")}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                        visitFilter === "week"
-                          ? "bg-yellow text-[#0b1740]"
-                          : "bg-[hsl(var(--background))] border border-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:text-white"
-                      }`}
-                    >
-                      Week
-                    </button>
+                  <div role="group" aria-label="Upcoming visit range" className="flex gap-2">
+                    {(["3days", "week"] as const).map(range => (
+                      <button key={range} type="button" aria-pressed={visitFilter === range}
+                        onClick={() => setVisitFilter(range)}
+                        className="rounded-lg border border-white/15 bg-dark px-3 py-2 text-sm text-mid hover:text-white focus-visible:outline-2 focus-visible:outline-cyan aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-navy">
+                        {range === "3days" ? "3 Days" : "Week"}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </CardHeader>
@@ -623,12 +679,12 @@ export default function AdminPage() {
                         <div
                           key={`${visit.type}-${visit.id}`}
                           className={`rounded-lg border p-3 flex flex-wrap items-center justify-between gap-2 ${
-                            isNext ? "border-yellow/40 bg-yellow/5" : "border-[hsl(var(--muted))] bg-[hsl(var(--background))]"
+                            isNext ? "border-cyan/30 bg-cyan/5" : "border-white/10 bg-dark/60"
                           }`}
                         >
                           <div className="flex flex-wrap items-center gap-2">
                             {isNext && (
-                              <Badge variant="outline" className="bg-yellow/15 text-yellow border-yellow/30 text-xs">Next</Badge>
+                              <Badge variant="outline" className="bg-cyan/10 text-cyan border-cyan/30 text-xs">Next</Badge>
                             )}
                             <Badge variant="outline" className={
                               visit.type === "subscription"
@@ -637,12 +693,12 @@ export default function AdminPage() {
                             }>
                               {visit.type === "subscription" ? "Sub" : "Booking"}
                             </Badge>
-                            <span className={`text-sm font-medium ${isNext ? "text-yellow" : "text-white"}`}>
+                            <span className={`text-sm font-medium ${isNext ? "text-cyan" : "text-white"}`}>
                               {new Date(visit.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                             </span>
-                            <span className={`text-sm ${isNext ? "text-yellow" : "text-[hsl(var(--muted-foreground))]"}`}>{visit.time}</span>
+                            <span className={`text-sm ${isNext ? "text-cyan" : "text-[hsl(var(--muted-foreground))]"}`}>{visit.time}</span>
                             <span className="text-sm text-white font-medium">{visit.name}</span>
-                            <span className="text-xs text-[hsl(var(--muted-foreground))]">{PACKAGE_LABELS[visit.packageKey]}</span>
+                            <span className="text-xs text-[hsl(var(--muted-foreground))]">{PACKAGE_LABELS[visit.packageKey]} · {SERVICE_TYPE_LABELS[visit.serviceTypeKey]}</span>
                             {visit.phone && <span className="text-xs text-[hsl(var(--muted-foreground))]">{visit.phone}</span>}
                           </div>
                           <div className="flex items-center gap-3">
@@ -652,7 +708,9 @@ export default function AdminPage() {
                                 onClick={() => setCancelBooking({
                                   id: visit.id, name: visit.name, date: visit.date, time: visit.time,
                                 })}
-                                className="text-red-400 hover:text-red-300 transition-colors"
+                                className="grid size-9 place-items-center rounded-lg border border-red-400/25 text-red-300 hover:bg-red-400/10 focus-visible:outline-2 focus-visible:outline-cyan"
+                                type="button"
+                                aria-label={`Cancel booking for ${visit.name}`}
                                 title="Cancel booking"
                               >
                                 <XCircle className="h-4 w-4" />
@@ -670,51 +728,54 @@ export default function AdminPage() {
         })()}
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-[hsl(var(--muted))] h-auto flex-wrap justify-start">
-            <TabsTrigger value="calendar" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Calendar className="mr-2 h-4 w-4" />
+          <TabsList aria-label="Admin sections" className="h-auto! flex-wrap justify-start gap-2 bg-transparent p-0">
+            <TabsTrigger value="calendar" className={adminTabClass}>
+              <Calendar className="size-4" />
               Calendar
             </TabsTrigger>
-            <TabsTrigger value="history" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <History className="mr-2 h-4 w-4" />
+            <TabsTrigger value="history" className={adminTabClass}>
+              <History className="size-4" />
               Appointment History
             </TabsTrigger>
-            <TabsTrigger value="customers" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Users className="mr-2 h-4 w-4" />
+            <TabsTrigger value="customers" className={adminTabClass}>
+              <Users className="size-4" />
               Customers
             </TabsTrigger>
-            <TabsTrigger value="subscriptions" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Sparkles className="mr-2 h-4 w-4" />
+            <TabsTrigger value="subscriptions" className={adminTabClass}>
+              <Sparkles className="size-4" />
               Subscriptions
             </TabsTrigger>
-            <TabsTrigger value="promos" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-              <Tag className="mr-2 h-4 w-4" />
+            <TabsTrigger value="promos" className={adminTabClass}>
+              <Tag className="size-4" />
               Promos
             </TabsTrigger>
-            <Link href="/admin/pricing">
-              <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-white transition-colors font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider cursor-pointer">
-                <DollarSign className="h-4 w-4" />
-                Pricing
-              </div>
-            </Link>
+            <TabsTrigger value="pricing" className={adminTabClass}>
+              <DollarSign className="size-4" />
+              Pricing
+            </TabsTrigger>
             {isOwner && (
-              <TabsTrigger value="team" className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider">
-                <UserCog className="mr-2 h-4 w-4" />
+              <TabsTrigger value="team" className={adminTabClass}>
+                <UserCog className="size-4" />
                 Team
               </TabsTrigger>
             )}
           </TabsList>
 
+          <TabsContent value="pricing" keepMounted>
+            <PricingManager />
+          </TabsContent>
+
           {/* ============ CALENDAR TAB ============ */}
           <TabsContent value="calendar" className="space-y-6">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardContent className="pt-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm text-mid">Sync bookings in this calendar view to WOW Clean Bookings.</p>
+                    <h2 className="font-[family-name:var(--font-heading)] text-3xl text-white">Calendar</h2>
+                    <p className="mt-1 text-sm text-mid">Sync bookings in this view to WOW Clean Bookings.</p>
                     <p className="text-xs text-mid mt-1" role="status" aria-live="polite">{calendarSyncMessage}</p>
                   </div>
-                  <Button disabled={calendarSyncing || !calendarRange} onClick={async () => {
+                  <Button variant="outline" className="rounded-lg border-cyan/30 bg-dark text-cyan hover:bg-cyan/10 hover:text-cyan" disabled={calendarSyncing || !calendarRange} onClick={async () => {
                     if (!calendarRange || calendarSyncing) return;
                     const range = { ...calendarRange };
                     setCalendarSyncing(true);
@@ -744,7 +805,26 @@ export default function AdminPage() {
                     {calendarSyncing ? "Syncing…" : "Sync to Google Calendar"}
                   </Button>
                 </div>
-                <div className="fc-dark-theme">
+                {/* Legend */}
+                <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-mid">
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#5bf3ff" }} />
+                    Subscription
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#1a4aff" }} />
+                    Booking
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#ef4444" }} />
+                    Blocked
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#22c55e" }} />
+                    Completed
+                  </span>
+                </div>
+                <div className="fc-dark-theme calgary-admin-calendar">
                   <FullCalendar
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth"
@@ -766,34 +846,16 @@ export default function AdminPage() {
                     stickyHeaderDates={true}
                     allDayText="All day"
                     eventDisplay="block"
+                    displayEventTime={false}
                     dayMaxEvents={3}
                     nowIndicator={true}
                   />
-                </div>
-                {/* Legend */}
-                <div className="flex items-center gap-4 mt-4 text-xs text-[hsl(var(--muted-foreground))]">
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#5bf3ff" }} />
-                    Subscription
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#1a4aff" }} />
-                    Booking
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#ef4444" }} />
-                    Blocked
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded" style={{ backgroundColor: "#22c55e" }} />
-                    Completed
-                  </span>
                 </div>
               </CardContent>
             </Card>
 
             {/* Block Time */}
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-[family-name:var(--font-heading)] text-xl uppercase tracking-wide text-white">
                   <Ban className="h-5 w-5 text-red-400" />
@@ -801,92 +863,123 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-[hsl(var(--muted-foreground))]">Date</Label>
-                    <Input
-                      type="date"
-                      min={getCalgaryNow().date}
-                      value={blockDate}
-                      onChange={(e) => setBlockDate(e.target.value)}
-                      className="h-9 w-40 border-[hsl(var(--muted))] bg-[hsl(var(--background))] text-white"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 text-sm text-white h-9">
-                    <input type="checkbox" checked={blockWholeDay} onChange={(event) => setBlockWholeDay(event.target.checked)} />
-                    All day
-                  </label>
-                  {!blockWholeDay && (
-                    <>
-                      <label className="space-y-1 text-xs text-mid">Start time
-                        <input type="text" autoComplete="off" spellCheck={false} placeholder="9:00 AM" value={blockStart} onChange={(event) => setBlockStart(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
-                      </label>
-                      <label className="space-y-1 text-xs text-mid">End time
-                        <input type="text" autoComplete="off" spellCheck={false} placeholder="5:00 PM" value={blockEnd} onChange={(event) => setBlockEnd(event.target.value)} className="block h-9 rounded-md border border-white/20 bg-[#0b1740] px-3 text-white [color-scheme:dark]" />
-                      </label>
-                    </>
-                  )}
-                  <div className="space-y-1 flex-1 min-w-[120px]">
-                    <Label className="text-xs text-[hsl(var(--muted-foreground))]">Reason (optional)</Label>
-                    <Input
-                      type="text"
-                      maxLength={250}
-                      value={blockReason}
-                      onChange={(e) => setBlockReason(e.target.value)}
-                      placeholder="e.g. Personal day"
-                      className="h-9 border-[hsl(var(--muted))] bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
-                    />
-                  </div>
-                  <Button
-                    onClick={async () => {
-                      if (!blockDate) return;
-                      const startTime = normalizeBlockTime(blockStart);
-                      const endTime = normalizeBlockTime(blockEnd);
-                      if (!blockWholeDay && (!startTime || !endTime || endTime <= startTime)) {
-                        toast.error("Enter times like 9:00 AM and 5:00 PM. End time must be after start time.");
+                <form
+                  aria-label="Block time"
+                  aria-describedby="block-time-help"
+                  onChange={() => setBlockError(null)}
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (blockSaving || !blockDate) return;
+                    const startTime = normalizeBlockTime(blockStart);
+                    const endTime = normalizeBlockTime(blockEnd);
+                    if (!blockWholeDay && (!startTime || !endTime || endTime <= startTime)) {
+                      setBlockError({ field: "range", message: "Enter times like 9:00 AM and 5:00 PM. End time must be after start time." });
+                      return;
+                    }
+                    setBlockError(null);
+                    setBlockSaving(true);
+                    try {
+                      const result = await blockTimeSlot({
+                        date: blockDate,
+                        startTime: blockWholeDay ? undefined : startTime!,
+                        endTime: blockWholeDay ? undefined : endTime!,
+                        reason: blockReason || undefined,
+                      });
+                      if (result.error) {
+                        setBlockError({ field: "form", message: result.error });
                         return;
                       }
-                      setBlockSaving(true);
-                      try {
-                        const result = await blockTimeSlot({
-                          date: blockDate,
-                          startTime: blockWholeDay ? undefined : startTime!,
-                          endTime: blockWholeDay ? undefined : endTime!,
-                          reason: blockReason || undefined,
-                        });
-                        if (result.error) { toast.error(result.error); return; }
-                        toast.success("Time blocked.");
-                        setBlockDate(""); setBlockReason(""); setBlockWholeDay(false);
-                        await fetchBlocked();
-                      } catch { toast.error("Could not block this time. Please try again."); }
-                      finally { setBlockSaving(false); }
-                    }}
-                    disabled={blockSaving || !blockDate || (!blockWholeDay && (!blockStart.trim() || !blockEnd.trim()))}
-                    className="h-9 bg-red-600 text-white hover:bg-red-700 font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-xs"
-                  >
-                    <Ban className="mr-1.5 h-3.5 w-3.5" />
-                    {blockSaving ? "Blocking…" : "Block"}
-                  </Button>
-                </div>
-
-                <p className="mt-3 text-xs text-mid">Calgary time. Appointments that overlap a block will be unavailable. Existing appointments must be moved or cancelled before blocking over them.</p>
+                      toast.success("Time blocked.");
+                      setBlockDate("");
+                      setBlockReason("");
+                      setBlockWholeDay(false);
+                      await fetchBlocked();
+                    } catch {
+                      setBlockError({ field: "form", message: "Could not block this time. Please try again." });
+                    } finally {
+                      setBlockSaving(false);
+                    }
+                  }}
+                >
+                  <p id="block-time-help" className="mb-4 text-sm text-mid">
+                    All times are in Calgary time. Move or cancel overlapping appointments before blocking.
+                  </p>
+                  <fieldset disabled={blockSaving} className="space-y-4">
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="block-date" className="text-mid">Date</Label>
+                        <Input
+                          id="block-date"
+                          type="date"
+                          required
+                          min={getCalgaryNow().date}
+                          value={blockDate}
+                          onChange={(event) => setBlockDate(event.target.value)}
+                          className="w-44 rounded-lg border-white/20 bg-navy text-white [color-scheme:dark]"
+                        />
+                      </div>
+                      <label className="flex min-h-9 items-center gap-2 text-sm text-white">
+                        <input type="checkbox" className="size-4 accent-cyan" checked={blockWholeDay} onChange={(event) => setBlockWholeDay(event.target.checked)} />
+                        All day
+                      </label>
+                    </div>
+                    {!blockWholeDay && (
+                      <div>
+                        <div className="grid max-w-sm grid-cols-2 gap-3">
+                          <label className="space-y-1 text-sm text-mid">
+                            Start time
+                            <Input required autoComplete="off" spellCheck={false} placeholder="9:00 AM" value={blockStart}
+                              onChange={(event) => setBlockStart(event.target.value)}
+                              aria-invalid={blockError?.field === "range"}
+                              aria-describedby={blockError?.field === "range" ? "block-range-error" : undefined}
+                              className="rounded-lg border-white/20 bg-navy text-white" />
+                          </label>
+                          <label className="space-y-1 text-sm text-mid">
+                            End time
+                            <Input required autoComplete="off" spellCheck={false} placeholder="5:00 PM" value={blockEnd}
+                              onChange={(event) => setBlockEnd(event.target.value)}
+                              aria-invalid={blockError?.field === "range"}
+                              aria-describedby={blockError?.field === "range" ? "block-range-error" : undefined}
+                              className="rounded-lg border-white/20 bg-navy text-white" />
+                          </label>
+                        </div>
+                        {blockError?.field === "range" && <p id="block-range-error" role="alert" className="mt-2 text-sm text-red-300">{blockError.message}</p>}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="min-w-40 flex-1 space-y-1">
+                        <Label htmlFor="block-reason" className="text-mid">Reason (optional)</Label>
+                        <Input id="block-reason" maxLength={250} value={blockReason}
+                          onChange={(event) => setBlockReason(event.target.value)}
+                          placeholder="e.g. Personal day" className="rounded-lg border-white/20 bg-navy text-white" />
+                      </div>
+                      <Button type="submit" disabled={!blockDate} className="rounded-lg bg-red-600 text-white hover:bg-red-700">
+                        <Ban className="size-4" />
+                        {blockSaving ? "Blocking…" : "Block time"}
+                      </Button>
+                    </div>
+                  </fieldset>
+                  {blockError?.field === "form" && <p role="alert" className="mt-3 text-sm text-red-300">{blockError.message}</p>}
+                </form>
 
                 {/* Current blocked slots */}
                 {blockedSlots.length > 0 && (
-                  <div className="mt-4 space-y-1.5">
-                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Currently Blocked</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Existing blocks</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
                       {blockedSlots.map((slot) => (
-                        <div key={slot.id} className="flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-400">
+                        <div key={slot.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-sm text-white">
                           <span>
                             {new Date(slot.blocked_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             {slot.start_time ? ` ${formatRangeTime(slot.start_time)}–${formatRangeTime(slot.end_time!)}` : slot.blocked_time ? ` ${slot.blocked_time}` : " (all day)"}
                           </span>
-                          {slot.reason && <span className="text-red-400/60">— {slot.reason}</span>}
+                          {slot.reason && <span className="min-w-0 break-words text-mid">— {slot.reason}</span>}
                           <button
-                            aria-label="Remove blocked time"
+                            type="button"
+                            aria-label={`Remove blocked time on ${slot.blocked_date}`}
+                            title="Remove blocked time"
                             onClick={async () => { try { const result = await unblockSlot(slot.id); if (result.error) toast.error(result.error); else { await fetchBlocked(); toast.success("Time unblocked."); } } catch { toast.error("Could not remove this block."); } }}
-                            className="ml-1 text-red-400 hover:text-white"
+                            className="ml-auto grid size-9 place-items-center rounded-lg border border-red-400/25 text-red-300 hover:bg-red-400/10 focus-visible:outline-2 focus-visible:outline-cyan"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
@@ -904,180 +997,105 @@ export default function AdminPage() {
             {tab === "history" && <AppointmentHistory refreshKey={historyRevision} onOpen={(booking, name) => setSelectedEntry({ type: "booking", time: booking.booking_time, name, booking })} />}
           </TabsContent>
 
-            {/* Entry detail modal */}
-            <Dialog open={!!selectedEntry} onOpenChange={(open) => { if (!open) { setSelectedEntry(null); setHistoryRevision(v => v + 1); } }}>
-              <DialogContent className="border-[hsl(var(--accent))]/20 bg-[hsl(var(--card))] shadow-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    {selectedEntry?.type === "subscription" ? "Subscription Details" : "Booking Details"}
-                  </DialogTitle>
-                </DialogHeader>
-                {selectedEntry && (
-                  <div className="space-y-4 pt-2">
-                    {/* Customer info */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-white">
-                        <User className="h-4 w-4 text-[hsl(var(--accent))]" />
-                        <span className="font-semibold">{selectedEntry.name}</span>
-                      </div>
-                      {(() => {
-                        const phone = selectedEntry.type === "subscription"
-                          ? selectedEntry.subscription?.profiles?.phone
-                          : selectedEntry.booking?.profiles?.phone || selectedEntry.booking?.guest_phone;
-                        return phone ? (
-                          <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                            <Phone className="h-4 w-4" />
-                            <span>{phone}</span>
-                          </div>
-                        ) : null;
-                      })()}
-                      {selectedEntry.type === "booking" && selectedEntry.booking?.guest_email && (
-                        <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                          <Mail className="h-4 w-4" />
-                          <span>{selectedEntry.booking.guest_email}</span>
-                        </div>
-                      )}
-                      {(() => {
-                        const address = selectedEntry.type === "subscription"
-                          ? selectedEntry.subscription?.service_address
-                          : selectedEntry.booking?.service_address || selectedEntry.booking?.guest_address;
-                        return address ? (
-                          <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                            <MapPin className="h-4 w-4" />
-                            <span>{address}</span>
-                          </div>
-                        ) : null;
-                      })()}
+          {/* Shared appointment details for Calendar, History and Customers */}
+          <Dialog open={!!selectedEntry} onOpenChange={(open) => {
+            if (!open) {
+              setSelectedEntry(null);
+              setHistoryRevision(value => value + 1);
+            }
+          }}>
+            <DialogContent className="max-h-[90dvh] overflow-y-auto border-white/15 bg-dark p-4 shadow-xl sm:max-w-2xl sm:p-6">
+              {selectedEntry && appointment && (
+                <>
+                  <DialogHeader className="rounded-xl border border-cyan/20 bg-cyan/5 p-4 pr-9">
+                    <p className="text-xs uppercase tracking-wider text-cyan">
+                      {detailBooking ? "Booking details" : "Subscription details"}
+                    </p>
+                    <DialogTitle className="break-words text-2xl font-semibold text-white">{selectedEntry.name}</DialogTitle>
+                    <DialogDescription className="text-mid">
+                      {detailBooking?.booking_date || selectedEntry.occurrenceDate} · {selectedEntry.time} Calgary time
+                    </DialogDescription>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-white">{PACKAGE_LABELS[appointment.package]} · {SERVICE_TYPE_LABELS[appointment.service_type]}</span>
+                      <Badge variant="outline" className={detailBooking ? statusColors[detailBooking.status] : "border-cyan/30 text-cyan capitalize"}>
+                        {detailBooking ? statusLabels[detailBooking.status] : detailSubscription?.status}
+                      </Badge>
                     </div>
-
-                    {/* Service info */}
-                    <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Time</p>
-                          <p className="text-white">{selectedEntry.type === "booking" ? `${selectedEntry.booking!.booking_date} · ` : ""}{selectedEntry.time}</p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Package</p>
-                          <p className="text-white">
-                            {PACKAGE_LABELS[selectedEntry.type === "subscription" ? selectedEntry.subscription!.package : selectedEntry.booking!.package]}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Service</p>
-                          <p className="text-white">
-                            {SERVICE_TYPE_LABELS[selectedEntry.type === "subscription" ? selectedEntry.subscription!.service_type : selectedEntry.booking!.service_type]}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Vehicle</p>
-                          <p className="text-white">
-                            {VEHICLE_LABELS[selectedEntry.type === "subscription" ? selectedEntry.subscription!.vehicle_size : selectedEntry.booking!.vehicle_size]}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Location</p>
-                          <p className="text-white">
-                            {(selectedEntry.type === "subscription" ? selectedEntry.subscription!.location : selectedEntry.booking!.location) === "mobile" ? "Mobile" : "In-Shop"}
-                          </p>
-                        </div>
-                        {selectedEntry.type === "subscription" && (
-                          <div>
-                            <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Plan</p>
-                            <p className="text-white">
-                              {SUBSCRIPTION_PLANS.find((p) => p.id === selectedEntry.subscription!.plan)?.name ?? selectedEntry.subscription!.plan}
-                            </p>
-                          </div>
-                        )}
-                        {selectedEntry.type === "subscription" && (
-                          <div>
-                            <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Schedule</p>
-                            <p className="text-white">
-                              Every {selectedEntry.subscription!.recurring_day}
-                            </p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Price</p>
-                          <p className="text-[hsl(var(--accent))] font-semibold">
-                            {selectedEntry.type === "booking"
-                              ? `$${selectedEntry.booking!.total_estimate}`
-                              : `$${dbGetSubPrice(selectedEntry.subscription!.plan, selectedEntry.subscription!.vehicle_size, selectedEntry.subscription!.package)}/visit`
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Addons */}
-                    {selectedEntry.type === "booking" && (selectedEntry.booking?.addons?.length ?? 0) > 0 && (
-                      <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3">
-                        <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider mb-2">Add-Ons</p>
-                        <div className="space-y-1">
-                          {selectedEntry.booking!.addons.map((addon: BookingAddon) => (
-                            <div key={addon.id} className="flex items-center justify-between text-sm">
-                              <span className="text-white">{addon.name}</span>
-                              <span className="text-[hsl(var(--accent))]">${addon.price}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  </DialogHeader>
+                  <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                    <h3 className="font-semibold text-white">Customer &amp; vehicle</h3>
+                    <p className="text-sm text-mid">{VEHICLE_LABELS[appointment.vehicle_size]} · {appointment.location === "mobile" ? "Mobile" : "In-shop"}</p>
+                    {appointmentPhone && <p className="flex items-center gap-2 text-mid"><Phone className="size-4 shrink-0" />{appointmentPhone}</p>}
+                    {detailBooking?.guest_email && <p className="flex items-center gap-2 break-all text-mid"><Mail className="size-4 shrink-0" />{detailBooking.guest_email}</p>}
+                    {appointmentAddress && <p className="flex items-start gap-2 break-words text-mid"><MapPin className="size-4 shrink-0" /><span className="min-w-0">{appointmentAddress}</span></p>}
+                  </section>
+                  <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                    <h3 className="font-semibold text-white">Service &amp; add-ons</h3>
+                    {detailBooking && <p className="text-mid">Booking estimate <span className="text-cyan">${detailBooking.total_estimate}</span></p>}
+                    {detailSubscription && (
+                      <p className="text-mid">
+                        {SUBSCRIPTION_PLANS.find(plan => plan.id === detailSubscription.plan)?.name ?? detailSubscription.plan} · Every {detailSubscription.recurring_day} ·
+                        <span className="ml-1 text-cyan">${dbGetSubPrice(detailSubscription.plan, detailSubscription.vehicle_size, detailSubscription.package)}/visit</span>
+                      </p>
                     )}
-
-                    {/* Notes */}
-                    {selectedEntry.type === "booking" && selectedEntry.booking?.notes && (
-                      <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3">
-                        <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider mb-1">Notes</p>
-                        <p className="text-white text-sm">{selectedEntry.booking.notes}</p>
-                      </div>
+                    {!!detailBooking?.addons?.length && (
+                      <ul className="space-y-1 text-sm text-white">
+                        {detailBooking.addons.map(addon => (
+                          <li key={addon.id} className="flex justify-between gap-3">
+                            <span>{addon.name}</span><span className="text-cyan">${addon.price}</span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
-
-                    {selectedEntry.type === "booking" && selectedEntry.booking && (
-                      <BookingAdminTools key={selectedEntry.booking.id} booking={selectedEntry.booking}
-                        onRescheduled={async () => { await fetchBookings(); setSelectedEntry(null); }} />
-                    )}
-
-                    {/* Booking status change */}
-                    {selectedEntry.type === "booking" && selectedEntry.booking && (
-                      <div className="space-y-2">
-                        <p className="text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Update Status</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(["confirmed", "completed", "no_show"] as BookingStatus[]).map((s) => (
-                            <Button
-                              key={s}
-                              variant="outline"
-                              size="sm"
-                              disabled={selectedEntry.booking!.status === s}
-                              onClick={() => handleStatusChange(selectedEntry.booking!.id, s)}
-                              className={`${statusColors[s]} ${selectedEntry.booking!.status === s ? "opacity-50" : ""}`}
-                            >
-                              {statusLabels[s]}
+                  </section>
+                  {detailBooking?.notes && (
+                    <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                      <h3 className="font-semibold text-white">Booking notes</h3>
+                      <p className="whitespace-pre-wrap break-words text-mid">{detailBooking.notes}</p>
+                    </section>
+                  )}
+                  {detailBooking && (
+                    <>
+                      <section className="space-y-3 rounded-xl border border-white/10 bg-navy/25 p-4">
+                        <h3 className="font-semibold text-white">Appointment status</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {(["confirmed", "completed", "no_show"] as const).map(status => (
+                            <Button key={status} variant="outline" size="sm"
+                              disabled={detailBooking.status === status}
+                              onClick={() => handleStatusChange(detailBooking.id, status)}
+                              className={statusColors[status]}>
+                              {statusLabels[status]}
                             </Button>
                           ))}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={selectedEntry.booking!.status === "cancelled"}
-                            onClick={() => {
-                              setCancelBooking({
-                                id: selectedEntry.booking!.id,
-                                name: selectedEntry.name,
-                                date: selectedEntry.booking!.booking_date,
-                                time: selectedEntry.booking!.booking_time,
-                              });
-                              setSelectedEntry(null);
-                            }}
-                            className={`${statusColors.cancelled} ${selectedEntry.booking!.status === "cancelled" ? "opacity-50" : ""}`}
-                          >
-                            Cancel Booking
-                          </Button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
+                      </section>
+                      <BookingAdminTools key={detailBooking.id} booking={detailBooking}
+                        onRescheduled={async () => {
+                          await fetchBookings();
+                          setSelectedEntry(null);
+                          setHistoryRevision(value => value + 1);
+                        }} />
+                      <section className="border-t border-white/10 pt-4">
+                        <Button variant="outline" disabled={detailBooking.status === "cancelled"}
+                          className="border-red-400/30 text-red-300 hover:bg-red-400/10 hover:text-red-200"
+                          onClick={() => {
+                            setCancelBooking({
+                              id: detailBooking.id,
+                              name: selectedEntry.name,
+                              date: detailBooking.booking_date,
+                              time: detailBooking.booking_time,
+                            });
+                            setSelectedEntry(null);
+                          }}>
+                          Cancel booking
+                        </Button>
+                      </section>
+                    </>
+                  )}
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Cancel Booking Modal */}
           <Dialog open={!!cancelBooking} onOpenChange={(open) => !open && setCancelBooking(null)}>
@@ -1112,6 +1130,7 @@ export default function AdminPage() {
                         await updateBookingStatus(cancelBooking.id, "cancelled");
                         setCancelBooking(null);
                         setCancelling(false);
+                        setHistoryRevision(value => value + 1);
                         fetchBookings();
                       }}
                       disabled={cancelling}
@@ -1134,21 +1153,24 @@ export default function AdminPage() {
 
           {/* ============ CUSTOMERS TAB ============ */}
           <TabsContent value="customers">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
                 <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
                   Customers
                 </CardTitle>
+                <p className="text-sm text-mid">Find guest and registered customers, then open their appointment history.</p>
               </CardHeader>
               <CardContent>
-                {/* Search bar */}
+                <Label htmlFor="customer-search" className="mb-2 text-mid">Search customers</Label>
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                   <Input
+                    id="customer-search"
+                    type="search"
                     placeholder="Search by name, email, phone, or booking reference..."
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-10 border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white placeholder:text-[hsl(var(--muted-foreground))]"
+                    className="rounded-lg border-white/20 bg-navy pl-10 text-white placeholder:text-mid"
                   />
                 </div>
 
@@ -1170,57 +1192,56 @@ export default function AdminPage() {
                   }
 
                   return (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-[hsl(var(--muted))]">
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Name</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Email</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Phone</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Bookings</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Latest appointment</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filtered.map((p) => {
-                          return (
-                            <TableRow
-                              key={p.id}
-                              className="border-[hsl(var(--muted))] cursor-pointer hover:bg-[hsl(var(--muted))]/30 transition-colors"
-                              onClick={() => setSelectedCustomer(p)}
-                            >
-                              <TableCell className="font-medium text-white">{p.first_name} {p.last_name}<span className="mt-1 block text-xs font-normal text-mid">{p.is_guest ? "Guest customer" : "Existing account"}</span></TableCell>
-                              <TableCell className="text-[hsl(var(--muted-foreground))] text-sm">{p.email || "—"}</TableCell>
-                              <TableCell className="text-[hsl(var(--muted-foreground))]">{p.phone || "N/A"}</TableCell>
-                              <TableCell className="text-[hsl(var(--accent))] font-semibold">{p.booking_ids.length}</TableCell>
-                              <TableCell className="text-mid">{p.last_booking_date ? new Date(p.last_booking_date + "T12:00:00Z").toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—"}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                    <ul className="space-y-3">
+                      {filtered.map(customer => (
+                        <li key={customer.id} className="rounded-xl border border-white/10 bg-dark/60 p-4">
+                          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
+                            <div className="min-w-0">
+                              <p className="break-words font-semibold text-white">{customer.first_name} {customer.last_name}</p>
+                              <p className="mt-1 text-xs text-cyan">{customer.is_guest ? "Guest customer" : "Registered customer"}</p>
+                            </div>
+                            <div className="min-w-0 space-y-1 text-sm text-mid">
+                              <p className="break-all">{customer.email || "No email on file"}</p>
+                              <p>{customer.phone || "No phone on file"}</p>
+                            </div>
+                            <div className="text-sm text-mid">
+                              <p>{customer.booking_ids.length} appointment{customer.booking_ids.length === 1 ? "" : "s"}</p>
+                              <p className="text-xs">{customer.last_booking_date ? `Latest: ${format(new Date(customer.last_booking_date + "T12:00:00"), "MMM d, yyyy")}` : "No appointments yet"}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="mt-3 rounded-lg border-cyan/30 text-cyan"
+                            aria-label={`View customer ${customer.first_name} ${customer.last_name}`}
+                            onClick={() => setSelectedCustomerId(customer.id)}>
+                            View customer
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
                   );
                 })()}
               </CardContent>
             </Card>
 
             {/* Customer Detail Modal */}
-            <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
-              <DialogContent className="border-[hsl(var(--accent))]/20 bg-[#0b1740] shadow-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
+            <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomerId(null)}>
+              <DialogContent className="max-h-[90dvh] overflow-y-auto border-white/15 bg-dark p-4 shadow-xl sm:max-w-2xl sm:p-6">
+                <DialogHeader className="rounded-xl border border-cyan/20 bg-cyan/5 p-4 pr-9">
                   <DialogTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
                     {selectedCustomer?.first_name} {selectedCustomer?.last_name}
                   </DialogTitle>
+                  <DialogDescription className="text-mid">
+                    {selectedCustomer?.is_guest ? "Guest customer" : "Registered customer"}
+                  </DialogDescription>
                 </DialogHeader>
                 {selectedCustomer && (
                   <div className="space-y-5 pt-2">
                     {/* Contact info */}
-                    <div className="space-y-2">
+                    <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                      <h3 className="font-semibold text-white">Contact &amp; vehicle</h3>
                       {selectedCustomer.email && (
                         <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
                           <Mail className="h-4 w-4" />
-                          <span>{selectedCustomer.email}</span>
+                          <span className="break-all">{selectedCustomer.email}</span>
                         </div>
                       )}
                       {selectedCustomer.phone && (
@@ -1229,130 +1250,9 @@ export default function AdminPage() {
                           <span>{selectedCustomer.phone}</span>
                         </div>
                       )}
-                    </div>
-
-                    {!selectedCustomer.is_guest && <>
-                    {/* Referral Info */}
-                    <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4 space-y-3">
-                      <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold flex items-center gap-1.5">
-                        <Gift className="h-3.5 w-3.5" /> Referrals
-                      </p>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Referral Code</p>
-                          <p className="font-mono font-bold text-white tracking-[3px]">{selectedCustomer.referral_code ?? "—"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Credits</p>
-                          <p className="text-white font-bold text-lg">
-                            {selectedCustomer.referral_credits ?? 0}
-                            <span className="text-xs font-normal text-[hsl(var(--muted-foreground))]"> / 3 = free detail</span>
-                          </p>
-                        </div>
-                      </div>
-                      {(selectedCustomer.referral_credits ?? 0) >= 3 && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            showConfirm({
-                              title: "Redeem Credits",
-                              description: `Redeem 3 credits for ${selectedCustomer.first_name}? This grants a free Premium Detail.`,
-                              confirmLabel: "Redeem",
-                              onConfirm: async () => {
-                                try {
-                                  const supabase = createClient();
-                                  const { error } = await supabase.rpc("redeem_referral_credits", { user_id_input: selectedCustomer.id });
-                                  setConfirmModal((m) => ({ ...m, open: false }));
-                                  if (error) {
-                                    toast.error(error.message);
-                                  } else {
-                                    toast.success("3 credits redeemed!");
-                                    fetchProfiles();
-                                    setSelectedCustomer({ ...selectedCustomer, referral_credits: (selectedCustomer.referral_credits ?? 0) - 3 });
-                                  }
-                                } catch (e) {
-                                  setConfirmModal((m) => ({ ...m, open: false }));
-                                  toast.error("Failed to redeem credits.");
-                                  console.error(e);
-                                }
-                              },
-                            });
-                          }}
-                          className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80"
-                        >
-                          <Gift className="mr-2 h-3.5 w-3.5" />
-                          Redeem 3 Credits — Free Premium Detail
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Subscriptions */}
-                    {(() => {
-                      const userSubs = getSubscriptionsForUser(selectedCustomer.id);
-                      return (
-                        <div className="space-y-3">
-                          <p className="text-xs uppercase tracking-wider text-[hsl(var(--accent))] font-semibold">
-                            Subscriptions ({userSubs.length})
-                          </p>
-                          {userSubs.length === 0 ? (
-                            <p className="text-sm text-[hsl(var(--muted-foreground))]">No active subscriptions.</p>
-                          ) : (
-                            userSubs.map((sub) => {
-                              const planLabel = SUBSCRIPTION_PLANS.find((pl) => pl.id === sub.plan)?.name ?? sub.plan;
-                              return (
-                                <div key={sub.id} className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-white font-medium">{PACKAGE_LABELS[sub.package]}</span>
-                                      <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                                        {planLabel}
-                                      </Badge>
-                                    </div>
-                                    <span className="font-[family-name:var(--font-barlow-condensed)] text-lg font-bold text-[hsl(var(--accent))]">
-                                      ${dbGetSubPrice(sub.plan, sub.vehicle_size, sub.package)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Service</p>
-                                      <p className="text-white">{SERVICE_TYPE_LABELS[sub.service_type]}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Vehicle</p>
-                                      <p className="text-white">{VEHICLE_LABELS[sub.vehicle_size]}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Schedule</p>
-                                      <p className="text-white">{sub.recurring_day} at {sub.recurring_time}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Next Visit</p>
-                                      <p className="text-[hsl(var(--accent))]">
-                                        {sub.next_service_date
-                                          ? new Date(sub.next_service_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                                          : "TBD"}
-                                      </p>
-                                    </div>
-                                    {sub.service_address && (
-                                      <div className="col-span-2">
-                                        <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Address</p>
-                                        <p className="text-white">{sub.service_address}</p>
-                                      </div>
-                                    )}
-                                    <div>
-                                      <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Location</p>
-                                      <p className="text-white">{sub.location === "mobile" ? "Mobile" : "In-Shop"}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    </>}
+                      {!selectedCustomer.email && !selectedCustomer.phone && <p className="text-sm text-mid">No contact details on file.</p>}
+                      {latestCustomerBooking && <p className="text-sm text-mid">Vehicle at latest appointment: {VEHICLE_LABELS[latestCustomerBooking.vehicle_size]}</p>}
+                    </section>
 
                     {/* Booking History */}
                     {(() => {
@@ -1367,10 +1267,10 @@ export default function AdminPage() {
                           {userBookings.length === 0 ? (
                             <p className="text-sm text-[hsl(var(--muted-foreground))]">No appointments yet.</p>
                           ) : (
-                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                            <div className="space-y-2">
                               {userBookings.map((b) => (
-                                <div key={b.id} className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3">
-                                  <div className="flex items-center justify-between mb-1">
+                                <div key={b.id} className="rounded-xl border border-white/10 bg-navy/25 p-4">
+                                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                                     <span className="text-white font-medium text-sm">
                                       {new Date(b.booking_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {b.booking_time}
                                     </span>
@@ -1392,7 +1292,7 @@ export default function AdminPage() {
                                   </div>
                                   <Button variant="outline" size="sm" className="mt-3 text-cyan border-cyan/30" onClick={() => {
                                     setSelectedEntry({ type: "booking", time: b.booking_time, name: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`.trim(), booking: b });
-                                    setSelectedCustomer(null);
+                                    setSelectedCustomerId(null);
                                   }}>View booking details</Button>
                                 </div>
                               ))}
@@ -1401,6 +1301,80 @@ export default function AdminPage() {
                         </div>
                       );
                     })()}
+
+                    {!selectedCustomer.is_guest && (<>
+                    <section className="space-y-3" aria-label="Customer subscriptions">
+                      <h3 className="font-semibold text-white">Subscriptions</h3>
+                      {customerSubscriptions.length === 0 ? (
+                        <p className="text-sm text-mid">No active or paused subscriptions.</p>
+                      ) : (
+                        <ul className="space-y-3">
+                          {customerSubscriptions.map(subscription => (
+                            <SubscriptionCard key={subscription.id} subscription={subscription}
+                              price={dbGetSubPrice(subscription.plan, subscription.vehicle_size, subscription.package)} />
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+
+                    {/* Referral Info */}
+                    <div className="space-y-3 rounded-xl border border-white/10 bg-navy/25 p-4">
+                      <h3 className="flex items-center gap-2 font-semibold text-white">
+                        <Gift className="size-4 text-cyan" /> Referrals
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Referral Code</p>
+                          <p className="font-mono font-bold text-white tracking-[3px]">{selectedCustomer.referral_code ?? "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Credits</p>
+                          <p className="text-white font-bold text-lg">
+                            {selectedCustomer.referral_credits ?? 0}
+                            <span className="text-xs font-normal text-[hsl(var(--muted-foreground))]"> / 3 = free detail</span>
+                          </p>
+                        </div>
+                      </div>
+                      {(selectedCustomer.referral_credits ?? 0) >= 3 && (
+                        <Button
+                          size="sm"
+                          disabled={confirmBusy}
+                          onClick={() => {
+                            const customerId = selectedCustomer.id;
+                            showConfirm({
+                              title: "Redeem Credits",
+                              description: `Redeem 3 credits for ${selectedCustomer.first_name}? These credits count toward a free Premium Detail.`,
+                              confirmLabel: "Redeem",
+                              onConfirm: async () => {
+                                setConfirmBusy(true);
+                                try {
+                                  const { error } = await supabase.rpc("redeem_referral_credits", { user_id_input: customerId });
+                                  setConfirmModal((m) => ({ ...m, open: false }));
+                                  if (error) {
+                                    toast.error(error.message);
+                                  } else {
+                                    toast.success("3 credits redeemed!");
+                                    await fetchProfiles();
+                                  }
+                                } catch (e) {
+                                  setConfirmModal((m) => ({ ...m, open: false }));
+                                  toast.error("Failed to redeem credits.");
+                                  console.error(e);
+                                } finally {
+                                  setConfirmBusy(false);
+                                }
+                              },
+                            });
+                          }}
+                          className="h-auto whitespace-normal rounded-lg bg-cyan text-navy hover:bg-cyan/90"
+                        >
+                          <Gift className="mr-2 h-3.5 w-3.5" />
+                          Redeem 3 Credits — Free Premium Detail
+                        </Button>
+                      )}
+                    </div>
+
+                    </>)}
                   </div>
                 )}
               </DialogContent>
@@ -1409,76 +1383,24 @@ export default function AdminPage() {
 
           {/* ============ SUBSCRIPTIONS TAB ============ */}
           <TabsContent value="subscriptions">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
                 <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
                   Active Subscriptions
                 </CardTitle>
+                <p className="text-sm text-mid">Compare recurring plans, per-visit prices and upcoming visits. Schedules use Calgary time.</p>
               </CardHeader>
               <CardContent>
-                {subscriptions.filter((s) => s.status === "active").length === 0 ? (
-                  <p className="py-4 text-[hsl(var(--muted-foreground))]">No active subscriptions.</p>
+                {activeSubscriptions.length === 0 ? (
+                  <p className="py-4 text-mid">No active subscriptions.</p>
                 ) : (
-                  <div className="space-y-4">
-                    {subscriptions
-                      .filter((s) => s.status === "active")
-                      .map((sub) => {
-                        const name = sub.profiles
-                          ? `${sub.profiles.first_name} ${sub.profiles.last_name}`
-                          : "Unknown";
-                        const planLabel = SUBSCRIPTION_PLANS.find((p) => p.id === sub.plan)?.name ?? sub.plan;
-
-                        return (
-                          <div key={sub.id} className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-4">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-3">
-                                  <span className="font-[family-name:var(--font-barlow-condensed)] text-lg font-semibold text-white">{name}</span>
-                                  <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">Active</Badge>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
-                                  <span>{planLabel}</span>
-                                  <span>{PACKAGE_LABELS[sub.package]}</span>
-                                  <span>{SERVICE_TYPE_LABELS[sub.service_type]}</span>
-                                  <span className="flex items-center gap-1">
-                                    <Car className="h-3.5 w-3.5" />
-                                    {VEHICLE_LABELS[sub.vehicle_size]}
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-[hsl(var(--muted-foreground))]">
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="h-3.5 w-3.5" />
-                                    {sub.recurring_day} at {sub.recurring_time}
-                                  </span>
-                                  {sub.service_address && (
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="h-3.5 w-3.5" />
-                                      {sub.service_address}
-                                    </span>
-                                  )}
-                                  {sub.profiles?.phone && (
-                                    <span className="flex items-center gap-1">
-                                      <Phone className="h-3.5 w-3.5" />
-                                      {sub.profiles.phone}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-[family-name:var(--font-barlow-condensed)] text-xl font-bold text-[hsl(var(--accent))]">
-                                  ${dbGetSubPrice(sub.plan, sub.vehicle_size, sub.package)}<span className="text-xs font-normal text-[hsl(var(--muted-foreground))]">/visit</span>
-                                </p>
-                                {sub.next_service_date && (
-                                  <p className="text-sm text-[hsl(var(--accent))] mt-1">
-                                    Next: {new Date(sub.next_service_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
+                  <ul className="space-y-3">
+                    {activeSubscriptions.map(subscription => (
+                      <SubscriptionCard key={subscription.id} subscription={subscription}
+                        customerName={subscription.profiles ? `${subscription.profiles.first_name} ${subscription.profiles.last_name}` : "Unknown customer"}
+                        price={dbGetSubPrice(subscription.plan, subscription.vehicle_size, subscription.package)} />
+                    ))}
+                  </ul>
                 )}
               </CardContent>
             </Card>
@@ -1486,226 +1408,178 @@ export default function AdminPage() {
 
           {/* ============ PROMOS TAB ============ */}
           <TabsContent value="promos" className="space-y-6">
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
-                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                  Add Promo Code
-                </CardTitle>
+                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Create promo code</CardTitle>
+                <p className="text-sm text-mid">Set the discount and how often customers can use the code.</p>
               </CardHeader>
               <CardContent>
                 <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
+                  aria-label="Create promo code"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (promoSaving) return;
                     setPromoFormError("");
-                    const result = await createPromoCode({
-                      code: promoForm.code,
-                      discount_pct: promoForm.discount_pct,
-                      scope: promoForm.scope,
-                      usage_limit: promoForm.usage_limit,
-                      active: promoForm.active,
-                    });
-                    if (result.error) {
-                      setPromoFormError(result.error);
-                    } else {
-                      setPromoForm({
-                        code: "",
-                        discount_pct: 10,
-                        scope: "booking",
-                        usage_limit: "unlimited" as PromoUsageLimit,
-                        active: true,
-                      });
-                      fetchPromoCodes();
+                    setPromoSaving(true);
+                    try {
+                      const result = await createPromoCode(promoForm);
+                      if (result.error) {
+                        setPromoFormError(result.error);
+                        return;
+                      }
+                      setPromoForm({ code: "", discount_pct: 10, scope: "booking", usage_limit: "unlimited", active: true });
+                      await fetchPromoCodes();
+                    } catch {
+                      setPromoFormError("Could not create the promo code. Please try again.");
+                    } finally {
+                      setPromoSaving(false);
                     }
                   }}
-                  className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end"
                 >
-                  <div className="md:col-span-2 space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">Code</Label>
-                    <Input
-                      value={promoForm.code}
-                      onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
-                      placeholder="SUMMER25"
-                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white uppercase tracking-wider"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">% Off</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={promoForm.discount_pct}
-                      onChange={(e) => setPromoForm({ ...promoForm, discount_pct: Number(e.target.value) })}
-                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">Scope</Label>
-                    <select
-                      value={promoForm.scope}
-                      onChange={(e) => setPromoForm({ ...promoForm, scope: e.target.value as "booking" | "subscription" })}
-                      className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
-                    >
-                      <option value="booking">One-Time Booking</option>
-                      <option value="subscription" disabled>Subscription (paused)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">Use Limit</Label>
-                    <select
-                      value={promoForm.usage_limit}
-                      onChange={(e) => setPromoForm({ ...promoForm, usage_limit: e.target.value as PromoUsageLimit })}
-                      className="w-full h-9 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-3"
-                    >
-                      <option value="unlimited">Unlimited</option>
-                      <option value="once_per_email">Once per email address</option>
-                      <option value="single_use">Single use total</option>
-                    </select>
-                  </div>
-                  <Button type="submit" className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80">
-                    Add Code
-                  </Button>
+                  <fieldset disabled={promoSaving} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <label className="space-y-1 text-sm text-mid">
+                      Code
+                      <Input required value={promoForm.code} placeholder="SUMMER25"
+                        onChange={event => setPromoForm({ ...promoForm, code: event.target.value.toUpperCase() })}
+                        className="rounded-lg border-white/20 bg-navy text-white uppercase" />
+                    </label>
+                    <label className="space-y-1 text-sm text-mid">
+                      Discount (%)
+                      <Input required type="number" min={1} max={100} value={promoForm.discount_pct}
+                        onChange={event => setPromoForm({ ...promoForm, discount_pct: Number(event.target.value) })}
+                        className="rounded-lg border-white/20 bg-navy text-white" />
+                    </label>
+                    <div className="space-y-1 text-sm text-mid">
+                      <Label htmlFor="promo-scope">Scope</Label>
+                      <select id="promo-scope" value={promoForm.scope}
+                        onChange={event => setPromoForm({ ...promoForm, scope: event.target.value as "booking" | "subscription" })}
+                        className="block h-9 w-full rounded-lg border border-white/20 bg-navy px-3 text-white">
+                        <option value="booking">One-time booking</option>
+                        <option value="subscription" disabled>Subscription (paused)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1 text-sm text-mid">
+                      <Label htmlFor="promo-use-limit">Use limit</Label>
+                      <select id="promo-use-limit" value={promoForm.usage_limit}
+                        onChange={event => setPromoForm({ ...promoForm, usage_limit: event.target.value as PromoUsageLimit })}
+                        className="block h-9 w-full rounded-lg border border-white/20 bg-navy px-3 text-white">
+                        {PROMO_LIMITS.map(limit => <option key={limit} value={limit}>{PROMO_LIMIT_LABELS[limit]}</option>)}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-4">
+                      <Button type="submit" className="rounded-lg bg-cyan text-navy hover:bg-cyan/90">
+                        {promoSaving ? "Creating…" : "Create code"}
+                      </Button>
+                    </div>
+                  </fieldset>
+                  {promoFormError && <p role="alert" className="mt-3 text-sm text-red-300">{promoFormError}</p>}
                 </form>
-                <p className="mt-3 text-xs text-mid">Booking limits work without an account. Email addresses are matched without case or surrounding spaces. Applying a code does not use it; saved bookings count, including cancelled and archived appointments. Changing a limit does not reset previous uses.</p>
-                {promoFormError && (
-                  <p className="mt-3 text-sm text-red-400">{promoFormError}</p>
-                )}
+                <p className="mt-4 text-xs text-mid">Booking limits work without an account. Email matching ignores case and surrounding spaces. A use counts when a booking is saved, including bookings later cancelled or archived. Changing a limit preserves earlier uses.</p>
               </CardContent>
             </Card>
 
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+            <Card className="rounded-2xl border-white/15 bg-navy/25">
               <CardHeader>
-                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                  All Promo Codes
-                </CardTitle>
+                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Existing promo codes</CardTitle>
+                <p className="text-sm text-mid">Discount edits apply to future bookings and subscriptions. Discount fields save when you leave them.</p>
               </CardHeader>
               <CardContent>
                 {promoCodes.length === 0 ? (
-                  <p className="py-4 text-[hsl(var(--muted-foreground))]">No promo codes yet.</p>
+                  <p className="py-4 text-mid">No promo codes yet.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-[hsl(var(--muted))]">
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Code</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Scope</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">% Off</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Use Limit</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))]">Active</TableHead>
-                          <TableHead className="text-[hsl(var(--muted-foreground))] text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {promoCodes.map((promo) => (
-                          <TableRow key={promo.id} className="border-[hsl(var(--muted))]">
-                            <TableCell className="font-mono font-bold text-white tracking-wider">
-                              {promo.code}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  promo.scope === "booking"
-                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                                    : "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                  <ul className="space-y-3">
+                    {promoCodes.map(promo => (
+                      <li key={promo.id} className="space-y-4 rounded-xl border border-white/10 bg-dark/60 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="break-words font-mono font-semibold tracking-wider text-white">{promo.code}</p>
+                            <p className="mt-1 text-sm text-mid">{promo.scope === "booking" ? "One-time booking" : "Subscription"}</p>
+                          </div>
+                          <Badge variant="outline" className={promo.active ? "border-green-400/30 text-green-400" : "border-white/20 text-mid"}>
+                            {promo.active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[8rem_minmax(0,16rem)]">
+                          <label className="space-y-1 text-sm text-mid">
+                            Discount (%)
+                            <Input key={promo.discount_pct} aria-label={`Discount for ${promo.code}`} type="number" min={1} max={100}
+                              defaultValue={promo.discount_pct} className="rounded-lg border-white/20 bg-navy text-white"
+                              onBlur={async (event) => {
+                                const input = event.currentTarget;
+                                const discount = Number(input.value);
+                                if (discount === promo.discount_pct) return;
+                                if (!Number.isInteger(discount) || discount < 1 || discount > 100) {
+                                  toast.error("Enter a whole discount from 1 to 100.");
+                                  input.value = String(promo.discount_pct);
+                                  return;
                                 }
-                              >
-                                {promo.scope === "booking" ? "Booking" : "Subscription"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                defaultValue={promo.discount_pct}
-                                onBlur={async (e) => {
-                                  const newPct = Number(e.target.value);
-                                  if (newPct === promo.discount_pct) return;
-                                  const result = await updatePromoCode(promo.id, { discount_pct: newPct });
-                                  if (result.error) {
-                                    toast.error(result.error);
-                                    e.target.value = String(promo.discount_pct);
-                                  } else {
-                                    fetchPromoCodes();
-                                  }
-                                }}
-                                className="w-20 h-8 rounded-md border border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white text-sm px-2"
-                              />
-                              <span className="ml-1 text-[hsl(var(--muted-foreground))]">%</span>
-                            </TableCell>
-                            <TableCell className="text-[hsl(var(--muted-foreground))]">
-                              {promo.scope === "booking" ? <select
-                                aria-label={`Use limit for ${promo.code}`}
-                                value={promo.usage_limit}
+                                if (!await savePromoChange(promo.id, { discount_pct: discount })) {
+                                  input.value = String(promo.discount_pct);
+                                }
+                              }} />
+                          </label>
+                          {promo.scope === "booking" ? (
+                            <label className="space-y-1 text-sm text-mid">
+                              Use limit
+                              <select aria-label={`Use limit for ${promo.code}`} value={promo.usage_limit}
+                                className="block h-9 w-full rounded-lg border border-white/20 bg-navy px-3 text-white disabled:opacity-50"
                                 disabled={!!promoLimitSaving}
-                                className="min-w-[185px] rounded-md border border-white/20 bg-[#070d22] px-2 py-2 text-sm text-white disabled:opacity-50"
                                 onChange={async (event) => {
                                   const limit = event.target.value as PromoUsageLimit;
                                   setPromoLimitSaving(promo.id);
                                   try {
-                                    const result = await updatePromoCode(promo.id, { usage_limit: limit });
-                                    if (result.error) toast.error(result.error);
-                                    else { await fetchPromoCodes(); toast.success("Promo use limit updated."); }
-                                  } catch { toast.error("Could not update this use limit. Please retry."); }
-                                  finally { setPromoLimitSaving(null); }
+                                    if (await savePromoChange(promo.id, { usage_limit: limit })) toast.success("Promo use limit updated.");
+                                  } finally {
+                                    setPromoLimitSaving(null);
+                                  }
                                 }}>
                                 {PROMO_LIMITS.map(limit => <option key={limit} value={limit}>{PROMO_LIMIT_LABELS[limit]}</option>)}
-                              </select> : promo.max_uses_per_user === null ? "Unlimited" : "Legacy account limit"}
-                            </TableCell>
-                            <TableCell>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const result = await updatePromoCode(promo.id, { active: !promo.active });
+                              </select>
+                            </label>
+                          ) : (
+                            <div className="text-sm text-mid">
+                              <p>Use limit</p>
+                              <p className="mt-2 text-white">{promo.max_uses_per_user === null ? "Unlimited" : "Legacy account limit"}</p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                          <Button type="button" variant="outline" size="sm"
+                            className="rounded-lg border-cyan/30 text-cyan"
+                            onClick={() => savePromoChange(promo.id, { active: !promo.active })}>
+                            {promo.active ? "Deactivate" : "Activate"}
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="rounded-lg border-red-400/30 text-red-300 hover:bg-red-400/10"
+                            aria-label={`Delete promo code ${promo.code}`}
+                            onClick={() => showConfirm({
+                              title: "Delete Promo Code",
+                              description: `Delete promo code ${promo.code}? This cannot be undone.`,
+                              confirmLabel: "Delete",
+                              variant: "destructive",
+                              onConfirm: async () => {
+                                setConfirmBusy(true);
+                                try {
+                                  const result = await deletePromoCode(promo.id);
                                   if (result.error) toast.error(result.error);
-                                  else fetchPromoCodes();
-                                }}
-                              >
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    promo.active
-                                      ? "bg-green-500/20 text-green-400 border-green-500/30 cursor-pointer hover:bg-green-500/30"
-                                      : "bg-red-500/20 text-red-400 border-red-500/30 cursor-pointer hover:bg-red-500/30"
+                                  else {
+                                    toast.success("Promo code deleted.");
+                                    await fetchPromoCodes();
                                   }
-                                >
-                                  {promo.active ? "Active" : "Inactive"}
-                                </Badge>
-                              </button>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  showConfirm({
-                                    title: "Delete Promo Code",
-                                    description: `Delete promo code ${promo.code}? This cannot be undone.`,
-                                    confirmLabel: "Delete",
-                                    variant: "destructive",
-                                    onConfirm: async () => {
-                                      const result = await deletePromoCode(promo.id);
-                                      setConfirmModal((m) => ({ ...m, open: false }));
-                                      if (result.error) toast.error(result.error);
-                                      else { toast.success("Promo code deleted."); fetchPromoCodes(); }
-                                    },
-                                  });
-                                }}
-                                className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                                } catch {
+                                  toast.error("Could not delete this promo code. Please try again.");
+                                } finally {
+                                  setConfirmModal(modal => ({ ...modal, open: false }));
+                                  setConfirmBusy(false);
+                                }
+                              },
+                            })}>
+                            <Trash2 className="size-4" /> Delete
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-                <p className="mt-4 text-xs text-[hsl(var(--muted-foreground))]">
-                  Discount % changes only affect <span className="text-white font-semibold">future</span> redemptions. Existing bookings and subscriptions keep the discount they were created with.
-                </p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1713,120 +1587,103 @@ export default function AdminPage() {
           {/* ============ TEAM TAB (owner only) ============ */}
           {isOwner && (
             <TabsContent value="team" className="space-y-6">
-              <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+              <Card className="rounded-2xl border-white/15 bg-navy/25">
                 <CardHeader>
-                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    Add Admin
-                  </CardTitle>
+                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Add admin</CardTitle>
+                  <p className="text-sm text-mid">Enter the email address the person used to sign up for their Calgary account.</p>
                 </CardHeader>
                 <CardContent>
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.target as HTMLFormElement;
-                      const emailInput = form.elements.namedItem("admin_email") as HTMLInputElement;
-                      const email = emailInput.value.trim();
-                      if (!email) return;
+                  <form aria-label="Add admin" onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (addingAdmin) return;
+                    const input = event.currentTarget.elements.namedItem("admin_email") as HTMLInputElement;
+                    const email = input.value.trim();
+                    if (!email) return;
+                    setTeamFormError("");
+                    setAddingAdmin(true);
+                    try {
                       const { updateUserRole } = await import("./actions");
                       const result = await updateUserRole(email, "admin");
                       if (result.error) {
-                        toast.error(result.error);
-                      } else {
-                        emailInput.value = "";
-                        toast.success("Admin access granted.");
-                        fetchProfiles();
+                        setTeamFormError(result.error);
+                        return;
                       }
-                    }}
-                    className="flex items-end gap-3"
-                  >
-                    <div className="flex-1 space-y-2">
-                      <Label className="text-white">Email Address</Label>
-                      <Input
-                        name="admin_email"
-                        type="email"
-                        placeholder="user@example.com"
-                        className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white"
-                      />
-                    </div>
-                    <Button type="submit" className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80">
-                      <Shield className="mr-2 h-4 w-4" />
-                      Make Admin
-                    </Button>
+                      input.value = "";
+                      toast.success("Admin access granted.");
+                      await fetchProfiles();
+                    } catch {
+                      setTeamFormError("Could not grant admin access. Please try again.");
+                    } finally {
+                      setAddingAdmin(false);
+                    }
+                  }}>
+                    <fieldset disabled={addingAdmin} className="flex flex-wrap items-end gap-3">
+                      <label className="min-w-0 basis-full space-y-1 text-sm text-mid sm:max-w-md sm:flex-1">
+                        Signup email
+                        <Input name="admin_email" type="email" required placeholder="user@example.com"
+                          className="rounded-lg border-white/20 bg-navy text-white" />
+                      </label>
+                      <Button type="submit" className="rounded-lg bg-cyan text-navy hover:bg-cyan/90">
+                        <Shield className="size-4" />
+                        {addingAdmin ? "Granting access…" : "Grant admin access"}
+                      </Button>
+                    </fieldset>
+                    {teamFormError && <p role="alert" className="mt-3 text-sm text-red-300">{teamFormError}</p>}
                   </form>
-                  <p className="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
-                    The user must have an existing account. Enter their signup email to grant admin access.
-                  </p>
                 </CardContent>
               </Card>
 
-              <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
+              <Card className="rounded-2xl border-white/15 bg-navy/25">
                 <CardHeader>
-                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    Team Members
-                  </CardTitle>
+                  <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">Team members</CardTitle>
+                  <p className="text-sm text-mid">Owners manage team access. Admins can work in the Calgary dashboard.</p>
                 </CardHeader>
                 <CardContent>
                   {teamMembers.length === 0 ? (
-                    <p className="py-4 text-[hsl(var(--muted-foreground))]">No team members found.</p>
+                    <p className="py-4 text-mid">No team members found.</p>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-[hsl(var(--muted))]">
-                            <TableHead className="text-[hsl(var(--muted-foreground))]">Name</TableHead>
-                            <TableHead className="text-[hsl(var(--muted-foreground))]">Role</TableHead>
-                            <TableHead className="text-[hsl(var(--muted-foreground))] text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {teamMembers.map((member) => (
-                            <TableRow key={member.id} className="border-[hsl(var(--muted))]">
-                              <TableCell className="font-medium text-white">{member.first_name} {member.last_name}</TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={member.role === "owner" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}
-                                >
-                                  <span className="flex items-center gap-1.5">
-                                    {member.role === "owner" ? <ShieldCheck className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
-                                    {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                                  </span>
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {member.role === "admin" && (
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => {
-                                      showConfirm({
-                                        title: "Revoke Admin",
-                                        description: `Remove admin access from ${member.first_name} ${member.last_name}?`,
-                                        confirmLabel: "Revoke",
-                                        variant: "destructive",
-                                        onConfirm: async () => {
-                                          const { revokeAdmin } = await import("./actions");
-                                          const result = await revokeAdmin(member.id);
-                                          setConfirmModal((m) => ({ ...m, open: false }));
-                                          if (result.error) toast.error(result.error);
-                                          else { toast.success("Admin access revoked."); fetchProfiles(); }
-                                        },
-                                      });
-                                    }}
-                                    className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider"
-                                  >
-                                    Revoke Admin
-                                  </Button>
-                                )}
-                                {member.role === "owner" && (
-                                  <span className="text-xs text-[hsl(var(--muted-foreground))]">Owner</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <ul className="space-y-3">
+                      {teamMembers.map(member => (
+                        <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark/60 p-4">
+                          <div className="min-w-0 space-y-2">
+                            <p className="break-words font-semibold text-white">{member.first_name} {member.last_name}</p>
+                            <Badge variant="outline" className={member.role === "owner" ? "border-yellow/30 text-yellow" : "border-cyan/30 text-cyan"}>
+                              {member.role === "owner" ? <ShieldCheck className="size-3" /> : <Shield className="size-3" />}
+                              <span className="capitalize">{member.role}</span>
+                            </Badge>
+                          </div>
+                          {member.role === "admin" && (
+                            <Button variant="outline" size="sm" className="rounded-lg border-red-400/30 text-red-300 hover:bg-red-400/10"
+                              aria-label={`Revoke admin access for ${member.first_name} ${member.last_name}`}
+                              onClick={() => showConfirm({
+                                title: "Revoke admin access",
+                                description: `Remove admin access from ${member.first_name} ${member.last_name}?`,
+                                confirmLabel: "Revoke",
+                                variant: "destructive",
+                                onConfirm: async () => {
+                                  setConfirmBusy(true);
+                                  try {
+                                    const { revokeAdmin } = await import("./actions");
+                                    const result = await revokeAdmin(member.id);
+                                    if (result.error) toast.error(result.error);
+                                    else {
+                                      toast.success("Admin access revoked.");
+                                      await fetchProfiles();
+                                    }
+                                  } catch {
+                                    toast.error("Could not revoke admin access. Please try again.");
+                                  } finally {
+                                    setConfirmModal(modal => ({ ...modal, open: false }));
+                                    setConfirmBusy(false);
+                                  }
+                                },
+                              })}>
+                              Revoke access
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </CardContent>
               </Card>
@@ -1836,8 +1693,9 @@ export default function AdminPage() {
       </div>
 
       <ConfirmModal
+        loading={confirmBusy}
         open={confirmModal.open}
-        onOpenChange={(open) => setConfirmModal((m) => ({ ...m, open }))}
+        onOpenChange={(open) => { if (!confirmBusy) setConfirmModal((m) => ({ ...m, open })); }}
         title={confirmModal.title}
         description={confirmModal.description}
         confirmLabel={confirmModal.confirmLabel}

@@ -3,7 +3,7 @@ const fs=require("node:fs");
 const path=require("node:path");
 const ts=require("typescript");
 const root=path.resolve(__dirname,"..");
-require.extensions[".ts"]=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,file);
+require.extensions[".ts"]=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2017}}).outputText,file);
 const {buildAdminCustomers:build}=require("../src/lib/admin-customers.ts");
 const profile={id:"account",first_name:"Ben",last_name:"Test",phone:"111",role:"customer",email:"BEN@example.com"};
 const booking={id:"a",user_id:null,guest_first_name:"Guest",guest_last_name:"Test",guest_email:" ben@EXAMPLE.com ",guest_phone:"222",booking_date:"2026-11-12",booking_time:"8:00 AM",reference_code:"WOW-SYCWR9"};

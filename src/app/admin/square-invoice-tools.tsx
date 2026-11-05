@@ -43,7 +43,7 @@ export default function SquareInvoiceTools({ bookingId, finalAmount, onStatusCha
               <p className="text-sm text-white">Status: <strong>{invoice.status.replaceAll("_", " ")}</strong></p>
               <p className="text-sm text-silver">Recipient: {invoice.recipient_email}<br />Total: {cash(invoice.total_cents)}<br />Due: {invoice.snapshot.dueDate}</p>
               {invoice.status === "CREATING" && <p className="text-xs text-yellow">An invoice attempt is saved. Resume uses its original price and recipient to prevent duplicates.</p>}
-              {invoice.status.includes("REFUND") && <p className="text-sm text-yellow">A refund was recorded in Square. Review the payment record below.</p>}
+              {invoice.status.includes("REFUND") && <p className="text-sm text-yellow">A refund was recorded in Square. Review the payment record above.</p>}
               <ul className="space-y-1 text-sm text-silver">{invoice.snapshot.lines.map((line, i) => <li key={i}>{line.name}: {cash(line.cents)}</li>)}</ul>
               <p className="text-xs text-mid">Itemization is the website’s original snapshot. If you edited the invoice in Square, review it there before sending.</p>
               {!invoice.invoice_id ? <button className={button} disabled={busy} onClick={() => run(async () => { setInvoice(await createSquareInvoice(bookingId, "", "")); toast.success("Draft invoice created. No email sent."); })}>Resume draft creation</button> : (

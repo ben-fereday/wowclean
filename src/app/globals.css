@@ -211,3 +211,68 @@
   background: #0d1f52;
   color: #fff;
 }
+
+/* Calgary admin calendar controls */
+.calgary-admin-calendar .fc .fc-toolbar {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.calgary-admin-calendar .fc .fc-button-group {
+  gap: 0.25rem;
+}
+
+.calgary-admin-calendar .fc .fc-button {
+  margin-left: 0;
+  border-radius: 0.5rem;
+  background: #070d22 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  min-height: 2.25rem;
+}
+
+.calgary-admin-calendar .fc .fc-button:not(:disabled):hover {
+  border-color: #5bf3ff !important;
+  color: #fff !important;
+}
+
+.calgary-admin-calendar .fc .fc-button.fc-button-active {
+  background: #5bf3ff !important;
+  border-color: #5bf3ff !important;
+  color: #0b1740 !important;
+}
+
+.calgary-admin-calendar .fc .fc-button:focus-visible {
+  outline: 2px solid #5bf3ff;
+  outline-offset: 2px;
+}
+
+.calgary-admin-calendar .fc .fc-today-button {
+  margin-left: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .calgary-admin-calendar .fc .fc-toolbar {
+    justify-content: space-between;
+  }
+
+  .calgary-admin-calendar .fc .fc-toolbar-chunk:nth-child(2) {
+    order: -1;
+    width: 100%;
+  }
+
+  .calgary-admin-calendar .fc .fc-toolbar-title {
+    font-size: 1.25rem;
+  }
+
+  .calgary-admin-calendar .fc .fc-daygrid-day-number {
+    padding-inline: 0.25rem;
+  }
+
+  .calgary-admin-calendar .fc .fc-daygrid-event {
+    margin-inline: 1px;
+    padding-inline: 2px;
+  }
+}
