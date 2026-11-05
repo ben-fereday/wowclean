@@ -17,8 +17,6 @@ function Hero() {
       {/* Glow effects */}
       <div className="absolute -top-[150px] -right-[150px] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(26,74,255,0.22)_0%,transparent_70%)] pointer-events-none" />
       <div className="absolute -bottom-[100px] left-[20%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(91,243,255,0.1)_0%,transparent_70%)] pointer-events-none" />
-      {/* Bottom stripe */}
-      <div className="absolute bottom-0 left-0 right-0 h-2 bg-[repeating-linear-gradient(90deg,#fff_0px,#fff_16px,#111_16px,#111_32px)] opacity-50" />
 
       {/* Left */}
       <div className="relative z-10 text-center lg:text-left">
@@ -106,8 +104,6 @@ function HowItWorks() {
 
   return (
     <section id="how" className="bg-[#f4f6fb] py-[100px] px-6 md:px-[60px] text-center relative overflow-hidden">
-      {/* Top stripe */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-[repeating-linear-gradient(90deg,#0b1740_0px,#0b1740_16px,#1a4aff_16px,#1a4aff_32px)]" />
       <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-blue mb-4">
         Simple as 1 – 2 – 3
       </p>
