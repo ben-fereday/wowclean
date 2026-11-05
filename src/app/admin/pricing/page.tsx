@@ -1,671 +1,183 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft, Plus, RotateCcw, Save, SlidersHorizontal, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { PACKAGE_LABELS } from "@/lib/constants";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  ArrowLeft,
-  DollarSign,
-  Plus,
-  Trash2,
-  AlertTriangle,
-  Check,
-} from "lucide-react";
-import { toast } from "sonner";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
-import {
-  fetchBookingPrices,
-  fetchAddonItems,
-  fetchSubscriptionPrices,
-  updateBookingPrice,
-  updateAddonItem,
-  addAddonItem,
-  deleteAddonItem,
-  updateSubscriptionPrice,
-  type BookingPricingGrid,
-  type AddonItem,
-  type SubPricingGrid,
+  fetchBookingPrices, fetchAddonItems, fetchSubscriptionPrices,
+  updateBookingPrice, updateAddonItem, addAddonItem, deleteAddonItem, updateSubscriptionPrice,
+  type AllPricing,
 } from "@/lib/pricing-db";
 import {
-  PACKAGE_LABELS,
-  type PackageId,
-  type VehicleSize,
-  type ServiceType,
-  type SubscriptionPlan,
-} from "@/lib/constants";
+  PRICING_PACKAGES, PRICING_SIZES, PRICING_SERVICES, PRICING_SUBSCRIPTIONS,
+  addonId, pricingDraft, pricingChanges, savePricingChanges, savedPricingBaseline,
+  type PricingDraft, type PricingChange,
+} from "@/lib/admin-pricing";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
-const SIZES: VehicleSize[] = ["small", "medium", "large"];
-const SIZE_LABELS: Record<VehicleSize, string> = {
-  small: "Small",
-  medium: "Medium",
-  large: "Large",
-};
-const SERVICE_TYPES: ServiceType[] = ["interior", "exterior", "full"];
-const SERVICE_LABELS: Record<ServiceType, string> = {
-  interior: "Interior",
-  exterior: "Exterior",
-  full: "Full Detail",
-};
-const PACKAGES: PackageId[] = ["standard", "premium", "exclusive"];
-const SUB_PLANS: { id: SubscriptionPlan; label: string }[] = [
-  { id: "weekly", label: "Weekly" },
-  { id: "biweekly", label: "Bi-Weekly" },
-  { id: "monthly", label: "Monthly" },
-];
-const SUB_PACKAGES: { plan: SubscriptionPlan; pkg: string }[] = [
-  { plan: "weekly", pkg: "standard" },
-  { plan: "biweekly", pkg: "standard" },
-  { plan: "monthly", pkg: "standard" },
-  { plan: "monthly", pkg: "premium" },
-];
+const heading = "font-[family-name:var(--font-heading)]";
+const panel = "scroll-mt-28 rounded-2xl border border-white/15 bg-navy/25 p-5 sm:p-7";
+const button = "inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 px-4 py-3 text-sm text-mid transition hover:border-cyan/50 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan disabled:cursor-not-allowed disabled:opacity-40";
+const saveButton = button + " border-cyan bg-cyan font-semibold text-navy hover:bg-cyan/90 hover:text-navy";
+const input = "rounded-lg border border-white/20 bg-navy px-3 py-2 text-sm text-white outline-none focus:border-cyan";
+const serviceNames = { interior: "Interior only", exterior: "Exterior only", full: "Full detail" };
+const planNames = { weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly" };
+const money = (price: number) => `$${price.toLocaleString("en-CA")}`;
 
-type PendingChange = {
-  key: string;
-  label: string;
-  value: number;
-  apply: () => Promise<{ error?: string }>;
-};
+function PriceInput({ id, label, value, changed, onChange }: {
+  id: string; label: string; value: string; changed: boolean; onChange: (value: string) => void;
+}) {
+  const invalid = value.trim() === "" || !Number.isSafeInteger(Number(value)) || Number(value) < 0 || Number(value) > 2147483647;
+  return <div className="relative"><label htmlFor={id} className="sr-only">{label}</label>
+    <div className="flex items-center gap-2"><span aria-hidden="true" className="text-mid">$</span>
+      <input id={id} type="number" inputMode="numeric" min="0" max="2147483647" step="1" value={value}
+        aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : undefined}
+        onChange={e => onChange(e.target.value)} className={`${input} w-24 ${invalid ? "border-red-400" : changed ? "border-cyan" : ""}`} />
+    </div>{invalid && <p id={`${id}-error`} className="mt-1 max-w-36 text-xs text-red-300">Enter whole dollars, $0 or more.</p>}
+  </div>;
+}
+
+function describe(change: PricingChange) {
+  switch (change.kind) {
+    case "booking": return `${PACKAGE_LABELS[change.pkg]} · ${serviceNames[change.service]} · ${change.size}: ${money(change.before)} → ${money(change.price)}`;
+    case "subscription": return `${planNames[change.plan]} · ${PACKAGE_LABELS[change.pkg]} · ${change.size}: ${money(change.before)} → ${money(change.price)} per visit`;
+    case "addon-create": return `Create ${change.name}: ${money(change.price)}, active`;
+    case "addon-delete": return `Delete ${change.name}`;
+    case "addon-update": return `${change.name}: ${money(change.before.price)} → ${money(change.price)}; ${change.before.active ? "active" : "inactive"} → ${change.active ? "active" : "inactive"}`;
+  }
+}
 
 export default function PricingPage() {
   const supabase = useMemo(() => createClient(), []);
-
-  const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
-
-  const [bookingPrices, setBookingPrices] = useState<BookingPricingGrid>({});
-  const [addons, setAddons] = useState<AddonItem[]>([]);
-  const [subPrices, setSubPrices] = useState<SubPricingGrid>({});
-
-  // Pending changes awaiting confirmation
-  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [baseline, setBaseline] = useState<AllPricing | null>(null);
+  const [draft, setDraft] = useState<PricingDraft | null>(null);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveResult, setSaveResult] = useState<string | null>(null);
-
-  // Confirm modal
-  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; name: string; id: string }>({ open: false, name: "", id: "" });
-
-  // New addon form
-  const [newAddonName, setNewAddonName] = useState("");
-  const [newAddonPrice, setNewAddonPrice] = useState(0);
-
-  // Auth check
-  useEffect(() => {
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      if (profile && ["admin", "owner"].includes(profile.role)) {
-        setAuthorized(true);
-      }
-    })();
-  }, [supabase]);
+  const savingRef = useRef(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [section, setSection] = useState("booking-prices");
 
   const reload = useCallback(async () => {
-    const [b, a, s] = await Promise.all([
-      fetchBookingPrices(),
-      fetchAddonItems(),
-      fetchSubscriptionPrices(),
-    ]);
-    setBookingPrices(b);
-    setAddons(a);
-    setSubPrices(s);
-    setLoading(false);
+    const [booking, addons, subscription] = await Promise.all([fetchBookingPrices(), fetchAddonItems(), fetchSubscriptionPrices()]);
+    const data = { booking, addons, subscription };
+    setBaseline(data); setDraft(pricingDraft(data));
   }, []);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { reload(); }, [reload]);
-
-  // Track a pending price change
-  function queueChange(
-    key: string,
-    label: string,
-    value: number,
-    apply: () => Promise<{ error?: string }>
-  ) {
-    setPendingChanges((prev) => {
-      const filtered = prev.filter((c) => c.key !== key);
-      return [...filtered, { key, label, value, apply }];
-    });
-  }
-
-  async function applyAllChanges() {
-    setSaving(true);
-    setSaveResult(null);
-    const errors: string[] = [];
-    for (const change of pendingChanges) {
-      const result = await change.apply();
-      if (result.error) errors.push(`${change.label}: ${result.error}`);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Sign in with an admin account to manage Calgary pricing.");
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+        if (!profile || !["admin", "owner"].includes(profile.role)) throw new Error("You need admin or owner access to manage Calgary pricing.");
+        if (cancelled) return;
+        setAuthorized(true); await reload();
+      } catch (failure) { if (!cancelled) setError(failure instanceof Error ? failure.message : "Could not load pricing. Please reload."); }
+      finally { if (!cancelled) setLoading(false); }
     }
-    setSaving(false);
-    if (errors.length > 0) {
-      setSaveResult(`Errors: ${errors.join("; ")}`);
-    } else {
-      setSaveResult(`${pendingChanges.length} price(s) updated.`);
-      setPendingChanges([]);
+    void load(); return () => { cancelled = true; };
+  }, [supabase, reload]);
+
+  const { changes, errors } = baseline && draft ? pricingChanges(baseline, draft) : { changes: [], errors: [] };
+  const dirty = !!baseline && !!draft && JSON.stringify(pricingDraft(baseline)) !== JSON.stringify(draft);
+  const unsaved = dirty || !!newName || !!newPrice;
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsaved]);
+
+  function edit(next: PricingDraft) { setDraft(next); setMessage(""); setError(""); }
+  function revert() {
+    if (!baseline || savingRef.current) return;
+    setDraft(pricingDraft(baseline)); setNewName(""); setNewPrice(""); setMessage("Unsaved edits discarded."); setError("");
+  }
+  async function save() {
+    if (!baseline || !draft || savingRef.current || errors.length || !changes.length) return;
+    savingRef.current = true; setSaving(true); setError(""); setMessage("");
+    try {
+      const { saved, failed } = await savePricingChanges(changes, { updateBookingPrice, updateSubscriptionPrice, updateAddonItem, addAddonItem, deleteAddonItem });
+      const next = savedPricingBaseline(baseline, saved);
+      setBaseline(next);
+      if (failed.length) {
+        const deleted = new Set(saved.filter(c => c.kind === "addon-delete").map(c => c.id));
+        setDraft({ ...draft, addons: draft.addons.filter(a => !deleted.has(a.id)) });
+        setError(`${saved.length} change(s) saved. ${failed.length} could not be saved. Only failed changes remain pending.\n${failed.map(f => `${describe(f.change)}: ${f.error}`).join("\n")}`);
+      } else {
+        setDraft(pricingDraft(next)); setMessage(`${saved.length} change(s) saved to Calgary pricing.`);
+        try { await reload(); } catch { setError("Changes saved, but prices could not be refreshed. Reload to check the latest values."); }
+      }
       setConfirmOpen(false);
-      reload();
-    }
+    } finally { savingRef.current = false; setSaving(false); }
   }
 
-  if (!authorized && !loading) {
-    return (
-      <main className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center">
-        <p className="text-[hsl(var(--muted-foreground))]">Unauthorized</p>
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-[hsl(var(--background))] px-4 pt-[100px] pb-12">
-      <div className="mx-auto max-w-6xl space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted-foreground))] hover:text-white transition-colors mb-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Admin
-            </Link>
-            <h1 className="font-[family-name:var(--font-heading)] text-4xl uppercase tracking-wide text-white flex items-center gap-3">
-              <DollarSign className="h-8 w-8 text-[hsl(var(--accent))]" />
-              Pricing Manager
-            </h1>
-          </div>
-          {pendingChanges.length > 0 && (
-            <Button
-              onClick={() => setConfirmOpen(true)}
-              className="bg-yellow-500 hover:bg-yellow-400 text-dark font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider font-bold px-6"
-            >
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Save {pendingChanges.length} Change
-              {pendingChanges.length > 1 ? "s" : ""}
-            </Button>
-          )}
-        </div>
-
-        {loading ? (
-          <p className="text-[hsl(var(--muted-foreground))]">Loading...</p>
-        ) : (
-          <>
-            {/* ═══ BOOKING PRICES ═══ */}
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
-              <CardHeader>
-                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                  One-Time Booking Prices
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                {PACKAGES.map((pkg) => (
-                  <div key={pkg}>
-                    <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-wider text-[hsl(var(--accent))] mb-3">
-                      {PACKAGE_LABELS[pkg]}
-                    </h3>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-[hsl(var(--muted))]">
-                            <TableHead className="text-[hsl(var(--muted-foreground))]">
-                              Service
-                            </TableHead>
-                            {SIZES.map((s) => (
-                              <TableHead
-                                key={s}
-                                className="text-[hsl(var(--muted-foreground))] text-center"
-                              >
-                                {SIZE_LABELS[s]}
-                              </TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {SERVICE_TYPES.map((st) => (
-                            <TableRow
-                              key={st}
-                              className="border-[hsl(var(--muted))]"
-                            >
-                              <TableCell className="text-white font-medium">
-                                {SERVICE_LABELS[st]}
-                              </TableCell>
-                              {SIZES.map((sz) => {
-                                const val =
-                                  bookingPrices?.[pkg]?.[sz]?.[st] ?? 0;
-                                const changeKey = `booking-${pkg}-${sz}-${st}`;
-                                const hasPending = pendingChanges.some(
-                                  (c) => c.key === changeKey
-                                );
-                                return (
-                                  <TableCell key={sz} className="text-center">
-                                    <div className="relative inline-flex items-center">
-                                      <span className="text-[hsl(var(--muted-foreground))] absolute left-2 text-sm">
-                                        $
-                                      </span>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        defaultValue={val}
-                                        onBlur={(e) => {
-                                          const newVal = Number(e.target.value);
-                                          if (newVal === val) {
-                                            setPendingChanges((p) =>
-                                              p.filter(
-                                                (c) => c.key !== changeKey
-                                              )
-                                            );
-                                            return;
-                                          }
-                                          queueChange(
-                                            changeKey,
-                                            `${PACKAGE_LABELS[pkg]} ${SERVICE_LABELS[st]} ${SIZE_LABELS[sz]}`,
-                                            newVal,
-                                            () =>
-                                              updateBookingPrice(
-                                                pkg,
-                                                sz,
-                                                st,
-                                                newVal
-                                              )
-                                          );
-                                        }}
-                                        className={`w-24 h-8 rounded-md border text-white text-sm text-center pl-6 bg-[hsl(var(--background))] ${
-                                          hasPending
-                                            ? "border-yellow-500/60"
-                                            : "border-[hsl(var(--muted-foreground))]/30"
-                                        }`}
-                                      />
-                                      {hasPending && (
-                                        <span className="absolute -right-1 -top-1 w-2 h-2 rounded-full bg-yellow-500" />
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                );
-                              })}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* ═══ ADD-ONS ═══ */}
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
-              <CardHeader>
-                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                  Add-Ons
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-[hsl(var(--muted))]">
-                        <TableHead className="text-[hsl(var(--muted-foreground))]">
-                          Name
-                        </TableHead>
-                        <TableHead className="text-[hsl(var(--muted-foreground))]">
-                          Starting Price
-                        </TableHead>
-                        <TableHead className="text-[hsl(var(--muted-foreground))]">
-                          Status
-                        </TableHead>
-                        <TableHead className="text-[hsl(var(--muted-foreground))] text-right">
-                          Actions
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {addons.map((addon) => (
-                        <TableRow
-                          key={addon.id}
-                          className="border-[hsl(var(--muted))]"
-                        >
-                          <TableCell className="text-white font-medium">
-                            {addon.name}
-                          </TableCell>
-                          <TableCell>
-                            <div className="relative inline-flex items-center">
-                              <span className="text-[hsl(var(--muted-foreground))] absolute left-2 text-sm">
-                                $
-                              </span>
-                              <input
-                                type="number"
-                                min={0}
-                                defaultValue={addon.price}
-                                onBlur={(e) => {
-                                  const newVal = Number(e.target.value);
-                                  if (newVal === addon.price) return;
-                                  const key = `addon-price-${addon.id}`;
-                                  queueChange(
-                                    key,
-                                    `${addon.name} price`,
-                                    newVal,
-                                    () =>
-                                      updateAddonItem(addon.id, {
-                                        price: newVal,
-                                      })
-                                  );
-                                }}
-                                className={`w-24 h-8 rounded-md border text-white text-sm text-center pl-6 bg-[hsl(var(--background))] ${
-                                  pendingChanges.some(
-                                    (c) => c.key === `addon-price-${addon.id}`
-                                  )
-                                    ? "border-yellow-500/60"
-                                    : "border-[hsl(var(--muted-foreground))]/30"
-                                }`}
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={
-                                addon.active
-                                  ? "bg-green-500/20 text-green-400 border-green-500/30"
-                                  : "bg-red-500/20 text-red-400 border-red-500/30"
-                              }
-                            >
-                              {addon.active ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                await updateAddonItem(addon.id, {
-                                  active: !addon.active,
-                                });
-                                reload();
-                              }}
-                              className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-xs"
-                            >
-                              {addon.active ? "Deactivate" : "Activate"}
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => {
-                                setDeleteConfirm({ open: true, name: addon.name, id: addon.id });
-                              }}
-                              className="font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-xs"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Add new addon */}
-                <div className="mt-6 flex items-end gap-3">
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">
-                      New Add-On Name
-                    </Label>
-                    <Input
-                      value={newAddonName}
-                      onChange={(e) => setNewAddonName(e.target.value)}
-                      placeholder="e.g. Headlight Restoration"
-                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white"
-                    />
-                  </div>
-                  <div className="w-32 space-y-2">
-                    <Label className="text-white text-xs uppercase tracking-wider">
-                      Price
-                    </Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={newAddonPrice}
-                      onChange={(e) => setNewAddonPrice(Number(e.target.value))}
-                      className="border-[hsl(var(--muted-foreground))]/30 bg-[hsl(var(--background))] text-white"
-                    />
-                  </div>
-                  <Button
-                    onClick={async () => {
-                      if (!newAddonName.trim()) return;
-                      const id = newAddonName
-                        .toLowerCase()
-                        .replace(/\s+/g, "_")
-                        .replace(/[^a-z0-9_]/g, "");
-                      const result = await addAddonItem({
-                        id,
-                        name: newAddonName.trim(),
-                        price: newAddonPrice,
-                      });
-                      if (result.error) {
-                        toast.error(result.error);
-                      } else {
-                        toast.success("Add-on created.");
-                        setNewAddonName("");
-                        setNewAddonPrice(0);
-                        reload();
-                      }
-                    }}
-                    className="bg-[hsl(var(--primary))] font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider text-white hover:bg-[hsl(var(--primary))]/80"
-                  >
-                    <Plus className="mr-1 h-4 w-4" /> Add
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ═══ SUBSCRIPTION PRICES ═══ */}
-            <Card className="border-[hsl(var(--muted))] bg-[hsl(var(--card))]">
-              <CardHeader>
-                <CardTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                  Subscription Prices (Per Visit)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-[hsl(var(--muted))]">
-                        <TableHead className="text-[hsl(var(--muted-foreground))]">
-                          Plan
-                        </TableHead>
-                        <TableHead className="text-[hsl(var(--muted-foreground))]">
-                          Package
-                        </TableHead>
-                        {SIZES.map((s) => (
-                          <TableHead
-                            key={s}
-                            className="text-[hsl(var(--muted-foreground))] text-center"
-                          >
-                            {SIZE_LABELS[s]}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {SUB_PACKAGES.map(({ plan, pkg }) => {
-                        const planLabel =
-                          SUB_PLANS.find((p) => p.id === plan)?.label ?? plan;
-                        const pkgLabel =
-                          pkg === "standard"
-                            ? "The Standard"
-                            : "Premium Detail";
-                        return (
-                          <TableRow
-                            key={`${plan}-${pkg}`}
-                            className="border-[hsl(var(--muted))]"
-                          >
-                            <TableCell className="text-white font-medium">
-                              {planLabel}
-                            </TableCell>
-                            <TableCell className="text-[hsl(var(--muted-foreground))]">
-                              {pkgLabel}
-                            </TableCell>
-                            {SIZES.map((sz) => {
-                              const val =
-                                subPrices?.[plan]?.[pkg]?.[sz] ?? 0;
-                              const changeKey = `sub-${plan}-${pkg}-${sz}`;
-                              const hasPending = pendingChanges.some(
-                                (c) => c.key === changeKey
-                              );
-                              return (
-                                <TableCell key={sz} className="text-center">
-                                  <div className="relative inline-flex items-center">
-                                    <span className="text-[hsl(var(--muted-foreground))] absolute left-2 text-sm">
-                                      $
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      defaultValue={val}
-                                      onBlur={(e) => {
-                                        const newVal = Number(e.target.value);
-                                        if (newVal === val) {
-                                          setPendingChanges((p) =>
-                                            p.filter(
-                                              (c) => c.key !== changeKey
-                                            )
-                                          );
-                                          return;
-                                        }
-                                        queueChange(
-                                          changeKey,
-                                          `${planLabel} ${pkgLabel} ${SIZE_LABELS[sz]}`,
-                                          newVal,
-                                          () =>
-                                            updateSubscriptionPrice(
-                                              plan,
-                                              pkg,
-                                              sz,
-                                              newVal
-                                            )
-                                        );
-                                      }}
-                                      className={`w-24 h-8 rounded-md border text-white text-sm text-center pl-6 bg-[hsl(var(--background))] ${
-                                        hasPending
-                                          ? "border-yellow-500/60"
-                                          : "border-[hsl(var(--muted-foreground))]/30"
-                                      }`}
-                                    />
-                                    {hasPending && (
-                                      <span className="absolute -right-1 -top-1 w-2 h-2 rounded-full bg-yellow-500" />
-                                    )}
-                                  </div>
-                                </TableCell>
-                              );
-                            })}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {/* ═══ CONFIRMATION DIALOG ═══ */}
-        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <DialogContent className="border-[hsl(var(--accent))]/20 bg-[#0b1740] shadow-xl max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                Confirm Price Changes
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 pt-2 max-h-[60vh] overflow-y-auto">
-              {pendingChanges.map((change) => (
-                <div
-                  key={change.key}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3"
-                >
-                  <span className="text-sm text-white">{change.label}</span>
-                  <span className="font-mono font-bold text-[hsl(var(--accent))]">
-                    ${change.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setConfirmOpen(false)}
-                className="flex-1 font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={applyAllChanges}
-                disabled={saving}
-                className="flex-1 bg-yellow-500 hover:bg-yellow-400 text-dark font-[family-name:var(--font-barlow-condensed)] uppercase tracking-wider font-bold"
-              >
-                {saving ? (
-                  "Saving..."
-                ) : (
-                  <>
-                    <Check className="mr-2 h-4 w-4" /> Confirm Changes
-                  </>
-                )}
-              </Button>
-            </div>
-            {saveResult && (
-              <p
-                className={`text-sm mt-2 ${
-                  saveResult.startsWith("Error")
-                    ? "text-red-400"
-                    : "text-green-400"
-                }`}
-              >
-                {saveResult}
-              </p>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        <ConfirmModal
-          open={deleteConfirm.open}
-          onOpenChange={(open) => setDeleteConfirm((d) => ({ ...d, open }))}
-          title="Delete Add-On"
-          description={`Delete "${deleteConfirm.name}"? This cannot be undone.`}
-          confirmLabel="Delete"
-          variant="destructive"
-          onConfirm={async () => {
-            await deleteAddonItem(deleteConfirm.id);
-            setDeleteConfirm({ open: false, name: "", id: "" });
-            toast.success("Add-on deleted.");
-            reload();
-          }}
-        />
+  const deleting = draft?.addons.find(a => a.id === deleteId);
+  return <main className="min-h-screen bg-dark px-4 pb-12 pt-[105px] sm:px-6"><div className="mx-auto max-w-6xl space-y-6">
+    <header><Link href="/admin" onClick={e => { if (saving || (unsaved && !window.confirm("Leave Pricing Manager and discard unsaved edits?"))) e.preventDefault(); }} className="mb-5 inline-flex items-center gap-2 text-sm text-mid hover:text-cyan"><ArrowLeft className="size-4" />Back to Admin</Link>
+      <p className="text-xs uppercase tracking-[3px] text-cyan">Calgary · Location management</p><h1 className={`${heading} mt-2 text-4xl text-white sm:text-5xl`}>Pricing Manager</h1>
+      <p className="mt-3 text-sm text-mid">Booking prices, add-ons and subscription prices. All prices in Canadian dollars.</p>
+    </header>
+    <div className="rounded-xl border border-cyan/20 bg-cyan/5 p-4 text-sm leading-relaxed text-mid"><strong className="text-cyan">Calgary live pricing.</strong> Edits stay here until you review and save. Saving changes Calgary&apos;s prices and available add-ons. Existing booking totals are not rewritten.</div>
+    <nav aria-label="Pricing sections" className="flex flex-wrap gap-2">{[["booking-prices", "Booking prices"], ["addons", "Add-ons"], ["subscription-prices", "Subscription prices"]].map(([id, label]) => <a key={id} href={`#${id}`} onClick={() => setSection(id)} aria-current={section === id ? "location" : undefined} className={`rounded-lg px-5 py-3 text-sm transition focus-visible:outline-2 focus-visible:outline-cyan ${section === id ? "bg-cyan text-navy" : "border border-white/15 text-mid hover:border-cyan/40 hover:text-white"}`}>{label}</a>)}</nav>
+    {error && <p role="alert" className="whitespace-pre-line rounded-xl border border-red-400/30 bg-red-400/5 p-4 text-sm text-red-300">{error}</p>}
+    {message && <p role="status" className="rounded-xl border border-cyan/25 p-4 text-sm text-cyan">{message}</p>}
+    {loading ? <p role="status" className="text-mid">Loading Calgary pricing…</p> : authorized && baseline && draft ? <>
+      <fieldset disabled={saving} className="min-w-0 space-y-6 disabled:opacity-70">
+        <section id="booking-prices" className={panel} aria-labelledby="booking-heading">
+          <div className="flex items-start gap-3"><SlidersHorizontal className="mt-1 size-5 text-cyan" /><div><h2 id="booking-heading" className={`${heading} text-3xl text-white`}>One-time booking prices</h2><p className="mt-2 text-sm text-mid">The Standard and Premium Detail, by service and vehicle size. Enter whole-dollar prices.</p></div></div>
+          <div className="mt-6 overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><caption className="sr-only">Calgary booking prices in CAD</caption><thead><tr className="border-b border-white/20 text-mid"><th scope="col" className="pb-4 pr-5 font-normal">Package / service</th>{PRICING_SIZES.map(size => <th scope="col" key={size} className="pb-4 pl-4 font-normal capitalize">{size}</th>)}</tr></thead><tbody>
+            {PRICING_PACKAGES.flatMap(pkg => PRICING_SERVICES.map(service => <tr key={`${pkg}-${service}`} className="border-b border-white/10 last:border-0"><th scope="row" className="py-4 pr-5 font-normal"><span className="font-semibold text-white">{PACKAGE_LABELS[pkg]}</span><span className="mt-1 block text-xs text-mid">{serviceNames[service]}</span></th>{PRICING_SIZES.map(size => <td key={size} className="py-4 pl-4"><PriceInput id={`booking-${pkg}-${size}-${service}`} label={`${PACKAGE_LABELS[pkg]}, ${size}, ${serviceNames[service]}`} value={draft.booking[pkg]?.[size]?.[service] ?? ""} changed={draft.booking[pkg]?.[size]?.[service] !== String(baseline.booking[pkg]?.[size]?.[service])} onChange={value => edit({ ...draft, booking: { ...draft.booking, [pkg]: { ...draft.booking[pkg], [size]: { ...draft.booking[pkg]?.[size], [service]: value } } } })} /></td>)}</tr>))}
+          </tbody></table></div>
+        </section>
+        <section id="addons" className={panel} aria-labelledby="addons-heading">
+          <h2 id="addons-heading" className={`${heading} text-3xl text-white`}>Add-ons</h2><p className="mt-2 text-sm leading-relaxed text-mid">Switch an add-on off to stop offering it without deleting it. Prices, toggles, additions and deletions only take effect after Save.</p>
+          <div className="mt-6 grid gap-3 md:grid-cols-2">{draft.addons.map(addon => {
+            const original = baseline.addons.find(a => a.id === addon.id);
+            return <div key={addon.id} className={`flex flex-wrap items-center gap-3 rounded-xl border p-4 ${addon.deleted ? "border-red-400/30 bg-red-400/5" : "border-white/10"}`}>
+              {addon.deleted ? <><div className="min-w-0 flex-1"><p className="text-sm text-white">{addon.name}</p><p className="mt-1 text-xs text-red-300">Pending deletion — not deleted yet</p></div><button type="button" className={button} onClick={() => edit({ ...draft, addons: draft.addons.map(a => a.id === addon.id ? { ...a, deleted: false } : a) })}>Undo</button></> : <>
+                <label className="flex w-full min-w-0 flex-none items-center gap-3 text-sm text-white sm:w-auto sm:flex-1"><input type="checkbox" checked={addon.active} disabled={!original} aria-label={`Activate ${addon.name}`} className="size-4 accent-cyan" onChange={e => edit({ ...draft, addons: draft.addons.map(a => a.id === addon.id ? { ...a, active: e.target.checked } : a) })} /><span className="min-w-0 break-words">{addon.name}<span className="mt-1 block text-xs text-mid">{addon.active ? "Active" : "Inactive"}{!original ? " · Save first to switch off" : ""}</span></span></label>
+                <div><p className="mb-1 text-xs text-mid">Starting price</p><PriceInput id={`addon-${addon.id}`} label={`${addon.name} starting price`} value={addon.price} changed={!original || addon.price !== String(original.price)} onChange={value => edit({ ...draft, addons: draft.addons.map(a => a.id === addon.id ? { ...a, price: value } : a) })} /></div>
+                <button type="button" aria-label={`Delete ${addon.name}`} title={`Delete ${addon.name}`} onClick={() => setDeleteId(addon.id)} className="rounded-lg border border-red-400/25 p-2 text-red-300 hover:bg-red-400/10 focus-visible:outline-2 focus-visible:outline-cyan"><Trash2 className="size-4" /></button>
+              </>}
+            </div>;
+          })}</div>
+          {!draft.addons.length && <p className="mt-4 text-sm text-mid">No add-ons to show. Create one below.</p>}
+          <form className="mt-5 flex flex-wrap items-end gap-4 rounded-xl border border-white/15 bg-dark/40 p-4" onSubmit={e => {
+            e.preventDefault(); const name = newName.trim(), id = addonId(name), value = newPrice.trim() === "" ? NaN : Number(newPrice);
+            if (!name || !id) { setError("Enter an add-on name containing letters or numbers."); return; }
+            if (!Number.isSafeInteger(value) || value < 0 || value > 2147483647) { setError("Enter a whole-dollar starting price of $0 or more."); return; }
+            if (draft.addons.some(a => a.id === id)) { setError("An add-on with that ID already exists. Choose another name or edit the existing add-on."); return; }
+            edit({ ...draft, addons: [...draft.addons, { id, name, price: String(value), active: true, sort_order: Math.max(-1, ...draft.addons.map(a => a.sort_order)) + 1 }] }); setNewName(""); setNewPrice("");
+          }}>
+            <label className="min-w-40 flex-1 text-sm text-mid">Add-on name<input required value={newName} onChange={e => setNewName(e.target.value)} placeholder="New add-on" className={`${input} mt-2 block w-full`} /></label>
+            <label className="text-sm text-mid">Starting price (CAD)<input required type="number" min="0" max="2147483647" step="1" inputMode="numeric" value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="0" className={`${input} mt-2 block w-28`} /></label>
+            <button type="submit" className={button+" border-cyan/30 text-cyan"}><Plus className="size-4" />Add add-on</button>
+          </form>
+        </section>
+        <section id="subscription-prices" className={panel} aria-labelledby="subscription-heading">
+          <h2 id="subscription-heading" className={`${heading} text-3xl text-white`}>Subscription prices</h2><p className="mt-2 text-sm text-mid">Prices are per visit, not per month. Editing prices does not reopen subscription signups.</p>
+          <div className="mt-6 overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><caption className="sr-only">Calgary subscription prices per visit in CAD</caption><thead><tr className="border-b border-white/20 text-mid"><th scope="col" className="pb-4 pr-5 font-normal">Plan / package</th>{PRICING_SIZES.map(size => <th scope="col" key={size} className="pb-4 pl-4 font-normal capitalize">{size}</th>)}</tr></thead><tbody>{PRICING_SUBSCRIPTIONS.map(({ plan, pkg }) => <tr key={`${plan}-${pkg}`} className="border-b border-white/10 last:border-0"><th scope="row" className="py-4 pr-5 font-normal"><span className="font-semibold text-white">{planNames[plan]}</span><span className="mt-1 block text-xs text-mid">{PACKAGE_LABELS[pkg]}</span></th>{PRICING_SIZES.map(size => <td key={size} className="py-4 pl-4"><PriceInput id={`sub-${plan}-${pkg}-${size}`} label={`${planNames[plan]}, ${PACKAGE_LABELS[pkg]}, ${size}, per visit`} value={draft.subscription[plan]?.[pkg]?.[size] ?? ""} changed={draft.subscription[plan]?.[pkg]?.[size] !== String(baseline.subscription[plan]?.[pkg]?.[size])} onChange={value => edit({ ...draft, subscription: { ...draft.subscription, [plan]: { ...draft.subscription[plan], [pkg]: { ...draft.subscription[plan]?.[pkg], [size]: value } } } })} /></td>)}</tr>)}</tbody></table></div>
+        </section>
+      </fieldset>
+      {errors.length > 0 && <div role="alert" className="rounded-xl border border-red-400/30 p-4 text-sm text-red-300"><p>Fix these fields before saving:</p><ul className="mt-2 list-inside list-disc">{errors.map(text => <li key={text}>{text}</li>)}</ul></div>}
+      <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/20 bg-dark/95 p-4 shadow-xl backdrop-blur">
+        <button type="button" onClick={revert} disabled={saving || !unsaved} className={button}><RotateCcw className="size-4" />Revert unsaved edits</button><p role="status" className="text-sm text-mid">{changes.length ? `${changes.length} unsaved change(s)` : "No pending changes"}</p><button type="button" onClick={() => setConfirmOpen(true)} disabled={saving || !changes.length || !!errors.length} className={saveButton}><Save className="size-4" />{saving ? "Saving…" : "Save Calgary pricing"}</button>
+        {(newName || newPrice) && <p className="w-full text-xs text-yellow">Your new add-on form is not queued yet. Select Add add-on to include it in Save.</p>}
       </div>
-    </main>
-  );
+      <Dialog open={confirmOpen} onOpenChange={open => { if (!saving) setConfirmOpen(open); }}><DialogContent className="max-h-[85vh] overflow-y-auto border-white/20 bg-dark text-white"><DialogHeader><DialogTitle className={`${heading} text-3xl`}>Review Calgary changes</DialogTitle><DialogDescription className="text-mid">These changes affect live Calgary pricing. Add-on deletions cannot be undone after saving. Changes save individually; any failure will be listed.</DialogDescription></DialogHeader><ul className="space-y-3 text-sm">{changes.map(change => <li key={change.key} className={`rounded-lg border p-3 ${change.kind === "addon-delete" ? "border-red-400/30 text-red-300" : "border-white/15 text-silver"}`}>{describe(change)}</li>)}</ul><div className="mt-4 flex justify-end gap-3"><button type="button" disabled={saving} onClick={() => setConfirmOpen(false)} className={button}>Keep editing</button><button type="button" disabled={saving || !!errors.length} onClick={save} className={saveButton}>{saving ? "Saving…" : "Confirm and save"}</button></div></DialogContent></Dialog>
+      <ConfirmModal open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }} title="Remove add-on?" description={`Mark “${deleting?.name ?? "this add-on"}” for deletion? Nothing is deleted until you review and save. Switching it off keeps it available for later.`} confirmLabel="Mark for deletion" variant="destructive" onConfirm={() => {
+        edit({ ...draft, addons: baseline.addons.some(a => a.id === deleteId) ? draft.addons.map(a => a.id === deleteId ? { ...a, deleted: true } : a) : draft.addons.filter(a => a.id !== deleteId) }); setDeleteId(null);
+      }} />
+    </> : null}
+  </div></main>;
 }
