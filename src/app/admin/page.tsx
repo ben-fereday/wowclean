@@ -17,7 +17,7 @@ import { PROMO_LIMIT_LABELS, PROMO_LIMITS, type PromoUsageLimit } from "@/lib/pr
 import { buildAdminCustomers, type AdminCustomer } from "@/lib/admin-customers";
 import BookingAdminTools from "./booking-admin-tools";
 import AppointmentHistory from "./appointment-history";
-import type { Booking, BookingAddon } from "@/lib/admin-history";
+import type { Booking } from "@/lib/admin-history";
 import { syncCalendarRange } from "./booking-tools-actions";
 import { parseBookingTime, getBookingDurationMinutes, formatBookingTime, getCalgaryNow } from "@/lib/booking-schedule";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +43,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -59,7 +60,6 @@ import {
   MapPin,
   Phone,
   Mail,
-  User,
   Ban,
   Trash2,
   XCircle,
@@ -137,6 +137,7 @@ interface CalendarEntry {
   name: string;
   booking?: Booking;
   subscription?: Subscription;
+  occurrenceDate?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -403,6 +404,7 @@ export default function AdminPage({ searchParams }: {
     await updateBookingStatus(bookingId, status);
     await fetchBookings();
     setSelectedEntry(null);
+    setHistoryRevision(value => value + 1);
   }
 
   function getSubscriptionsForUser(userId: string): Subscription[] {
@@ -514,9 +516,16 @@ export default function AdminPage({ searchParams }: {
         time: props.subscription.recurring_time,
         name: props.name,
         subscription: props.subscription,
+        occurrenceDate: info.event.startStr.slice(0, 10),
       });
     }
   }
+
+  const detailBooking = selectedEntry?.booking;
+  const detailSubscription = selectedEntry?.subscription;
+  const appointment = detailBooking ?? detailSubscription;
+  const appointmentPhone = appointment?.profiles?.phone || detailBooking?.guest_phone;
+  const appointmentAddress = appointment?.service_address || detailBooking?.guest_address;
 
   if (loading) {
     return (
@@ -947,180 +956,105 @@ export default function AdminPage({ searchParams }: {
             {tab === "history" && <AppointmentHistory refreshKey={historyRevision} onOpen={(booking, name) => setSelectedEntry({ type: "booking", time: booking.booking_time, name, booking })} />}
           </TabsContent>
 
-            {/* Entry detail modal */}
-            <Dialog open={!!selectedEntry} onOpenChange={(open) => { if (!open) { setSelectedEntry(null); setHistoryRevision(v => v + 1); } }}>
-              <DialogContent className="border-[hsl(var(--accent))]/20 bg-[hsl(var(--card))] shadow-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="font-[family-name:var(--font-heading)] text-2xl uppercase tracking-wide text-white">
-                    {selectedEntry?.type === "subscription" ? "Subscription Details" : "Booking Details"}
-                  </DialogTitle>
-                </DialogHeader>
-                {selectedEntry && (
-                  <div className="space-y-4 pt-2">
-                    {/* Customer info */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-white">
-                        <User className="h-4 w-4 text-[hsl(var(--accent))]" />
-                        <span className="font-semibold">{selectedEntry.name}</span>
-                      </div>
-                      {(() => {
-                        const phone = selectedEntry.type === "subscription"
-                          ? selectedEntry.subscription?.profiles?.phone
-                          : selectedEntry.booking?.profiles?.phone || selectedEntry.booking?.guest_phone;
-                        return phone ? (
-                          <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                            <Phone className="h-4 w-4" />
-                            <span>{phone}</span>
-                          </div>
-                        ) : null;
-                      })()}
-                      {selectedEntry.type === "booking" && selectedEntry.booking?.guest_email && (
-                        <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                          <Mail className="h-4 w-4" />
-                          <span>{selectedEntry.booking.guest_email}</span>
-                        </div>
-                      )}
-                      {(() => {
-                        const address = selectedEntry.type === "subscription"
-                          ? selectedEntry.subscription?.service_address
-                          : selectedEntry.booking?.service_address || selectedEntry.booking?.guest_address;
-                        return address ? (
-                          <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                            <MapPin className="h-4 w-4" />
-                            <span>{address}</span>
-                          </div>
-                        ) : null;
-                      })()}
+          {/* Shared appointment details for Calendar, History and Customers */}
+          <Dialog open={!!selectedEntry} onOpenChange={(open) => {
+            if (!open) {
+              setSelectedEntry(null);
+              setHistoryRevision(value => value + 1);
+            }
+          }}>
+            <DialogContent className="max-h-[90dvh] overflow-y-auto border-white/15 bg-dark p-4 shadow-xl sm:max-w-2xl sm:p-6">
+              {selectedEntry && appointment && (
+                <>
+                  <DialogHeader className="rounded-xl border border-cyan/20 bg-cyan/5 p-4 pr-9">
+                    <p className="text-xs uppercase tracking-wider text-cyan">
+                      {detailBooking ? "Booking details" : "Subscription details"}
+                    </p>
+                    <DialogTitle className="break-words text-2xl font-semibold text-white">{selectedEntry.name}</DialogTitle>
+                    <DialogDescription className="text-mid">
+                      {detailBooking?.booking_date || selectedEntry.occurrenceDate} · {selectedEntry.time} Calgary time
+                    </DialogDescription>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-white">{PACKAGE_LABELS[appointment.package]} · {SERVICE_TYPE_LABELS[appointment.service_type]}</span>
+                      <Badge variant="outline" className={detailBooking ? statusColors[detailBooking.status] : "border-cyan/30 text-cyan capitalize"}>
+                        {detailBooking ? statusLabels[detailBooking.status] : detailSubscription?.status}
+                      </Badge>
                     </div>
-
-                    {/* Service info */}
-                    <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Time</p>
-                          <p className="text-white">{selectedEntry.type === "booking" ? `${selectedEntry.booking!.booking_date} · ` : ""}{selectedEntry.time}</p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Package</p>
-                          <p className="text-white">
-                            {PACKAGE_LABELS[selectedEntry.type === "subscription" ? selectedEntry.subscription!.package : selectedEntry.booking!.package]}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Service</p>
-                          <p className="text-white">
-                            {SERVICE_TYPE_LABELS[selectedEntry.type === "subscription" ? selectedEntry.subscription!.service_type : selectedEntry.booking!.service_type]}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Vehicle</p>
-                          <p className="text-white">
-                            {VEHICLE_LABELS[selectedEntry.type === "subscription" ? selectedEntry.subscription!.vehicle_size : selectedEntry.booking!.vehicle_size]}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Location</p>
-                          <p className="text-white">
-                            {(selectedEntry.type === "subscription" ? selectedEntry.subscription!.location : selectedEntry.booking!.location) === "mobile" ? "Mobile" : "In-Shop"}
-                          </p>
-                        </div>
-                        {selectedEntry.type === "subscription" && (
-                          <div>
-                            <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Plan</p>
-                            <p className="text-white">
-                              {SUBSCRIPTION_PLANS.find((p) => p.id === selectedEntry.subscription!.plan)?.name ?? selectedEntry.subscription!.plan}
-                            </p>
-                          </div>
-                        )}
-                        {selectedEntry.type === "subscription" && (
-                          <div>
-                            <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Schedule</p>
-                            <p className="text-white">
-                              Every {selectedEntry.subscription!.recurring_day}
-                            </p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider">Price</p>
-                          <p className="text-[hsl(var(--accent))] font-semibold">
-                            {selectedEntry.type === "booking"
-                              ? `$${selectedEntry.booking!.total_estimate}`
-                              : `$${dbGetSubPrice(selectedEntry.subscription!.plan, selectedEntry.subscription!.vehicle_size, selectedEntry.subscription!.package)}/visit`
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Addons */}
-                    {selectedEntry.type === "booking" && (selectedEntry.booking?.addons?.length ?? 0) > 0 && (
-                      <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3">
-                        <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider mb-2">Add-Ons</p>
-                        <div className="space-y-1">
-                          {selectedEntry.booking!.addons.map((addon: BookingAddon) => (
-                            <div key={addon.id} className="flex items-center justify-between text-sm">
-                              <span className="text-white">{addon.name}</span>
-                              <span className="text-[hsl(var(--accent))]">${addon.price}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  </DialogHeader>
+                  <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                    <h3 className="font-semibold text-white">Customer &amp; vehicle</h3>
+                    <p className="text-sm text-mid">{VEHICLE_LABELS[appointment.vehicle_size]} · {appointment.location === "mobile" ? "Mobile" : "In-shop"}</p>
+                    {appointmentPhone && <p className="flex items-center gap-2 text-mid"><Phone className="size-4 shrink-0" />{appointmentPhone}</p>}
+                    {detailBooking?.guest_email && <p className="flex items-center gap-2 break-all text-mid"><Mail className="size-4 shrink-0" />{detailBooking.guest_email}</p>}
+                    {appointmentAddress && <p className="flex items-start gap-2 break-words text-mid"><MapPin className="size-4 shrink-0" /><span className="min-w-0">{appointmentAddress}</span></p>}
+                  </section>
+                  <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                    <h3 className="font-semibold text-white">Service &amp; add-ons</h3>
+                    {detailBooking && <p className="text-mid">Booking estimate <span className="text-cyan">${detailBooking.total_estimate}</span></p>}
+                    {detailSubscription && (
+                      <p className="text-mid">
+                        {SUBSCRIPTION_PLANS.find(plan => plan.id === detailSubscription.plan)?.name ?? detailSubscription.plan} · Every {detailSubscription.recurring_day} ·
+                        <span className="ml-1 text-cyan">${dbGetSubPrice(detailSubscription.plan, detailSubscription.vehicle_size, detailSubscription.package)}/visit</span>
+                      </p>
                     )}
-
-                    {/* Notes */}
-                    {selectedEntry.type === "booking" && selectedEntry.booking?.notes && (
-                      <div className="rounded-lg border border-[hsl(var(--muted))] bg-[hsl(var(--background))] p-3">
-                        <p className="text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider mb-1">Notes</p>
-                        <p className="text-white text-sm">{selectedEntry.booking.notes}</p>
-                      </div>
+                    {!!detailBooking?.addons?.length && (
+                      <ul className="space-y-1 text-sm text-white">
+                        {detailBooking.addons.map(addon => (
+                          <li key={addon.id} className="flex justify-between gap-3">
+                            <span>{addon.name}</span><span className="text-cyan">${addon.price}</span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
-
-                    {selectedEntry.type === "booking" && selectedEntry.booking && (
-                      <BookingAdminTools key={selectedEntry.booking.id} booking={selectedEntry.booking}
-                        onRescheduled={async () => { await fetchBookings(); setSelectedEntry(null); }} />
-                    )}
-
-                    {/* Booking status change */}
-                    {selectedEntry.type === "booking" && selectedEntry.booking && (
-                      <div className="space-y-2">
-                        <p className="text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Update Status</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(["confirmed", "completed", "no_show"] as BookingStatus[]).map((s) => (
-                            <Button
-                              key={s}
-                              variant="outline"
-                              size="sm"
-                              disabled={selectedEntry.booking!.status === s}
-                              onClick={() => handleStatusChange(selectedEntry.booking!.id, s)}
-                              className={`${statusColors[s]} ${selectedEntry.booking!.status === s ? "opacity-50" : ""}`}
-                            >
-                              {statusLabels[s]}
+                  </section>
+                  {detailBooking?.notes && (
+                    <section className="space-y-2 rounded-xl border border-white/10 bg-navy/25 p-4">
+                      <h3 className="font-semibold text-white">Booking notes</h3>
+                      <p className="whitespace-pre-wrap break-words text-mid">{detailBooking.notes}</p>
+                    </section>
+                  )}
+                  {detailBooking && (
+                    <>
+                      <section className="space-y-3 rounded-xl border border-white/10 bg-navy/25 p-4">
+                        <h3 className="font-semibold text-white">Appointment status</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {(["confirmed", "completed", "no_show"] as const).map(status => (
+                            <Button key={status} variant="outline" size="sm"
+                              disabled={detailBooking.status === status}
+                              onClick={() => handleStatusChange(detailBooking.id, status)}
+                              className={statusColors[status]}>
+                              {statusLabels[status]}
                             </Button>
                           ))}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={selectedEntry.booking!.status === "cancelled"}
-                            onClick={() => {
-                              setCancelBooking({
-                                id: selectedEntry.booking!.id,
-                                name: selectedEntry.name,
-                                date: selectedEntry.booking!.booking_date,
-                                time: selectedEntry.booking!.booking_time,
-                              });
-                              setSelectedEntry(null);
-                            }}
-                            className={`${statusColors.cancelled} ${selectedEntry.booking!.status === "cancelled" ? "opacity-50" : ""}`}
-                          >
-                            Cancel Booking
-                          </Button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
+                      </section>
+                      <BookingAdminTools key={detailBooking.id} booking={detailBooking}
+                        onRescheduled={async () => {
+                          await fetchBookings();
+                          setSelectedEntry(null);
+                          setHistoryRevision(value => value + 1);
+                        }} />
+                      <section className="border-t border-white/10 pt-4">
+                        <Button variant="outline" disabled={detailBooking.status === "cancelled"}
+                          className="border-red-400/30 text-red-300 hover:bg-red-400/10 hover:text-red-200"
+                          onClick={() => {
+                            setCancelBooking({
+                              id: detailBooking.id,
+                              name: selectedEntry.name,
+                              date: detailBooking.booking_date,
+                              time: detailBooking.booking_time,
+                            });
+                            setSelectedEntry(null);
+                          }}>
+                          Cancel booking
+                        </Button>
+                      </section>
+                    </>
+                  )}
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Cancel Booking Modal */}
           <Dialog open={!!cancelBooking} onOpenChange={(open) => !open && setCancelBooking(null)}>
@@ -1155,6 +1089,7 @@ export default function AdminPage({ searchParams }: {
                         await updateBookingStatus(cancelBooking.id, "cancelled");
                         setCancelBooking(null);
                         setCancelling(false);
+                        setHistoryRevision(value => value + 1);
                         fetchBookings();
                       }}
                       disabled={cancelling}
