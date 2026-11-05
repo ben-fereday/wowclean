@@ -50,9 +50,7 @@ function Hero() {
 
       {/* Right - Phone card */}
       <div className="flex justify-center items-center relative z-10">
-        <div className="bg-navy/75 border border-white/15 rounded-2xl p-[52px_56px] max-md:p-[36px_24px] text-center relative overflow-hidden backdrop-blur-[12px] shadow-[0_30px_80px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]">
-          {/* Top gradient line */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan to-transparent" />
+        <div className="rounded-2xl border border-white/15 bg-navy p-[36px_24px] text-center md:p-[52px_56px]">
 
           <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] tracking-[3px] uppercase text-mid mb-3">
             Book Your Detail Today
@@ -98,39 +96,35 @@ function HowItWorks() {
   ];
 
   return (
-    <section id="how" className="border-y border-white/10 bg-dark py-[100px] px-6 md:px-[60px] text-center relative overflow-hidden">
-      <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-cyan mb-4">
-        Simple as 1 – 2 – 3
-      </p>
-      <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-white mb-[60px]">
-        How It <span className="text-cyan">Works</span>
-      </h2>
+    <section id="how" className="scroll-mt-24 border-y border-white/10 bg-dark px-6 py-14 md:px-[60px] md:py-20">
+      <div className="mx-auto max-w-[1200px]">
+        <header className="mb-8 text-center md:mb-10">
+          <p className="mb-3 font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold uppercase tracking-[3.5px] text-cyan">
+            Simple as 1 – 2 – 3
+          </p>
+          <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-white">
+            How It <span className="text-cyan">Works</span>
+          </h2>
+        </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-[1000px] mx-auto">
-        {steps.map((step, i) => (
-          <div key={i} className="relative px-9 py-12 text-center">
-            {/* Big background number */}
-            <div className="font-[family-name:var(--font-heading)] text-[5rem] leading-none text-cyan/10 absolute top-4 left-1/2 -translate-x-1/2 z-0">
-              {step.num}
-            </div>
-            {/* Icon */}
-            <div className="w-[72px] h-[72px] border border-cyan/20 bg-cyan/10 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10">
-              {step.icon}
-            </div>
-            <h3 className="font-[family-name:var(--font-barlow-condensed)] text-[1.4rem] font-bold tracking-wide uppercase text-white mb-3 relative z-10">
-              {step.title}
-            </h3>
-            <p className="text-[0.95rem] text-mid leading-[1.7] relative z-10">
-              {step.desc}
-            </p>
-            {/* Arrow between steps (hidden on mobile, hidden on last) */}
-            {i < steps.length - 1 && (
-              <div className="hidden md:flex absolute -right-[22px] top-1/2 -translate-y-1/2 text-cyan/40">
-                <ArrowRight className="size-6" />
+        <ol className="grid gap-4 md:grid-cols-3 md:gap-5">
+          {steps.map((step) => (
+            <li key={step.num} className="min-w-0 rounded-2xl border border-white/15 bg-navy/70 p-5 sm:p-6">
+              <div className="mb-5 flex items-center justify-between gap-3" aria-hidden="true">
+                <span className="grid size-12 place-items-center rounded-xl border border-cyan/20 bg-cyan/10">
+                  {step.icon}
+                </span>
+                <span className="rounded-md border border-white/10 px-2.5 py-1 text-xs font-semibold tracking-wider text-cyan">
+                  {step.num}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
+              <h3 className="mb-2 font-[family-name:var(--font-barlow-condensed)] text-xl font-bold uppercase tracking-wide text-white">
+                {step.title}
+              </h3>
+              <p className="text-sm leading-relaxed text-mid">{step.desc}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   );
