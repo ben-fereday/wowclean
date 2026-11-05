@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useCallback, useMemo } from "react";
+import { use, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   updateBookingStatus,
@@ -23,6 +23,7 @@ import { parseBookingTime, getBookingDurationMinutes, formatBookingTime, getCalg
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -240,6 +241,9 @@ export default function AdminPage({ searchParams }: {
 
   // Blocked slots
   const [blockedSlots, setBlockedSlots] = useState<{ id: string; blocked_date: string; blocked_time: string | null; start_time: string | null; end_time: string | null; reason: string | null }[]>([]);
+  const blockDatePickerRef = useRef<HTMLDetailsElement>(null);
+  const blockButtonRef = useRef<HTMLButtonElement>(null);
+  const [blockOpen, setBlockOpen] = useState(false);
   const [blockDate, setBlockDate] = useState("");
   const [blockStart, setBlockStart] = useState("9:00 AM");
   const [blockEnd, setBlockEnd] = useState("5:00 PM");
@@ -247,6 +251,16 @@ export default function AdminPage({ searchParams }: {
   const [blockError, setBlockError] = useState<{ field: "range" | "form"; message: string } | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [blockWholeDay, setBlockWholeDay] = useState(false);
+
+  function openBlockTime(date = getCalgaryNow().date, wholeDay = false, start = "9:00 AM", end = "5:00 PM") {
+    setBlockDate(date);
+    setBlockStart(start);
+    setBlockEnd(end);
+    setBlockWholeDay(wholeDay);
+    setBlockReason("");
+    setBlockError(null);
+    setBlockOpen(true);
+  }
 
   // Upcoming visits filter
   const [visitFilter, setVisitFilter] = useState<"3days" | "week">("3days");
@@ -772,38 +786,44 @@ export default function AdminPage({ searchParams }: {
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="font-[family-name:var(--font-heading)] text-3xl text-white">Calendar</h2>
-                    <p className="mt-1 text-sm text-mid">Sync bookings in this view to WOW Clean Bookings.</p>
+                    <p className="mt-1 text-sm text-mid">Click a booking to open it. Click a date or time to block it off, or drag across times in Week or Day view.</p>
                     <p className="text-xs text-mid mt-1" role="status" aria-live="polite">{calendarSyncMessage}</p>
                   </div>
-                  <Button variant="outline" className="rounded-lg border-cyan/30 bg-dark text-cyan hover:bg-cyan/10 hover:text-cyan" disabled={calendarSyncing || !calendarRange} onClick={async () => {
-                    if (!calendarRange || calendarSyncing) return;
-                    const range = { ...calendarRange };
-                    setCalendarSyncing(true);
-                    setCalendarSyncMessage("Syncing bookings…");
-                    let synced = 0;
-                    let failed = 0;
-                    let cursor: string | undefined;
-                    try {
-                      do {
-                        const result = await syncCalendarRange(range.start, range.end, cursor);
-                        synced += result.synced;
-                        failed += result.failed;
-                        cursor = result.nextCursor ?? undefined;
-                        setCalendarSyncMessage(`${synced} synced${failed ? `, ${failed} failed` : ""}…`);
-                      } while (cursor);
-                      const message = synced + failed === 0
-                        ? "No bookings in this calendar view."
-                        : `${synced} booking${synced === 1 ? "" : "s"} synced to Google Calendar.${failed ? ` ${failed} failed—click Sync again to retry.` : ""}`;
-                      setCalendarSyncMessage(message);
-                      if (failed) toast.warning(message); else toast.success(message);
-                    } catch {
-                      const message = `Sync interrupted after ${synced} updates. Click Sync again to retry.`;
-                      setCalendarSyncMessage(message);
-                      toast.error(message);
-                    } finally { setCalendarSyncing(false); }
-                  }}>
-                    {calendarSyncing ? "Syncing…" : "Sync to Google Calendar"}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button ref={blockButtonRef} variant="outline" className="rounded-lg border-white/20 bg-dark text-white" onClick={() => openBlockTime()}>
+                      <Ban className="size-4" />
+                      Block time off
+                    </Button>
+                    <Button variant="outline" className="rounded-lg border-cyan/30 bg-dark text-cyan hover:bg-cyan/10 hover:text-cyan" disabled={calendarSyncing || !calendarRange} onClick={async () => {
+                      if (!calendarRange || calendarSyncing) return;
+                      const range = { ...calendarRange };
+                      setCalendarSyncing(true);
+                      setCalendarSyncMessage("Syncing bookings…");
+                      let synced = 0;
+                      let failed = 0;
+                      let cursor: string | undefined;
+                      try {
+                        do {
+                          const result = await syncCalendarRange(range.start, range.end, cursor);
+                          synced += result.synced;
+                          failed += result.failed;
+                          cursor = result.nextCursor ?? undefined;
+                          setCalendarSyncMessage(`${synced} synced${failed ? `, ${failed} failed` : ""}…`);
+                        } while (cursor);
+                        const message = synced + failed === 0
+                          ? "No bookings in this calendar view."
+                          : `${synced} booking${synced === 1 ? "" : "s"} synced to Google Calendar.${failed ? ` ${failed} failed—click Sync again to retry.` : ""}`;
+                        setCalendarSyncMessage(message);
+                        if (failed) toast.warning(message); else toast.success(message);
+                      } catch {
+                        const message = `Sync interrupted after ${synced} updates. Click Sync again to retry.`;
+                        setCalendarSyncMessage(message);
+                        toast.error(message);
+                      } finally { setCalendarSyncing(false); }
+                    }}>
+                      {calendarSyncing ? "Syncing…" : "Sync to Google Calendar"}
+                    </Button>
+                  </div>
                 </div>
                 {/* Legend */}
                 <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-mid">
@@ -836,6 +856,26 @@ export default function AdminPage({ searchParams }: {
                     }}
                     events={calendarEvents}
                     eventClick={handleEventClick}
+                    dateClick={({ date, dateStr, allDay }) => {
+                      const day = dateStr.slice(0, 10);
+                      if (day < getCalgaryNow().date) return;
+                      if (allDay) {
+                        openBlockTime(day, true);
+                        return;
+                      }
+                      const end = addMinutes(date, 30);
+                      openBlockTime(day, false, dateStr.slice(11, 16), end.getDate() === date.getDate() ? format(end, "HH:mm") : "23:59");
+                    }}
+                    selectable={calendarView !== "dayGridMonth"}
+                    selectMinDistance={5}
+                    selectAllow={({ allDay, startStr, endStr }) =>
+                      !allDay && startStr.slice(0, 10) >= getCalgaryNow().date
+                        && startStr.slice(0, 10) === endStr.slice(0, 10)
+                    }
+                    select={(selection) => {
+                      selection.view.calendar.unselect();
+                      openBlockTime(selection.startStr.slice(0, 10), false, selection.startStr.slice(11, 16), selection.endStr.slice(11, 16));
+                    }}
                     height={calendarView === "dayGridMonth" ? "auto" : 680}
                     slotMinTime="08:00:00"
                     slotMaxTime="24:00:00"
@@ -854,15 +894,14 @@ export default function AdminPage({ searchParams }: {
               </CardContent>
             </Card>
 
-            {/* Block Time */}
-            <Card className="rounded-2xl border-white/15 bg-navy/25">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-[family-name:var(--font-heading)] text-xl uppercase tracking-wide text-white">
-                  <Ban className="h-5 w-5 text-red-400" />
-                  Block Time
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Dialog open={blockOpen} onOpenChange={(open) => { if (!blockSaving) setBlockOpen(open); }}>
+              <DialogContent finalFocus={blockButtonRef} className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-navy text-white sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="font-[family-name:var(--font-heading)] text-3xl uppercase">Block time off</DialogTitle>
+                  <DialogDescription id="block-time-help" className="text-mid">
+                    All times are in Calgary time. Move or cancel overlapping appointments before blocking.
+                  </DialogDescription>
+                </DialogHeader>
                 <form
                   aria-label="Block time"
                   aria-describedby="block-time-help"
@@ -890,9 +929,7 @@ export default function AdminPage({ searchParams }: {
                         return;
                       }
                       toast.success("Time blocked.");
-                      setBlockDate("");
-                      setBlockReason("");
-                      setBlockWholeDay(false);
+                      setBlockOpen(false);
                       await fetchBlocked();
                     } catch {
                       setBlockError({ field: "form", message: "Could not block this time. Please try again." });
@@ -901,23 +938,35 @@ export default function AdminPage({ searchParams }: {
                     }
                   }}
                 >
-                  <p id="block-time-help" className="mb-4 text-sm text-mid">
-                    All times are in Calgary time. Move or cancel overlapping appointments before blocking.
-                  </p>
                   <fieldset disabled={blockSaving} className="space-y-4">
-                    <div className="flex flex-wrap items-end gap-4">
-                      <div className="space-y-1">
-                        <Label htmlFor="block-date" className="text-mid">Date</Label>
-                        <Input
-                          id="block-date"
-                          type="date"
+                    <div className="space-y-3">
+                      <details ref={blockDatePickerRef} className="rounded-lg border border-white/20 bg-navy">
+                        <summary className="cursor-pointer rounded-lg px-3 py-2 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan">
+                          <span className="mr-2 text-mid">Date</span>
+                          {blockDate ? format(new Date(blockDate + "T00:00:00"), "EEE, MMM d, yyyy") : "Choose a date"}
+                        </summary>
+                        <DatePicker
+                          key={blockDate}
+                          mode="single"
                           required
-                          min={getCalgaryNow().date}
-                          value={blockDate}
-                          onChange={(event) => setBlockDate(event.target.value)}
-                          className="w-44 rounded-lg border-white/20 bg-navy text-white [color-scheme:dark]"
+                          showOutsideDays={false}
+                          startMonth={new Date(getCalgaryNow().date + "T00:00:00")}
+                          today={new Date(getCalgaryNow().date + "T00:00:00")}
+                          disabled={{ before: new Date(getCalgaryNow().date + "T00:00:00") }}
+                          selected={blockDate ? new Date(blockDate + "T00:00:00") : undefined}
+                          defaultMonth={new Date((blockDate || getCalgaryNow().date) + "T00:00:00")}
+                          onSelect={(day) => {
+                            setBlockDate(format(day, "yyyy-MM-dd"));
+                            setBlockError(null);
+                            const picker = blockDatePickerRef.current;
+                            if (picker) {
+                              picker.open = false;
+                              picker.querySelector("summary")?.focus();
+                            }
+                          }}
+                          className="mx-auto bg-transparent [--cell-size:clamp(1.75rem,9vw,2.75rem)]"
                         />
-                      </div>
+                      </details>
                       <label className="flex min-h-9 items-center gap-2 text-sm text-white">
                         <input type="checkbox" className="size-4 accent-cyan" checked={blockWholeDay} onChange={(event) => setBlockWholeDay(event.target.checked)} />
                         All day
@@ -946,26 +995,29 @@ export default function AdminPage({ searchParams }: {
                         {blockError?.field === "range" && <p id="block-range-error" role="alert" className="mt-2 text-sm text-red-300">{blockError.message}</p>}
                       </div>
                     )}
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div className="min-w-40 flex-1 space-y-1">
+                    <div className="space-y-4">
+                      <div className="space-y-1">
                         <Label htmlFor="block-reason" className="text-mid">Reason (optional)</Label>
                         <Input id="block-reason" maxLength={250} value={blockReason}
                           onChange={(event) => setBlockReason(event.target.value)}
                           placeholder="e.g. Personal day" className="rounded-lg border-white/20 bg-navy text-white" />
                       </div>
-                      <Button type="submit" disabled={!blockDate} className="rounded-lg bg-red-600 text-white hover:bg-red-700">
+                      <Button type="submit" disabled={!blockDate} className="rounded-lg bg-cyan font-semibold text-navy hover:bg-cyan/85">
                         <Ban className="size-4" />
-                        {blockSaving ? "Blocking…" : "Block time"}
+                        {blockSaving ? "Blocking…" : "Block this time"}
                       </Button>
                     </div>
                   </fieldset>
                   {blockError?.field === "form" && <p role="alert" className="mt-3 text-sm text-red-300">{blockError.message}</p>}
                 </form>
+              </DialogContent>
+            </Dialog>
 
-                {/* Current blocked slots */}
-                {blockedSlots.length > 0 && (
-                  <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
-                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Existing blocks</p>
+            {blockedSlots.length > 0 && (
+              <Card className="rounded-2xl border-white/15 bg-navy/25">
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-white">Existing blocks</h3>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {blockedSlots.map((slot) => (
                         <div key={slot.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-sm text-white">
@@ -987,9 +1039,9 @@ export default function AdminPage({ searchParams }: {
                       ))}
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
           </TabsContent>
 
