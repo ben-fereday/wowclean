@@ -20,7 +20,7 @@ function Hero() {
 
       {/* Left */}
       <div className="relative z-10 text-center lg:text-left">
-        <h1 className="mb-4 bg-gradient-to-br from-white via-cyan to-blue bg-clip-text font-[family-name:var(--font-heading)] text-[clamp(3.75rem,10vw,11rem)] lg:whitespace-nowrap leading-[0.95] tracking-wide text-transparent">
+        <h1 className="mb-4 bg-gradient-to-br from-white via-cyan to-cyan bg-clip-text font-[family-name:var(--font-heading)] text-[clamp(3.75rem,10vw,11rem)] lg:whitespace-nowrap leading-[0.95] tracking-wide text-transparent">
           WOW CLEAN
         </h1>
         <p className="font-[family-name:var(--font-barlow-condensed)] text-[1.15rem] font-semibold tracking-[4px] uppercase text-silver mb-7">
@@ -33,14 +33,14 @@ function Hero() {
         <div className="flex gap-4 flex-wrap justify-center lg:justify-start">
           <Link
             href="/contact"
-            className="inline-flex items-center gap-2.5 bg-gradient-to-br from-blue2 to-blue text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-wide uppercase px-10 py-[17px] rounded shadow-[0_0_40px_rgba(26,74,255,0.45)] hover:translate-y-[-3px] hover:shadow-[0_0_60px_rgba(26,74,255,0.7)] transition-all"
+            className="inline-flex items-center gap-2.5 border border-white/20 text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-bold tracking-wide uppercase px-10 py-[17px] rounded-xl hover:border-cyan/60 hover:text-cyan transition-colors"
           >
             <Phone className="size-5" />
             Call WOW CLEAN
           </Link>
           <Link
             href="#services"
-            className="inline-flex items-center gap-2.5 border-[1.5px] border-white/[0.18] text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-semibold tracking-wide uppercase px-9 py-[17px] rounded hover:border-cyan hover:text-cyan transition-all"
+            className="inline-flex items-center gap-2.5 border-[1.5px] border-white/[0.18] text-white font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-semibold tracking-wide uppercase px-9 py-[17px] rounded-xl hover:border-cyan/60 hover:text-cyan transition-colors"
           >
             See Packages
             <ArrowRight className="size-4" />
@@ -50,11 +50,9 @@ function Hero() {
 
       {/* Right - Phone card */}
       <div className="flex justify-center items-center relative z-10">
-        <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-[20px] p-[52px_56px] max-md:p-[36px_24px] text-center relative overflow-hidden backdrop-blur-[12px] shadow-[0_30px_80px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="bg-navy/75 border border-white/15 rounded-2xl p-[52px_56px] max-md:p-[36px_24px] text-center relative overflow-hidden backdrop-blur-[12px] shadow-[0_30px_80px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]">
           {/* Top gradient line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan to-transparent" />
-          {/* Corner pattern */}
-          <div className="absolute bottom-0 right-0 w-20 h-20 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.06)_0px,rgba(255,255,255,0.06)_8px,transparent_8px,transparent_16px)] rounded-br-[20px]" />
 
           <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] tracking-[3px] uppercase text-mid mb-3">
             Book Your Detail Today
@@ -64,7 +62,7 @@ function Hero() {
           </div>
           <Link
             href="/book"
-            className="flex items-center justify-center gap-2.5 w-full bg-gradient-to-br from-cyan to-blue text-navy font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-extrabold tracking-[2px] uppercase py-4 rounded-lg hover:scale-[1.03] hover:opacity-90 transition-all shadow-[0_0_30px_rgba(91,243,255,0.35)]"
+            className="flex items-center justify-center gap-2.5 w-full bg-cyan text-navy font-[family-name:var(--font-barlow-condensed)] text-[1.1rem] font-extrabold tracking-[2px] uppercase py-4 rounded-xl hover:bg-cyan/85 transition-colors"
           >
             <Zap className="size-5" />
             Book Now
@@ -81,53 +79,53 @@ function HowItWorks() {
   const steps = [
     {
       num: "01",
-      icon: <CalendarCheck className="size-7 text-white" />,
+      icon: <CalendarCheck className="size-7 text-cyan" />,
       title: "Book Online",
       desc: "Book in minutes online. Tell us your vehicle type and location — we handle the rest.",
     },
     {
       num: "02",
-      icon: <Truck className="size-7 text-white" />,
+      icon: <Truck className="size-7 text-cyan" />,
       title: "We Come to You",
       desc: "Mobile detailing at your home, by appointment.",
     },
     {
       num: "03",
-      icon: <Sparkles className="size-7 text-white" />,
+      icon: <Sparkles className="size-7 text-cyan" />,
       title: "Drive Away Amazed",
       desc: "Review your vehicle after the detail is complete.",
     },
   ];
 
   return (
-    <section id="how" className="bg-[#f4f6fb] py-[100px] px-6 md:px-[60px] text-center relative overflow-hidden">
-      <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-blue mb-4">
+    <section id="how" className="border-y border-white/10 bg-dark py-[100px] px-6 md:px-[60px] text-center relative overflow-hidden">
+      <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.8rem] font-bold tracking-[3.5px] uppercase text-cyan mb-4">
         Simple as 1 – 2 – 3
       </p>
-      <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-navy mb-[60px]">
-        How It <span className="text-blue">Works</span>
+      <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.4rem,5vw,4rem)] tracking-wide text-white mb-[60px]">
+        How It <span className="text-cyan">Works</span>
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-[1000px] mx-auto">
         {steps.map((step, i) => (
           <div key={i} className="relative px-9 py-12 text-center">
             {/* Big background number */}
-            <div className="font-[family-name:var(--font-heading)] text-[5rem] leading-none text-blue/10 absolute top-4 left-1/2 -translate-x-1/2 z-0">
+            <div className="font-[family-name:var(--font-heading)] text-[5rem] leading-none text-cyan/10 absolute top-4 left-1/2 -translate-x-1/2 z-0">
               {step.num}
             </div>
             {/* Icon */}
-            <div className="w-[72px] h-[72px] bg-gradient-to-br from-blue2 to-blue rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_8px_30px_rgba(26,74,255,0.35)] relative z-10">
+            <div className="w-[72px] h-[72px] border border-cyan/20 bg-cyan/10 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10">
               {step.icon}
             </div>
-            <h3 className="font-[family-name:var(--font-barlow-condensed)] text-[1.4rem] font-bold tracking-wide uppercase text-navy mb-3 relative z-10">
+            <h3 className="font-[family-name:var(--font-barlow-condensed)] text-[1.4rem] font-bold tracking-wide uppercase text-white mb-3 relative z-10">
               {step.title}
             </h3>
-            <p className="text-[0.95rem] text-[#557] leading-[1.7] relative z-10">
+            <p className="text-[0.95rem] text-mid leading-[1.7] relative z-10">
               {step.desc}
             </p>
             {/* Arrow between steps (hidden on mobile, hidden on last) */}
             {i < steps.length - 1 && (
-              <div className="hidden md:flex absolute -right-[22px] top-1/2 -translate-y-1/2 text-blue opacity-40">
+              <div className="hidden md:flex absolute -right-[22px] top-1/2 -translate-y-1/2 text-cyan/40">
                 <ArrowRight className="size-6" />
               </div>
             )}
@@ -165,7 +163,7 @@ function PriceTable({
             return (
               <tr key={i}>
                 <td
-                  className={`px-1.5 py-3 sm:px-3 border-t border-white/[0.06] text-sm ${isLast ? "bg-blue/[0.08] font-semibold text-white" : "text-white"}`}
+                  className={`px-1.5 py-3 sm:px-3 border-t border-white/[0.06] text-sm ${isLast ? "bg-cyan/5 font-semibold text-white" : "text-white"}`}
                 >
                   {row.service}
                   {!EXTERIOR_BOOKINGS_ENABLED && row.service !== "Interior Only" && (
@@ -175,7 +173,7 @@ function PriceTable({
                 {[row.small, row.medium, row.large].map((val, j) => (
                   <td
                     key={j}
-                    className={`px-1.5 py-3 sm:px-3 border-t border-white/[0.06] text-center font-[family-name:var(--font-heading)] text-[1.15rem] tracking-wide ${isLast ? "bg-blue/[0.08] text-cyan" : "text-cyan"}`}
+                    className={`px-1.5 py-3 sm:px-3 border-t border-white/[0.06] text-center font-[family-name:var(--font-heading)] text-[1.15rem] tracking-wide ${isLast ? "bg-cyan/5 text-cyan" : "text-cyan"}`}
                   >
                     {val}
                   </td>
@@ -211,7 +209,7 @@ function Services({
 
       {/* Vehicle Size Guide */}
       <div className="max-w-[700px] mx-auto mb-16 text-center">
-        <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[3px] uppercase text-blue mb-4">
+        <p className="font-[family-name:var(--font-barlow-condensed)] text-[0.75rem] font-bold tracking-[3px] uppercase text-cyan mb-4">
           Vehicle Size Guide
         </p>
         <div className="flex justify-center flex-wrap gap-3">
@@ -307,7 +305,7 @@ function Services({
       <div className="max-w-[1200px] mx-auto">
         <div className="text-center mb-12">
           <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2rem,4vw,3.2rem)] tracking-wide text-white mb-2">
-            Customize Your <span className="text-[#ffe066]">Detail</span>
+            Customize Your <span className="text-cyan">Detail</span>
           </h2>
           <p className="text-mid text-[0.95rem]">
             Add any of the following services to any package based on your
@@ -341,7 +339,7 @@ function Services({
                         {addon.price}
                       </span>
                     ) : (
-                      <span className="text-[#ffe066] font-[family-name:var(--font-barlow-condensed)] text-sm tracking-wide">
+                      <span className="text-cyan font-[family-name:var(--font-barlow-condensed)] text-sm tracking-wide">
                         Custom Quote
                       </span>
                     )}
@@ -392,7 +390,7 @@ function Services({
               key={i}
               className="text-[0.88rem] text-mid pl-[18px] relative leading-[1.6]"
             >
-              <span className="absolute left-0 text-blue">•</span>
+              <span className="absolute left-0 text-cyan">•</span>
               {note.text}
             </li>
           ))}
@@ -405,21 +403,17 @@ function Services({
 /* ─────────────────────── CTA STRIP ─────────────────────── */
 function CtaStrip() {
   return (
-    <section className="bg-gradient-to-br from-blue2 via-blue to-[#0066cc] py-20 px-6 md:px-[60px] text-center relative overflow-hidden">
-      {/* Top stripe */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.3)_0px,rgba(255,255,255,0.3)_14px,transparent_14px,transparent_28px)]" />
-      {/* Bottom stripe */}
-      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.3)_0px,rgba(255,255,255,0.3)_14px,transparent_14px,transparent_28px)]" />
+    <section className="border-t border-white/10 bg-[radial-gradient(ellipse_at_top,rgba(91,243,255,0.10),transparent_70%)] bg-dark py-20 px-6 md:px-[60px] text-center relative overflow-hidden">
 
       <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.5rem,5vw,4.5rem)] tracking-wide text-white mb-3">
-        Book Your Detail
+        Book Your <span className="text-cyan">Detail</span>
       </h2>
-      <p className="text-[1.1rem] text-white/80 mb-10 max-w-[500px] mx-auto">
+      <p className="text-[1.1rem] text-mid mb-10 max-w-[500px] mx-auto">
         Contact WOW CLEAN to arrange your next detail.
       </p>
       <Link
         href="/book"
-        className="inline-flex items-center gap-2.5 bg-white text-blue font-[family-name:var(--font-barlow-condensed)] text-[1.15rem] font-bold tracking-wide uppercase px-12 py-[18px] rounded shadow-[0_0_40px_rgba(255,255,255,0.25)] hover:translate-y-[-3px] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] transition-all"
+        className="inline-flex items-center gap-2.5 bg-cyan text-navy font-[family-name:var(--font-barlow-condensed)] text-[1.15rem] font-bold tracking-wide uppercase px-6 py-[18px] rounded-xl hover:bg-cyan/85 transition-colors sm:px-12"
       >
         <CalendarCheck className="size-5" />
         Book My Detail Now
