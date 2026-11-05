@@ -1006,10 +1006,10 @@ function BookPageContent() {
                           key={slot}
                           onClick={() => setSelectedTime(slot)}
                           aria-pressed={selectedTime === slot}
-                          className={`bg-white/[0.04] border rounded-lg px-2 py-3 text-center font-[family-name:var(--font-barlow-condensed)] text-[0.9rem] font-bold tracking-[0.5px] transition-all ${
+                          className={`border rounded-lg px-2 py-3 text-center font-[family-name:var(--font-barlow-condensed)] text-[0.9rem] font-bold tracking-[0.5px] transition-all ${
                             selectedTime === slot
                               ? "bg-cyan border-cyan text-navy cursor-pointer"
-                              : "border-white/[0.08] text-silver hover:border-cyan/30 hover:text-white cursor-pointer"
+                              : "bg-white/[0.04] border-white/[0.08] text-silver hover:border-cyan/30 hover:text-white cursor-pointer"
                           }`}
                         >
                           {slot}
